@@ -1,8 +1,8 @@
 import json
-import re
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, List, Optional
 from app.core.state_manager import StateManager, GameState
 from app.core.game_loader import GameDefinition
+from app.core.clothing_manager import ClothingManager
 from app.services.ai_service import AIService
 from app.services.prompt_builder import PromptBuilder
 
@@ -13,8 +13,9 @@ class GameEngine:
     def __init__(self, game_def: GameDefinition):
         self.game_def = game_def
         self.state_manager = StateManager(game_def)
+        self.clothing_manager = ClothingManager(game_def)
         self.ai_service = AIService()
-        self.prompt_builder = PromptBuilder(game_def)
+        self.prompt_builder = PromptBuilder(game_def, self.clothing_manager)
         self.narrative_history: List[str] = []
 
     async def process_action(
@@ -31,16 +32,24 @@ class GameEngine:
         # Step 1: Generate narrative with Writer model
         narrative = await self._generate_narrative(action_text, current_node)
 
-        # Step 2: Extract state changes with Checker model
+        # Step 2: Extract state changes with Checker model (including clothing)
         state_changes = await self._extract_state_changes(narrative, action_text, current_node)
 
-        # Step 3: Apply state changes
+        # Step 3: Validate and apply clothing changes
+        if 'clothing_changes' in state_changes:
+            validated_clothing = self.clothing_manager.process_ai_changes(
+                narrative,
+                state_changes['clothing_changes']
+            )
+            state_changes['clothing_changes'] = validated_clothing
+
+        # Step 4: Apply all state changes
         self._apply_state_changes(state_changes)
 
-        # Step 4: Generate available choices
+        # Step 5: Generate available choices
         choices = self._generate_choices(current_node)
 
-        # Step 5: Check for scene transitions
+        # Step 6: Check for scene transitions
         next_node = self._check_transitions(current_node)
         if next_node:
             self.state_manager.state.current_node = next_node
@@ -50,11 +59,20 @@ class GameEngine:
         if len(self.narrative_history) > 10:
             self.narrative_history.pop(0)
 
+        # Get appearance info
+        appearance_info = {}
+        for char_id in self.state_manager.state.present_chars:
+            appearance_info[char_id] = {
+                'clothing': self.clothing_manager.get_character_appearance(char_id),
+                'intimacy_level': self.clothing_manager.get_intimacy_level(char_id)
+            }
+
         return {
             'narrative': narrative,
             'choices': choices,
             'state_changes': state_changes,
-            'current_state': self._get_state_summary()
+            'current_state': self._get_state_summary(),
+            'appearances': appearance_info
         }
 
     async def _generate_narrative(self, action: str, node: Dict) -> str:
@@ -120,26 +138,15 @@ class GameEngine:
                 for meter, value in meters.items():
                     path = f"meters.{char_id}.{meter}"
                     current = self.state_manager._get_path_value(path)
-                    self.state_manager._set_path_value(path, current + value)
+                    new_value = max(0, min(100, current + value))  # Cap between 0-100
+                    self.state_manager._set_path_value(path, new_value)
 
         # Apply flag changes
         if 'flag_changes' in changes:
             for flag, value in changes['flag_changes'].items():
                 self.state_manager.state.flags[flag] = value
 
-        # Apply clothing changes
-        if 'clothing_changes' in changes:
-            for char_id, clothing in changes['clothing_changes'].items():
-                if char_id in self.state_manager.state.clothing_states:
-                    state = self.state_manager.state.clothing_states[char_id]
-
-                    for item in clothing.get('removed', []):
-                        if item not in state['removed']:
-                            state['removed'].append(item)
-
-                    for item in clothing.get('displaced', []):
-                        if item not in state['displaced']:
-                            state['displaced'].append(item)
+        # Clothing changes are already applied by clothing_manager.process_ai_changes()
 
         # Apply location change
         if 'location_change' in changes and changes['location_change']:

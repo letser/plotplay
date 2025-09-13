@@ -1,0 +1,4 @@
+items:
+  - id: "wine"
+    name: "Red wine"
+    category: "drink"

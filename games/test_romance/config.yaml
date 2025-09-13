@@ -1,0 +1,11 @@
+game:
+  id: "romance_test"
+  title: "Romance Test"
+  version: "1.0.0"
+  author: "Dev Team"
+  nsfw_level: "suggestive"
+
+  settings:
+    starting_location: "apartment"
+    starting_time: "evening"
+    starting_day: 1
