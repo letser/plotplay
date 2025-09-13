@@ -2,7 +2,7 @@ import json
 from typing import Dict, Any, List, Optional
 
 from app.core.state_manager import GameState
-from core.game_definition import GameDefinition
+from app.core.game_definition import GameDefinition
 
 
 class PromptBuilder:
@@ -11,6 +11,57 @@ class PromptBuilder:
     def __init__(self, game_def: GameDefinition, clothing_manager=None):
         self.game_def = game_def
         self.clothing_manager = clothing_manager
+
+    def _get_body_state_modifiers(self, char: Dict, meters: Dict) -> Optional[str]:
+        """Get body state modifiers based on meters"""
+        modifiers = []
+
+        if 'appearance' in char and 'body_states' in char['appearance']:
+            for body_state in char['appearance']['body_states']:
+                # Check conditions
+                if self._check_simple_condition(body_state.get('conditions', ''), meters):
+                    if 'modifiers' in body_state:
+                        mod = body_state['modifiers']
+                        if isinstance(mod, dict):
+                            if 'visual' in mod:
+                                modifiers.append(mod['visual'])
+                        else:
+                            modifiers.append(str(mod))
+
+        return ", ".join(modifiers) if modifiers else None
+
+    def _check_simple_condition(self, condition: str, meters: Dict) -> bool:
+        """Simple condition checker for body states"""
+        if not condition:
+            return False
+
+        # Parse simple conditions like "state.meters.alex.arousal >= 60"
+        import re
+        match = re.match(r'state\.meters\.\w+\.(\w+)\s*([><=]+)\s*(\d+)', condition)
+        if match:
+            meter, op, value = match.groups()
+            meter_value = meters.get(meter, 0)
+            value = float(value)
+
+            if op == '>=':
+                return meter_value >= value
+            elif op == '>':
+                return meter_value > value
+            elif op == '<=':
+                return meter_value <= value
+            elif op == '<':
+                return meter_value < value
+            elif op == '==':
+                return meter_value == value
+
+        return False
+
+    def _get_character_name(self, char_id: str) -> Optional[str]:
+        """Get a character name from ID"""
+        char = self._get_character(char_id)
+        if char:
+            return char.get('name', char_id)
+        return char_id
 
     def build_writer_prompt(
                 self,

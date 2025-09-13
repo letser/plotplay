@@ -1,7 +1,7 @@
 import json
 from typing import Dict, Any, List, Optional
-from app.core.state_manager import StateManager, GameState
-from core.game_definition import GameDefinition
+from app.core.state_manager import StateManager
+from app.core.game_definition import GameDefinition
 from app.core.clothing_manager import ClothingManager
 from app.services.ai_service import AIService
 from app.services.prompt_builder import PromptBuilder
@@ -29,10 +29,10 @@ class GameEngine:
         # Get current node
         current_node = self._get_current_node()
 
-        # Step 1: Generate narrative with Writer model
+        # Step 1: Generate a narrative with a Writer model
         narrative = await self._generate_narrative(action_text, current_node)
 
-        # Step 2: Extract state changes with Checker model (including clothing)
+        # Step 2: Extract state changes with a Checker model (including clothing)
         state_changes = await self._extract_state_changes(narrative, action_text, current_node)
 
         # Step 3: Validate and apply clothing changes
@@ -102,7 +102,7 @@ class GameEngine:
             action: str,
             node: Dict
     ) -> Dict[str, Any]:
-        """Extract state changes using Checker model"""
+        """Extract state changes using a Checker model"""
 
         prompt = self.prompt_builder.build_checker_prompt(
             narrative=narrative,
@@ -137,7 +137,7 @@ class GameEngine:
             for char_id, meters in changes['meter_changes'].items():
                 for meter, value in meters.items():
                     path = f"meters.{char_id}.{meter}"
-                    current = self.state_manager._get_path_value(path)
+                    current = self.state_manager.get_path_value(path)
                     new_value = max(0, min(100, current + value))  # Cap between 0-100
                     self.state_manager._set_path_value(path, new_value)
 
@@ -156,7 +156,7 @@ class GameEngine:
                 self.state_manager.state.location_current = new_loc
 
     def _generate_choices(self, node: Dict) -> List[Dict[str, str]]:
-        """Generate available choices based on current state"""
+        """Generate available choices based on the current state"""
 
         choices = []
 
@@ -255,12 +255,12 @@ class GameEngine:
         }
 
     def _get_current_node(self) -> Dict:
-        """Get current story node"""
+        """Get the current story node"""
         for node in self.game_def.nodes:
             if node['id'] == self.state_manager.state.current_node:
                 return node
 
-        # Return default node if not found
+        # Return the default node if not found
         return {
             'id': 'default',
             'type': 'interactive',

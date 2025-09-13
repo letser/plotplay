@@ -2,7 +2,7 @@ import ast
 import operator
 from typing import Any
 
-from core.state_manager import GameState
+from app.core.state_manager import GameState
 
 
 class ConditionEvaluator:

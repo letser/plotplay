@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Dict, Any, Optional, List
 
-from core.game_definition import GameDefinition
+from app.core.game_definition import GameDefinition
 
 
 @dataclass
@@ -69,7 +69,7 @@ class StateManager:
 
     def __init__(self, game_def: GameDefinition):
         self.game_def = game_def
-        self.state = self._initialize_state()
+        self.state: GameState = self._initialize_state()
 
     def _initialize_state(self) -> GameState:
         """Create the initial game state from definition"""
@@ -117,9 +117,9 @@ class StateManager:
     def apply_effects(self, effects: List[Dict[str, Any]]) -> None:
         """Apply a list of effects to the current state"""
         for effect in effects:
-            self._apply_single_effect(effect)
+            self.apply_single_effect(effect)
 
-    def _apply_single_effect(self, effect: Dict[str, Any]) -> None:
+    def apply_single_effect(self, effect: Dict[str, Any]) -> None:
         """Apply a single effect to a state"""
         effect_type = effect.get('type')
 
@@ -129,7 +129,7 @@ class StateManager:
             value = effect['value']
             cap = effect.get('cap', [float('-inf'), float('inf')])
 
-            current = self._get_path_value(path)
+            current = self.get_path_value(path)
             new_value = max(cap[0], min(cap[1], current + value))
             self._set_path_value(path, new_value)
 
@@ -176,7 +176,7 @@ class StateManager:
                 if self.state.inventory[item] == 0:
                     del self.state.inventory[item]
 
-    def _get_path_value(self, path: str) -> Any:
+    def get_path_value(self, path: str) -> Any:
         """Get value from state using dot notation path"""
         parts = path.split('.')
         current = self.state

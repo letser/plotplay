@@ -3,7 +3,7 @@ from typing import Dict, Any, Optional
 
 import yaml
 
-from core.game_definition import GameDefinition
+from app.core.game_definition import GameDefinition
 
 
 class GameLoader:
