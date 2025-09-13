@@ -104,6 +104,16 @@ class StateManager:
                         'displaced': []
                     }
 
+        # Add NPCs from starting node
+        start_node = None
+        for node in self.game_def.nodes:
+            if node['id'] == 'start':
+                start_node = node
+                break
+
+        if start_node and 'npc_states' in start_node:
+            state.present_chars = list(start_node['npc_states'].keys())
+
         return state
 
     def apply_effects(self, effects: List[Dict[str, Any]]) -> None:
