@@ -1,0 +1,10 @@
+nodes:
+  - id: "start"
+    description: "You enter the dimly lit tavern. The air is thick with smoke and whispered conversations."
+    choices:
+      - id: "approach_bar"
+        text: "Approach the bartender"
+      - id: "find_table"
+        text: "Find a quiet table"
+      - id: "leave"
+        text: "Leave the tavern"
