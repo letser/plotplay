@@ -1,0 +1,11 @@
+game:
+  id: "template"
+  title: "Game Template"
+  version: "1.0.0"
+  author: "Your Name"
+  nsfw_level: "suggestive"
+  
+  settings:
+    starting_location: "start"
+    starting_time: "morning"
+    starting_day: 1
