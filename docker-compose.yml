@@ -34,7 +34,7 @@ services:
     container_name: plotplay-db
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
+      POSTGRES_PASSWORD: WriteHigh2025
       POSTGRES_DB: plotplay
     volumes:
       - postgres_data:/var/lib/postgresql/data
