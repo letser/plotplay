@@ -1,6 +1,7 @@
 world:
-  setting: "A mysterious tavern at the edge of town"
+  setting: "A mysterious tavern at the crossroads, where travelers share tales and secrets"
   tone: "mysterious, adventurous"
   key_facts:
-    - "Strange travelers pass through"
-    - "Rumors of ancient treasures"
+    - "Strange travelers pass through nightly"
+    - "The bartender knows everyone's secrets"
+    - "Ancient ruins lie nearby"

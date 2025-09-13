@@ -1,0 +1,6 @@
+items:
+  - id: "ale"
+    name: "Mug of Ale"
+    category: "drink"
+    description: "A frothy mug of the house ale"
+    value: 5
