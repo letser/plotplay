@@ -1,13 +1,14 @@
-# backend/app/core/conditions.py
 import ast
 import operator
-from typing import Any, Dict
+from typing import Any
+
+from core.state_manager import GameState
 
 
 class ConditionEvaluator:
     """Evaluates condition expressions safely"""
 
-    def __init__(self, state: 'GameState'):
+    def __init__(self, state: GameState):
         self.state = state
         self.safe_operators = {
             ast.Eq: operator.eq,
@@ -24,7 +25,7 @@ class ConditionEvaluator:
         }
 
     def evaluate(self, condition: Any) -> bool:
-        """Evaluate a condition against current state"""
+        """Evaluate a condition against the current state"""
         if condition is None or condition == "always":
             return True
 
@@ -58,7 +59,7 @@ class ConditionEvaluator:
                     if not all(isinstance(op, tuple(self.safe_operators.keys())) for op in node.ops):
                         return False
 
-            # Evaluate with restricted namespace
+            # Evaluate with a restricted namespace
             namespace = {
                 'self': self,
                 'true': True,

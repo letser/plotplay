@@ -1,7 +1,6 @@
 import re
-from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, field
-from enum import Enum
+from typing import Dict, List, Optional, Any
 
 
 @dataclass
@@ -23,7 +22,7 @@ class CharacterClothing:
     displaced: List[str] = field(default_factory=list)
 
     def get_visible_description(self) -> str:
-        """Get description of currently visible clothing"""
+        """Get a description of currently visible clothing"""
         visible = []
 
         # Order layers from outer to inner for natural description
@@ -43,7 +42,7 @@ class CharacterClothing:
         return ", ".join(visible)
 
     def get_removed_items(self) -> List[str]:
-        """Get list of removed items"""
+        """Get a list of removed items"""
         return [self.layers[layer].item for layer in self.removed if layer in self.layers]
 
     def get_intimacy_level(self) -> str:
@@ -107,7 +106,7 @@ class ClothingValidator:
                 if self._is_plausible(item, action_type, narrative_lower):
                     validated[action_type].append(item)
 
-        # Add high-confidence detections from narrative that AI might have missed
+        # Add high-confidence detections from the narrative that AI might have missed
         text_detected = self._detect_obvious_changes(narrative_lower)
         for action_type in ['removed', 'displaced', 'added']:
             for item in text_detected.get(action_type, []):
@@ -155,7 +154,8 @@ class ClothingValidator:
 
         return changes
 
-    def _map_to_layer(self, item: str) -> Optional[str]:
+    @staticmethod
+    def _map_to_layer(item: str) -> Optional[str]:
         """Map clothing item to layer name"""
         mappings = {
             'jacket': 'outer', 'coat': 'outer', 'hoodie': 'outer',
@@ -194,7 +194,8 @@ class ClothingManager:
                         char_id, default_outfit
                     )
 
-    def _select_default_outfit(self, character: Dict) -> Optional[Dict]:
+    @staticmethod
+    def _select_default_outfit(character: Dict) -> Optional[Dict]:
         """Select default outfit for character"""
         if 'wardrobe' not in character or 'outfits' not in character['wardrobe']:
             return None
@@ -203,15 +204,16 @@ class ClothingManager:
         if not outfits:
             return None
 
-        # Look for default or first outfit
+        # Look for the default or first outfit
         for outfit in outfits:
             if 'default' in outfit.get('tags', []):
                 return outfit
 
         return outfits[0]
 
-    def _create_clothing_state(self, char_id: str, outfit: Dict) -> CharacterClothing:
-        """Create clothing state from outfit definition"""
+    @staticmethod
+    def _create_clothing_state(char_id: str, outfit: Dict) -> CharacterClothing:
+        """Create a clothing state from outfit definition"""
         layers = {}
 
         for layer_name, item_def in outfit.get('layers', {}).items():

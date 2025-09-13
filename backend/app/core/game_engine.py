@@ -1,7 +1,7 @@
 import json
 from typing import Dict, Any, List, Optional
 from app.core.state_manager import StateManager, GameState
-from app.core.game_loader import GameDefinition
+from core.game_definition import GameDefinition
 from app.core.clothing_manager import ClothingManager
 from app.services.ai_service import AIService
 from app.services.prompt_builder import PromptBuilder

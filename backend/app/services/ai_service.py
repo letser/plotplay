@@ -1,10 +1,9 @@
-import httpx
 import json
-from typing import Dict, Any, Optional, List
+from typing import Dict, Optional, Any
+
+import httpx
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings
-import asyncio
-from datetime import datetime
 
 
 class AISettings(BaseSettings):
@@ -41,7 +40,7 @@ class AIService:
         self.settings = AISettings()
         self.base_url = "https://api.fireworks.ai/inference/v1"
 
-        # For testing without API key
+        # For testing without an API key
         if not self.settings.fireworks_api_key:
             print("WARNING: FIREWORKS_API_KEY not set - using mock responses")
 
@@ -67,7 +66,7 @@ class AIService:
             messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": prompt})
 
-        payload = {
+        payload: dict[str, Any] = {
             "model": model,
             "messages": messages,
             "temperature": temperature,
@@ -106,7 +105,7 @@ class AIService:
                 return self._get_mock_response(prompt, json_mode)
 
     def _get_mock_response(self, prompt: str, json_mode: bool) -> AIResponse:
-        """Generate mock response for testing without API key"""
+        """Generate a mock response for testing without an API key"""
         if json_mode:
             # Mock checker response
             content = json.dumps({

@@ -45,7 +45,7 @@ async def start_game(game_id: str) -> GameResponse:
         session_id = str(uuid.uuid4())
         game_sessions[session_id] = engine
 
-        # Get starting narrative
+        # Get a starting narrative
         start_text = game_def.world.get('world', {}).get('setting', 'Your adventure begins...')
 
         # Process initial "begin" action
@@ -74,7 +74,7 @@ async def process_action(session_id: str, action: GameAction) -> GameResponse:
     engine = game_sessions[session_id]
 
     try:
-        # Process through AI pipeline
+        # Process through an AI pipeline
         result = await engine.process_action(
             action_type=action.action_type,
             action_text=action.action_text,
@@ -94,7 +94,7 @@ async def process_action(session_id: str, action: GameAction) -> GameResponse:
 
 @router.get("/session/{session_id}/state")
 async def get_state(session_id: str):
-    """Get detailed game state"""
+    """Get a detailed game state"""
     if session_id not in game_sessions:
         raise HTTPException(status_code=404, detail="Session not found")
 

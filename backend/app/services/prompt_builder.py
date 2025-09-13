@@ -1,7 +1,8 @@
 import json
 from typing import Dict, Any, List, Optional
+
 from app.core.state_manager import GameState
-from app.core.game_loader import GameDefinition
+from core.game_definition import GameDefinition
 
 
 class PromptBuilder:
@@ -252,31 +253,6 @@ class PromptBuilder:
 
         return "\n\n".join(states) if states else "No characters to track"
 
-    def _build_appearance_descriptions(self, state: GameState) -> List[str]:
-        """Build character appearance descriptions"""
-        descriptions = []
-
-        for char_id in state.present_chars:
-            char = self._get_character(char_id)
-            if not char:
-                continue
-
-            appearance = char.get('appearance', {}).get('base', {})
-            clothing_state = state.clothing_states.get(char_id, {})
-
-            # Basic appearance
-            desc = f"{char['name']}: {appearance.get('height', '')}, {appearance.get('build', '')}. "
-            desc += f"{appearance.get('hair', '')}. "
-
-            # Current outfit
-            if clothing_state:
-                visible_clothes = self._describe_visible_clothing(clothing_state)
-                desc += f"Wearing: {visible_clothes}"
-
-            descriptions.append(desc)
-
-        return descriptions
-
     def _describe_visible_clothing(self, clothing_state: Dict) -> str:
         """Describe what clothing is currently visible"""
         layers = clothing_state.get('layers', {})
@@ -337,7 +313,7 @@ class PromptBuilder:
         # Simple implementation - expand as needed
         if isinstance(conditions, dict):
             if 'all' in conditions:
-                # Would need proper condition evaluator here
+                # Would need a proper condition evaluator here
                 return True
 
         return False
@@ -356,7 +332,7 @@ class PromptBuilder:
             return "very low"
 
     def _get_nsfw_instructions(self, nsfw_level: str, node: Dict) -> str:
-        """Get content instructions based on NSFW level"""
+        """Get content instructions based on the NSFW level"""
         if node.get('nsfw'):
             if nsfw_level == 'explicit':
                 return "\n- Include explicit adult content as appropriate for the scene\n- Focus on consent and emotional connection\n- Use mature but tasteful language"

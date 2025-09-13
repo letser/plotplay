@@ -1,20 +1,9 @@
-# backend/app/core/game_loader.py
-import yaml
 from pathlib import Path
 from typing import Dict, Any, Optional
-from pydantic import BaseModel, Field
 
+import yaml
 
-class GameDefinition(BaseModel):
-    """Complete game definition from YAML files"""
-    config: Dict[str, Any]
-    world: Dict[str, Any]
-    characters: list[Dict[str, Any]]
-    locations: list[Dict[str, Any]]
-    items: list[Dict[str, Any]]
-    nodes: list[Dict[str, Any]]
-    events: list[Dict[str, Any]] = Field(default_factory=list)
-    milestones: list[Dict[str, Any]] = Field(default_factory=list)
+from core.game_definition import GameDefinition
 
 
 class GameLoader:
@@ -51,7 +40,8 @@ class GameLoader:
             milestones=milestones
         )
 
-    def _load_yaml(self, path: Path, default: Optional[Dict] = None) -> Dict[str, Any]:
+    @staticmethod
+    def _load_yaml(path: Path, default: Optional[Dict] = None) -> Dict[str, Any]:
         """Load a YAML file with optional default"""
         if not path.exists():
             if default is not None:

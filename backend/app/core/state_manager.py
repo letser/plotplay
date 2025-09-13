@@ -1,9 +1,7 @@
-# backend/app/core/state_manager.py
-from typing import Dict, Any, Optional, List
 from dataclasses import dataclass, field
-from datetime import datetime
-import json
-import copy
+from typing import Dict, Any, Optional, List
+
+from core.game_definition import GameDefinition
 
 
 @dataclass
@@ -62,19 +60,19 @@ class GameState:
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'GameState':
-        """Create from dictionary"""
+        """Create from a dictionary"""
         return cls(**data)
 
 
 class StateManager:
     """Manages game state and transitions"""
 
-    def __init__(self, game_def: 'GameDefinition'):
+    def __init__(self, game_def: GameDefinition):
         self.game_def = game_def
         self.state = self._initialize_state()
 
     def _initialize_state(self) -> GameState:
-        """Create initial game state from definition"""
+        """Create the initial game state from definition"""
         state = GameState()
 
         # Set starting values from config
@@ -104,7 +102,7 @@ class StateManager:
                         'displaced': []
                     }
 
-        # Add NPCs from starting node
+        # Add NPCs from the starting node
         start_node = None
         for node in self.game_def.nodes:
             if node['id'] == 'start':
@@ -122,7 +120,7 @@ class StateManager:
             self._apply_single_effect(effect)
 
     def _apply_single_effect(self, effect: Dict[str, Any]) -> None:
-        """Apply a single effect to state"""
+        """Apply a single effect to a state"""
         effect_type = effect.get('type')
 
         if effect_type == 'inc':
@@ -194,7 +192,7 @@ class StateManager:
         return current
 
     def _set_path_value(self, path: str, value: Any) -> None:
-        """Set value in state using dot notation path"""
+        """Set value in state using the dot notation path"""
         parts = path.split('.')
 
         # Handle special cases
