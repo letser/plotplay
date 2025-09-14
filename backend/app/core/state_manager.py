@@ -102,15 +102,12 @@ class StateManager:
                         'displaced': []
                     }
 
-        # Add NPCs from the starting node
-        start_node = None
+        #Add NPCs from the starting node
         for node in self.game_def.nodes:
             if node['id'] == 'start':
-                start_node = node
+                if 'npc_states' in node:
+                    state.present_chars = list(node['npc_states'].keys())
                 break
-
-        if start_node and 'npc_states' in start_node:
-            state.present_chars = list(start_node['npc_states'].keys())
 
         return state
 
