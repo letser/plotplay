@@ -16,7 +16,7 @@ interface GameStore {
     // Actions
     loadGames: () => Promise<void>;
     startGame: (gameId: string) => Promise<void>;
-    sendAction: (actionType: string, actionText: string) => Promise<void>;
+    sendAction: (actionType: string, actionText: string, target?: string | null, choiceId?: string | null) => Promise<void>;
     resetGame: () => void;
 }
 

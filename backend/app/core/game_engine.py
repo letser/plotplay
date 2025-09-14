@@ -112,6 +112,17 @@ class GameEngine:
         action_lower = action_text.lower()
         return any(re.search(pattern, action_lower) for pattern in movement_patterns)
 
+    async def _generate_error_response(self, message: str) -> Dict[str, Any]:
+        """Generate an error response"""
+        return {
+            'narrative': message,
+            'choices': self._generate_choices(self._get_current_node()),
+            'current_state': self._get_state_summary(),
+            'appearances': {},
+            'time_advanced': False,
+            'location_changed': False
+        }
+
     async def _handle_movement(self, action_text: str) -> Dict[str, Any]:
         """Handle movement actions"""
         current_loc = self._get_location(self.state_manager.state.location_current)
@@ -154,7 +165,7 @@ class GameEngine:
         self.state_manager.state.location_previous = old_location
         self.state_manager.state.location_current = destination
 
-        # Clear NPCs from old location (they don't follow automatically)
+        # Clear NPCs from the old location (they don't follow automatically)
         self.state_manager.state.present_chars = []
 
         # Check if any NPCs are in the new location based on their schedule
@@ -224,7 +235,7 @@ class GameEngine:
         return False
 
     def _advance_time(self):
-        """Advance time to next slot"""
+        """Advance time to the next slot"""
         state = self.state_manager.state
         time_slots = self.game_def.config['game']['time_system']['slots']
 
@@ -256,7 +267,7 @@ class GameEngine:
             return await self.process_action("do", action_text)
 
     def _generate_choices(self, node: Dict) -> List[Dict[str, str]]:
-        """Generate available choices based on current state"""
+        """Generate available choices based on the current state"""
         choices = []
 
         # Always add free-form options first
@@ -382,7 +393,7 @@ class GameEngine:
                     path = f"meters.{char_id}.{meter}"
                     current = self.state_manager.get_path_value(path)
                     new_value = max(0, min(100, current + value))  # Cap between 0-100
-                    self.state_manager._set_path_value(path, new_value)
+                    self.state_manager.set_path_value(path, new_value)
 
         # Apply flag changes
         if 'flag_changes' in changes:

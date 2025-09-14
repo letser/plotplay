@@ -128,11 +128,11 @@ class StateManager:
 
             current = self.get_path_value(path)
             new_value = max(cap[0], min(cap[1], current + value))
-            self._set_path_value(path, new_value)
+            self.set_path_value(path, new_value)
 
         elif effect_type == 'set':
             # Set a value
-            self._set_path_value(effect['path'], effect['value'])
+            self.set_path_value(effect['path'], effect['value'])
 
         elif effect_type == 'advance_time':
             # Move time forward
@@ -188,7 +188,7 @@ class StateManager:
 
         return current
 
-    def _set_path_value(self, path: str, value: Any) -> None:
+    def set_path_value(self, path: str, value: Any) -> None:
         """Set value in state using the dot notation path"""
         parts = path.split('.')
 
