@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Literal
 from app.core.game_loader import GameLoader
 from app.core.game_engine import GameEngine
 import uuid
@@ -12,10 +12,10 @@ game_sessions: Dict[str, GameEngine] = {}
 
 
 class GameAction(BaseModel):
-    action_type: str = "dialogue"  # dialogue, move, interact, use_item
+    action_type: Literal["say", "do", "choice"]  # New action types
     action_text: str
     target: Optional[str] = None
-    choice_id: Optional[str] = None
+    choice_id: Optional[str] = None  # For predefined choices
 
 
 class GameResponse(BaseModel):
@@ -23,6 +23,8 @@ class GameResponse(BaseModel):
     narrative: str
     choices: List[Dict[str, Any]]
     state_summary: Dict[str, Any]
+    time_advanced: bool = False
+    location_changed: bool = False
 
 
 @router.get("/list")
@@ -46,19 +48,18 @@ async def start_game(game_id: str) -> GameResponse:
         game_sessions[session_id] = engine
 
         # Get a starting narrative
-        start_text = game_def.world.get('world', {}).get('setting', 'Your adventure begins...')
-
-        # Process initial "begin" action
         result = await engine.process_action(
-            action_type="begin",
-            action_text="Begin the adventure"
+            action_type="do",
+            action_text="Look around and observe the surroundings"
         )
 
         return GameResponse(
             session_id=session_id,
-            narrative=result['narrative'] if result['narrative'] else start_text,
+            narrative=result['narrative'],
             choices=result['choices'],
-            state_summary=result['current_state']
+            state_summary=result['current_state'],
+            time_advanced=result.get('time_advanced', False),
+            location_changed=result.get('location_changed', False)
         )
 
     except Exception as e:
@@ -74,23 +75,25 @@ async def process_action(session_id: str, action: GameAction) -> GameResponse:
     engine = game_sessions[session_id]
 
     try:
-        # Process through an AI pipeline
+        # Process action
         result = await engine.process_action(
             action_type=action.action_type,
             action_text=action.action_text,
-            target=action.target
+            target=action.target,
+            choice_id=action.choice_id
         )
 
         return GameResponse(
             session_id=session_id,
             narrative=result['narrative'],
             choices=result['choices'],
-            state_summary=result['current_state']
+            state_summary=result['current_state'],
+            time_advanced=result.get('time_advanced', False),
+            location_changed=result.get('location_changed', False)
         )
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.get("/session/{session_id}/state")
 async def get_state(session_id: str):

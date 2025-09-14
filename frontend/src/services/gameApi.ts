@@ -8,7 +8,7 @@ axios.interceptors.request.use(request => {
     return request;
 });
 
-// Add response interceptor for debugging
+// Add a response interceptor for debugging
 axios.interceptors.response.use(
     response => {
         console.log('Response received:', response);
@@ -63,10 +63,12 @@ class GameAPI {
         return response.data;
     }
 
-    async sendAction(sessionId: string, actionType: string, actionText: string): Promise<GameResponse> {
+    async sendAction(sessionId: string, actionType: string, actionText: string, target?: string | null, choiceId?: string | null): Promise<GameResponse> {
         const response = await axios.post(`${API_BASE}/game/action/${sessionId}`, {
             action_type: actionType,
             action_text: actionText,
+            target: target,
+            choice_id: choiceId,
         });
         return response.data;
     }

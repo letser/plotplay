@@ -64,13 +64,24 @@ export const useGameStore = create<GameStore>((set, get) => ({
     },
 
     // Send player action
-    sendAction: async (actionType: string, actionText: string) => {
+    sendAction: async (
+        actionType: string,
+        actionText: string,
+        target?: string | null,
+        choiceId?: string | null
+    ) => {
         const sessionId = get().sessionId;
         if (!sessionId) return;
 
         set({ loading: true, error: null });
         try {
-            const response = await gameApi.sendAction(sessionId, actionType, actionText);
+            const response = await gameApi.sendAction(
+                sessionId,
+                actionType,
+                actionText,
+                target,
+                choiceId
+            );
             set((state) => ({
                 narrative: [...state.narrative, response.narrative],
                 choices: response.choices,
@@ -95,3 +106,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
         });
     },
 }));
+
+// 1. backend/app/core/game_engine.py - *generate*error_response is missing
+//2. frontend/src/stores/gameStore.ts in proposed changes call of gameApi.sendAction indicates an incorrect number of parameters
