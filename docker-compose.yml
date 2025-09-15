@@ -1,14 +1,15 @@
-version: '3.8'
-
 services:
   backend:
     build: ./backend
     container_name: plotplay-backend
+    working_dir: /app
     ports:
       - "8000:8000"
     volumes:
       - ./backend:/app
       - ./games:/app/games
+      - ./games:/opt/project/games
+
     environment:
       - DATABASE_URL=postgresql://postgres:password@db:5432/plotplay
       - REDIS_URL=redis://redis:6379
@@ -25,7 +26,6 @@ services:
       - "5173:5173"
     volumes:
       - ./frontend:/app
-      - /app/node_modules
     depends_on:
       - backend
 

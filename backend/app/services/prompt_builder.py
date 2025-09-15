@@ -384,13 +384,23 @@ class PromptBuilder:
 
     def _get_nsfw_instructions(self, nsfw_level: str, node: Dict) -> str:
         """Get content instructions based on the NSFW level"""
-        if node.get('nsfw'):
-            if nsfw_level == 'explicit':
-                return "\n- Include explicit adult content as appropriate for the scene\n- Focus on consent and emotional connection\n- Use mature but tasteful language"
-            elif nsfw_level == 'suggestive':
-                return "\n- Keep intimate content suggestive but not explicit\n- Imply rather than describe explicit acts\n- Focus on emotional tension and attraction"
+        base_instruction = "\n- This is adult fiction - include appropriate mature content"
 
-        return "\n- Keep content appropriate and non-sexual"
+        if nsfw_level == 'explicit' or node.get('nsfw'):
+            return f"""{base_instruction}
+    - Include explicit adult content as appropriate for the scene
+    - Describe physical intimacy and arousal when relevant
+    - Focus on consent and emotional connection
+    - Use mature but literary language
+    - Don't shy away from sexual content when it fits the narrative"""
+        elif nsfw_level == 'suggestive':
+            return f"""{base_instruction}
+    - Keep intimate content suggestive but not graphic
+    - Imply rather than explicitly describe sexual acts
+    - Focus on emotional tension and attraction
+    - Build sensual atmosphere without explicit details"""
+        else:
+            return "\n- Keep content appropriate and non-sexual"
 
     def _get_character(self, char_id: str) -> Optional[Dict]:
         """Get character definition by ID"""

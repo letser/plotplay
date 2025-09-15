@@ -3,7 +3,7 @@ game:
   title: "Romance Test"
   version: "1.0.0"
   author: "Dev Team"
-  nsfw_level: "suggestive"
+  nsfw_level: "explicit"
 
   settings:
     starting_location: "apartment"
