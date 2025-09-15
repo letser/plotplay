@@ -296,10 +296,24 @@ class GameEngine:
 
         # Get node-specific choices
         if 'dynamic_choices' in node:
-            for choice in node['dynamic_choices']:
+            node_id = node.get('id', 'node')
+            seen_ids = set()
+            for idx, choice in enumerate(node['dynamic_choices']):
                 if self._check_condition(choice.get('conditions', 'always')):
+
+                    raw = choice.get('id', 'choice')
+                    # prefer author id unless it's missing or the placeholder "choice"
+                    base_id = raw if raw and raw != 'choice' else f"{node_id}:dyn:{idx}"
+                    cid = base_id
+                    # de-dupe just in case
+                    j = 1
+                    while cid in seen_ids:
+                        cid = f"{base_id}-{j}"
+                        j += 1
+                    seen_ids.add(cid)
+
                     choices.append({
-                        'id': choice.get('id', 'choice'),
+                        'id': cid,
                         'text': choice['prompt'],
                         'type': 'node_choice'
                     })

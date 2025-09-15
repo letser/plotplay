@@ -2,6 +2,15 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api import game, health
 
+import pydevd_pycharm
+pydevd_pycharm.settrace(
+    'host.docker.internal',  # or your host IP
+    port=5690,               # must match the PyCharm Debug Server config
+    stdout_to_server=True,
+    stderr_to_server=True,
+    suspend=False            # set True to pause immediately on connect
+)
+
 app = FastAPI(
     title="PlotPlay API",
     description="AI-driven text adventure engine",

@@ -9,7 +9,6 @@ services:
       - ./backend:/app
       - ./games:/app/games
       - ./games:/opt/project/games
-
     environment:
       - DATABASE_URL=postgresql://postgres:password@db:5432/plotplay
       - REDIS_URL=redis://redis:6379

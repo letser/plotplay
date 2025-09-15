@@ -9,3 +9,8 @@ game:
     starting_location: "apartment"
     starting_time: "evening"
     starting_day: 1
+
+  time_system:
+    slots: ["morning", "afternoon", "evening", "night"]
+    auto_advance: true
+    actions_per_slot: 3
