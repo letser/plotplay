@@ -1,2066 +1,1748 @@
-# PlotPlay Game Authoring Specification v3.0
+# PlotPlay Specification v3
 
-## Table of Contents
-1. [Overview](#overview)
-2. [Core Concepts](#core-concepts)
-3. [Game Configuration](#1-game-configuration-configyaml)
-4. [Character Definitions](#2-character-definitions-charactersyaml)
-5. [Effects and Modifiers](#3-effects-and-modifiers-system)
-6. [Locations](#4-locations-locationsyaml)
-7. [Items](#5-items-itemsyaml)
-8. [Story Nodes](#6-story-nodes-nodesyaml)
-9. [Random Events](#7-random-events-eventsyaml)
-10. [Milestones](#8-milestones-arcsyaml)
-11. [AI Integration](#9-ai-integration-instructions)
-12. [Runtime State](#10-runtime-state-structure)
-13. [Save System](#11-save-system)
-14. [Implementation Notes](#12-implementation-notes)
+PlotPlay is an AI-driven text adventure engine that blends **pre-authored branching nodes** with **AI-generated prose**. The system is designed for replayable interactive fiction with mature/NSFW support, structured progression, and clearly defined endings.
 
 ---
 
-## Overview
+## Scope of this Document
+- Human-readable design rules for authors and developers  
+- Formal structure of game definition files (YAML)  
+- Machine-readable schemas (see `/spec/` folder)  
+- Contracts for Writer and Checker AI models  
 
-PlotPlay is an AI-driven text adventure engine that combines pre-authored branching narratives with dynamic AI-generated prose. The system supports mature/NSFW content with sophisticated character behavior, state management, and progression mechanics.
+---
 
-### Key Features
-- **Hybrid Narrative**: Mix of pre-written story nodes and AI-generated content
-- **Dynamic Characters**: State-based appearance and behavior modifications
-- **Game-Defined Meters**: Each game defines its own trackable values
-- **Consent System**: Character behavior gates based on relationship meters
-- **Modifier System**: Temporary and permanent effects on characters
-- **Rich State Management**: Track clothing, inventory, flags, and complex conditions
-- **Flexible world structure**: Multilevel location with different types of movement and exploration
+## Key Features
+- **Hybrid Narrative**: Nodes and AI prose work together; AI never “goes off-track” from authored structure.  
+- **Character State System**: Per-character meters, flags, modifiers, clothing, and schedules drive behavior.  
+- **Consent & Behavior Gates**: NPC responses depend on trust, attraction, arousal, boldness, corruption, and other thresholds.  
+- **Dynamic World**: Locations, time, and random events create variety across playthroughs.  
+- **Defined Endings**: All stories resolve at authored conclusion nodes, not endless sandbox play.  
+- **AI Contracts**: Two-model architecture (Writer and Checker) ensures narrative quality and consistent state.  
 
-### Design Philosophy
-- **Defined Endings**: Games have specific goals and endings, not endless sandbox
-- **State Coherence**: AI respects current game state and character conditions
-- **Player Agency**: Meaningful choices that affect story progression
-- **Content Gating**: Progressive intimacy based on relationship development
+---
+
+## Design Philosophy
+- **Player Agency**: Choices and freeform actions meaningfully affect characters, story, and outcomes.  
+- **State Coherence**: Narrative always respects the current state (clothing, meters, location, presence).  
+- **Progressive Intimacy**: Romantic and sexual content gated by consent mechanics, never bypassed.  
+- **Author-First**: YAML and schemas keep content authoring deterministic, predictable, and safe.  
 
 ---
 
 ## Core Concepts
 
-### State-Driven Narrative
-The game engine maintains a comprehensive state that includes:
-- **Meters**: Numeric values tracking relationships, stats, and conditions
-- **Flags**: Boolean and value storage for story progression
-- **Modifiers**: Active effects changing character appearance/behavior
-- **Inventory**: Items the player possesses
-- **Location**: Current position in the game world
-- **Time**: Day/time tracking with scheduled events
+### State
+Game state is the single source of truth. It includes:
+- **Meters** — numeric values per player and NPC (trust, attraction, energy, etc.)  
+- **Flags** — boolean or scalar values for progression (e.g. `emma_met`, `first_kiss`)  
+- **Modifiers** — temporary or permanent effects (e.g. drunk, corrupted, aroused)  
+- **Inventory** — items owned by the player or NPCs  
+- **Clothing** — layered outfits with rules for removal, replacement, validation  
+- **Location & Time** — hierarchical world, zones, locations, day/slot tracking  
 
 ### Character Cards
-Dynamic character descriptions that change based on:
-- Current meter values (arousal, trust, corruption, etc.)
-- Active modifiers (drunk, injured, happy, etc.)
-- Clothing state
-- Environmental context
-- Recent events
+Generated dynamically each turn from state. They describe base appearance, outfit & clothing state, active modifiers, summarized meters (threshold labels), dialogue style, and current behavior gates. Cards are passed to the Writer as context each turn.
 
-### AI Integration
-Two-model approach for narrative generation:
-- **Writer Model**: Generates narrative prose based on game state
-- **Checker Model**: Extracts state changes from narrative
+### Narrative Flow
+- **Nodes** define authored story structure (scenes, interactive hubs, endings).  
+- **Writer Model** produces freeform prose, respecting node type, state, and character cards.  
+- **Checker Model** parses prose back into structured state deltas (meter changes, flags, clothing, etc.).  
+- **Transitions** move the story between nodes, determined by authored conditions + Checker outputs.  
+
+### Two-Model Architecture
+- **Writer**: Expands on authored beats, generates dialogue and prose, stays within style/POV constraints.  
+- **Checker**: Strict JSON output, detects state changes, validates against rules, enforces consent & hard boundaries.  
+
+Both models run each turn; their outputs are merged into the game state.  
 
 ---
 
-## 1. Game Configuration (`config.yaml`)
+## 1. Game Configuration (`game.yaml`)
 
-The main configuration file defines game metadata, meters, and core settings.
+Below is the **manifest** for a game. It references all other files and defines global rules. The example is richly commented so authors understand each field at a glance.
 
 ```yaml
+# ===============================
+# Game Manifest (game.yaml)
+# ===============================
 game:
-  id: "unique_game_id"
+  id: "unique_game_id"        # Stable ID used by saves and tooling
   title: "Game Title"
   version: "1.0.0"
+  spec_version: "3.1"          # REQUIRED: which spec this content targets
   author: "Author Name"
-  content_rating: "explicit"  # all_ages | teen | mature | explicit
+  content_rating: "explicit"   # all_ages | teen | mature | explicit
   tags: ["romance", "fantasy", "adventure"]
-  
-  # Game-specific meters definition
+
+  narration:
+    pov: "second"              # first | second | third
+    tense: "present"           # past | present
+    paragraphs: "2-3"           # target prose length per Writer turn
+    token_budget: 350           # hard cap for Writer model
+    checker_budget: 200         # hard cap for Checker model
+
+  model_profiles:
+    writer: "cheap"            # cheap | luxe | custom
+    checker: "fast"            # fast | accurate | custom
+
   meters:
-    # Player meters
     player:
-      health:
-        min: 0
-        max: 100
-        default: 100
-        visible: true
-        icon: "❤️"
-        decay_rate: 0  # Per day
-      energy:
-        min: 0
-        max: 100
-        default: 100
-        visible: true
-        icon: "⚡"
-        decay_rate: -20  # Negative = increases
-      money:
-        min: 0
-        max: 99999
-        default: 100
-        visible: true
-        icon: "💰"
-        format: "currency"  # Shows as $100
-      confidence:
-        min: 0
-        max: 100
-        default: 50
-        visible: true
-        icon: "💪"
-    
-    # Character meter template (applied to all NPCs)
+      health:   { min: 0, max: 100, default: 100, visible: true,  icon: "❤️" }
+      energy:   { min: 0, max: 100, default: 100, visible: true,  icon: "⚡", decay_per_day: -20 }
+      money:    { min: 0, max: 9999, default: 100, visible: true,  icon: "💰", format: "currency" }
+
     character_template:
-      # Relationship meters
       trust:
-        min: 0
-        max: 100
-        default: 0
-        visible: true
-        icon: "🤝"
-        thresholds:
-          stranger: [0, 19]
-          acquaintance: [20, 39]
-          friend: [40, 69]
-          close: [70, 89]
-          intimate: [90, 100]
-      
+        min: 0; max: 100; default: 0
+        thresholds: { stranger: [0,19], acquaintance: [20,39], friend: [40,69], close: [70,89], intimate: [90,100] }
       attraction:
-        min: 0
-        max: 100
-        default: 0
-        visible: true
-        icon: "💕"
-        thresholds:
-          none: [0, 19]
-          interested: [20, 39]
-          attracted: [40, 69]
-          infatuated: [70, 89]
-          in_love: [90, 100]
-      
+        min: 0; max: 100; default: 0
+        thresholds: { none: [0,19], interested: [20,39], attracted: [40,69], infatuated: [70,89], in_love: [90,100] }
       arousal:
-        min: 0
-        max: 100
-        default: 0
-        visible: false  # Hidden until discovered
-        reveal_condition: "state.meters.{character}.attraction >= 30"
-        icon: "🔥"
-        decay_rate: 10  # Per day
-        thresholds:
-          none: [0, 19]
-          interested: [20, 39]
-          aroused: [40, 59]
-          highly_aroused: [60, 79]
-          desperate: [80, 100]
-      
+        min: 0; max: 100; default: 0
+        hidden_until: "meters.{character}.attraction >= 30"
       corruption:
-        min: 0
-        max: 100
-        default: 0
-        visible: false
-        reveal_condition: "state.flags.corruption_revealed == true"
-        icon: "😈"
-        decay_rate: 0  # Doesn't decay
-        thresholds:
-          pure: [0, 19]
-          curious: [20, 39]
-          experimenting: [40, 59]
-          corrupted: [60, 79]
-          depraved: [80, 100]
-      
+        min: 0; max: 100; default: 0
+        hidden_until: "flags.corruption_revealed == true"
       boldness:
-        min: 0
-        max: 100
-        default: 20  # Most characters start shy
-        visible: false
-        reveal_condition: "state.meters.{character}.trust >= 40"
-        icon: "🦁"
-        thresholds:
-          timid: [0, 19]
-          shy: [20, 39]
-          normal: [40, 59]
-          confident: [60, 79]
-          bold: [80, 100]
-    
-  # Meter interactions and relationships
+        min: 0; max: 100; default: 20
+        hidden_until: "meters.{character}.trust >= 40"
+
   meter_interactions:
-    # Arousal affects boldness
     - source: "{character}.arousal"
       target: "{character}.boldness"
-      condition: "source >= 60"
-      effect: "target.temporary_modifier = +20"
-      
-    # High corruption reduces trust requirements
+      when: "source >= 60"
+      effect: "target += 20 (temporary)"
+
     - source: "{character}.corruption"
       target: "{character}.trust"
-      condition: "source >= 60"
-      effect: "target.requirement_modifier = -20"
-      
-    # Energy affects the arousal cap
+      when: "source >= 60"
+      effect: "trust requirement -20"
+
     - source: "player.energy"
       target: "all.arousal"
-      condition: "source < 30"
-      effect: "target.max = 60"
-      
-  # Core game settings
-  settings:
-    starting_location: "intro"
-    starting_time: "morning"
-    starting_day: 1
-    starting_node: "start"
-    
-  # Save system
+      when: "source < 30"
+      effect: "max = 60"
+
+  time:
+    mode: "hybrid"                # slots | clock | hybrid
+    slots: ["morning", "afternoon", "evening", "night"]
+    actions_per_slot: 3
+    auto_advance: true
+    clock:
+      minutes_per_day: 1440
+      slot_windows:
+        morning:   { start: "06:00", end: "11:59" }
+        afternoon: { start: "12:00", end: "17:59" }
+        evening:   { start: "18:00", end: "21:59" }
+        night:     { start: "22:00", end: "05:59" }
+    calendar:
+      epoch: "2025-01-01"
+      week_days: ["monday","tuesday","wednesday","thursday","friday","saturday","sunday"]
+      start_day_index: 2
+      weeks_enabled: true
+    start:
+      day: 1
+      slot: "morning"
+      time: "08:30"
+
+  difficulty:
+    meter_caps: { default: [0, 100] }
+    decay_multiplier: 1.0
+    money_multiplier: 1.0
+    hints: true
+
   save_system:
     auto_save: true
-    save_slots: 10
-    checkpoint_nodes: ["chapter_1_end", "chapter_2_end"]
-    
-  # Time system
-  time_system:
-    slots: ["morning", "afternoon", "evening", "night", "late_night"]
-    auto_advance: true
-    actions_per_slot: 3
-    
-  # Difficulty/gameplay modifiers
-  difficulty:
-    meter_caps:
-      default: [0, 100]
-    meter_decay_multiplier: 1.0
-    money_multiplier: 1.0
-    hint_system: true
+    slots: 10
+    checkpoints: ["chapter_1_end", "chapter_2_end"]
+
+  files:
+    characters: "characters.yaml"
+    world:      "world.yaml"      # optional; use only if multiple worlds/custom rules
+    locations:  "locations.yaml"  # zones + inline locations
+    nodes:      "nodes.yaml"
+    events:     "events.yaml"
+    milestones: "arcs.yaml"
+    items:      "items.yaml"
 ```
 
 ---
 
-## 2. Character Definitions (`characters.yaml`)
+## 2. Time & Calendar Model (Design Notes)
 
-### 2.1 Base Character Structure
+We support **three modes** to fit different game styles:
+
+1. **slots** — simple day broken into named slots. Great for romance/slice-of-life pacing.
+2. **clock** — minute-precise time. Useful for stealth/sim or travel-heavy games.
+3. **hybrid** — both: minutes tick, but narrative/UI still uses slots. Schedules can reference either.
+
+### Authoring Guidelines
+- Use **hybrid** by default: it preserves slot-based design while letting travel/events consume minutes.
+- Map each slot to a **time window**. The engine derives the active slot from the clock.
+- Expose **week** semantics for schedules (e.g., Friday night parties). Use `calendar.weeks_enabled: true` and `week_days`.
+- For schedules/events, allow conditions like:
+  - `time.slot == 'evening'`
+  - `time.hhmm in ['22:00'..'02:00']` (engine handles wrap-around)
+  - `time.weekday in ['friday','saturday']`
+  - `time.day >= 7` (absolute narrative day)
+
+### Runtime State (time-related excerpt)
 
 ```yaml
+state:
+  day: 3                 # narrative day counter
+  slot: "afternoon"       # derived from the clock window
+  time_hhmm: "14:35"      # HH:MM, 24h format (clock/hybrid)
+  weekday: "wednesday"    # derived from calendar
+```
+
+### Backwards Compatibility
+- Games written for pure slot-based play still work: omit `clock` and `calendar`, set `mode: slots`.
+- Existing content that used only `day` + `slot` will load unchanged; clock fields are optional.
+
+---
+
+## 3. Character Definitions (`characters.yaml`)
+
+Each character entry defines identity, hard safety facts, meters (overrides and additions), personality/background for context, appearance, wardrobe, behaviors/consent gates, dialogue profile, schedule, and movement preferences.
+
+> **Hard rule:** every character must be an adult. `age >= 18` is required and validated.
+
+```yaml
+# ===============================
+# Characters (characters.yaml)
+# ===============================
 characters:
-  - id: "emma"
-    name: "Emma Chen"
+  - id: "emma"                   # stable identifier
+    name: "Emma Chen"           # in-game display name
     full_name: "Emma Xiaoli Chen"
-    age: 20
-    gender: "female"
-    pronouns: ["she", "her", "hers"]
-    orientation: "bisexual"
-    role: "love_interest"  # primary_love_interest | love_interest | friend | rival | mentor
-    
-    # Character-specific meter overrides/additions
+
+    # --- Safety & identity ---
+    age: 20                      # REQUIRED and must be >= 18
+    gender: "female"            # free text; UI shows as provided
+    pronouns: ["she","her"]     # used in narration & dialogue templates
+    orientation: "bisexual"     # optional; may inform behaviors/routes
+    role: "love_interest"       # taxonomy for UIs/routing (e.g., mentor, rival, etc.)
+
+    # --- Meters: override template or add new per-character meters ---
     meters:
-      # Override defaults
-      trust:
-        default: 10  # Starts as an acquaintance
-      boldness:
-        default: 15  # Particularly shy
-      
-      # Character-specific meter
-      academic_stress:
-        min: 0
-        max: 100
-        default: 30
-        visible: true
-        icon: "📚"
-        decay_rate: -5  # Increases over time
-        
-    # Base personality (static traits)
+      trust: { default: 10 }     # override template default
+      boldness: { default: 15 }
+      academic_stress:          # character-specific meter (not in template)
+        min: 0; max: 100; default: 30; visible: true; icon: "📚"; decay_per_day: -5
+
+    # --- Personality & background (for Writer context; not rendered verbatim) ---
     personality:
-      core_traits: ["intelligent", "shy", "curious", "kind"]
-      values: ["honesty", "loyalty", "academic success"]
-      fears: ["rejection", "failure", "public embarrassment"]
-      desires: ["genuine connection", "academic achievement", "new experiences"]
-      quirks: ["bites lip when thinking", "plays with hair when nervous"]
-      
-    # Background for AI context
+      core_traits: ["intelligent","shy","curious","kind"]
+      values: ["honesty","loyalty","academic success"]
+      fears: ["rejection","failure","public embarrassment"]
+      desires: ["genuine connection","achievement","new experiences"]
+      quirks: ["bites lip when thinking","plays with hair when nervous"]
     background: |
-      Second-generation Chinese-American, grew up in suburban Boston.
-      Parents are both doctors with high expectations. Studying computer science
-      but secretly interested in creative writing. Plays violin but hasn't
-      told anyone at college. Virgin but curious about sexuality.
-```
+      Brief author-facing notes that help the Writer keep tone consistent.
+      Avoid sensitive IRL-identifying details; keep it story-relevant.
 
-### 2.2 Dynamic State Modifiers
-
-```yaml
-    # State modifiers that change appearance/behavior
-    state_modifiers:
-      # Arousal-based modifiers
-      - id: "slightly_aroused"
-        trigger: "auto"  # auto | manual | event
-        conditions:
-          all:
-            - "state.meters.emma.arousal >= 30"
-            - "state.meters.emma.arousal < 60"
-        priority: 5
-        
-        appearance_modifiers:
-          skin: "slightly flushed"
-          eyes: "occasionally darting to you"
-          breathing: "a bit quicker than normal"
-          posture: "shifting in her seat"
-          lips: "occasionally licking them"
-          
-        behavior_modifiers:
-          dialogue_style: "occasionally stumbles over words"
-          personal_space: -1  # Stands closer
-          eye_contact: "brief but intense"
-          gestures: "playing with hair"
-          initiative: +1
-          
-        description_addon: "She seems a bit distracted, her cheeks showing a hint of color."
-        
-      - id: "highly_aroused"
-        trigger: "auto"
-        conditions:
-          all:
-            - "state.meters.emma.arousal >= 60"
-        priority: 10
-        
-        appearance_modifiers:
-          skin: "flushed, warm to touch"
-          eyes: "dilated pupils, heavy-lidded"
-          lips: "parted, slightly swollen"
-          breathing: "shallow and quick"
-          posture: "leaning towards you"
-          chest: "rising and falling noticeably"
-          
-        behavior_modifiers:
-          dialogue_style: "breathless, direct"
-          personal_space: -2
-          eye_contact: "intense, prolonged"
-          initiative: +3
-          inhibition: -3
-          touches_self: true  # Unconscious self-touching
-          
-        description_addon: "Her arousal is obvious - flushed skin, quickened breathing, and eyes that keep finding yours."
-        
-      # Corruption-based modifiers
-      - id: "corrupted_behavior"
-        trigger: "auto"
-        conditions:
-          all:
-            - "state.meters.emma.corruption >= 60"
-        priority: 8
-        
-        appearance_modifiers:
-          eyes: "knowing look"
-          smile: "mischievous"
-          posture: "confident, provocative"
-          
-        behavior_modifiers:
-          dialogue_style: "suggestive, teasing"
-          initiative: +2
-          inhibition: -4
-          kink_acceptance: +3
-          
-        description_addon: "There's something different about her - a knowing confidence that wasn't there before."
-        
-      # Boldness-based modifiers
-      - id: "feeling_bold"
-        trigger: "auto"
-        conditions:
-          any:
-            - "state.meters.emma.boldness >= 60"
-            - "state.flags.emma_drunk == true"
-        priority: 6
-        
-        behavior_modifiers:
-          initiative: +2
-          dialogue_style: "confident, flirty"
-          inhibition: -2
-          personal_space: -1
-          
-      # Combined state modifiers
-      - id: "desperate_need"
-        trigger: "auto"
-        conditions:
-          all:
-            - "state.meters.emma.arousal >= 80"
-            - "state.meters.emma.corruption >= 40"
-            - "state.meters.emma.boldness >= 40"
-        priority: 15
-        
-        appearance_modifiers:
-          whole_body: "trembling with need"
-          eyes: "pleading"
-          skin: "flushed and sensitive"
-          
-        behavior_modifiers:
-          dialogue_style: "begging, desperate"
-          initiative: +5
-          inhibition: -5
-          
-        description_addon: "She's past the point of restraint, her need overwhelming any remaining inhibitions."
-```
-
-### 2.3 Appearance System
-
-```yaml
+    # --- Appearance (static base + contextual snippets) ---
     appearance:
-      # Base appearance (static attributes)
       base:
-        height: "5'4" (162cm)"
-        build: "petite, athletic from yoga"
-        ethnicity: "Chinese-American"
-        hair:
-          color: "black"
-          length: "shoulder-length"
-          texture: "straight, silky"
-          style: "usually in ponytail"
-          alt_styles: ["loose", "messy bun", "braided", "bed head"]
-        eyes:
-          color: "dark brown"
-          shape: "almond-shaped"
-          details: "expressive, with long lashes"
-        face:
-          shape: "heart-shaped"
-          features: "delicate features, high cheekbones"
-        skin:
-          tone: "light tan"
-          texture: "smooth, clear"
-        distinguishing_features:
-          - "small scar on left eyebrow from childhood accident"
-          - "dimples when smiling"
-          - "beauty mark on left shoulder"
-        body_details:
-          chest: "B-cup, perky"
-          waist: "slim"
-          hips: "narrow but shapely"
-          legs: "toned from running"
-          
-      # Contextual appearance descriptions
-      appearance_contexts:
+        height: "162 cm"
+        build: "petite, athletic"
+        hair: { color: "black", length: "shoulder", style: "ponytail" }
+        eyes: { color: "dark brown" }
+        skin: { tone: "light tan" }
+        distinguishing_features: ["dimples","small eyebrow scar"]
+      contexts:
         - id: "first_meeting"
-          conditions: "state.flags.emma_met != true"
-          description: |
-            A petite Asian woman catches your attention. She's dressed casually 
-            in jeans and a MIT hoodie, her black hair pulled back in a ponytail. 
-            Dark brown eyes glance up from her laptop, meeting yours briefly 
-            before returning to her screen. There's something endearing about 
-            the way she chews her lip while concentrating.
-            
+          when: "flags.emma_met != true"
+          description: "Casual campus look; focused, a bit shy."
         - id: "morning_after"
-          conditions:
-            all:
-              - "state.flags.emma_spent_night == true"
-              - "state.time_slot == 'morning'"
-          description: |
-            Emma looks beautiful in the morning light, her usually neat hair 
-            adorably mussed, falling around her face in soft waves. She's wearing 
-            your t-shirt which hangs loosely on her petite frame, barely covering 
-            her thighs. There's a satisfied glow to her skin and a new confidence 
-            in her smile.
-            
-        - id: "highly_corrupted"
-          conditions: "state.meters.emma.corruption >= 80"
-          description: |
-            Emma has transformed from the shy girl you first met. She carries 
-            herself with sultry confidence, her movements deliberately sensual. 
-            Her clothing choices have become bolder, showing more skin. The 
-            innocence in her eyes has been replaced with knowing desire.
-```
+          when: "flags.emma_spent_night == true and time.slot == 'morning'"
+          description: "Loose tee, tousled hair, softer demeanor."
 
-### 2.4 Wardrobe System
-
-```yaml
+    # --- Wardrobe: controlled ontology and slots ---
     wardrobe:
-      # Clothing rules
-      clothing_rules:
-        layer_order: ["outerwear", "dress", "top", "bottom", "feet", "underwear_top", "underwear_bottom", "accessories"]
-        weather_sensitive: true
-        context_sensitive: true  # Different outfits for different locations
-        
+      rules:
+        layer_order: ["outerwear","dress","top","bottom","feet","underwear_top","underwear_bottom","accessories"]
       outfits:
         - id: "casual_day"
           name: "Casual outfit"
-          tags: ["everyday", "comfortable", "modest"]
-          weather: ["any"]
-          locations: ["campus", "library", "cafeteria"]
-          
+          tags: ["everyday","modest"]
           layers:
-            outerwear:
-              item: "MIT hoodie"
-              color: "gray"
-              material: "cotton blend"
-              state: "slightly worn"
-              removable: true
-            top:
-              item: "tank top"
-              color: "white"
-              material: "cotton"
-              fit: "fitted"
-              transparency: "opaque"
-            bottom:
-              item: "jeans"
-              color: "dark blue"
-              style: "skinny"
-              state: "slightly faded"
-            feet:
-              item: "sneakers"
-              color: "white"
-              brand: "Converse"
-            underwear_top:
-              item: "bra"
-              style: "simple t-shirt bra"
-              color: "nude"
-              material: "cotton"
-              appeal: "practical"
-            underwear_bottom:
-              item: "panties"
-              style: "bikini"
-              color: "nude"
-              material: "cotton"
-              appeal: "practical"
-            accessories:
-              - "glasses (black frames)"
-              - "fitbit"
-              - "small backpack"
-              - "phone in back pocket"
-              
-        - id: "revealing_outfit"
+            outerwear: { item: "hoodie", color: "gray" }
+            top:       { item: "tank top", color: "white" }
+            bottom:    { item: "jeans", style: "skinny" }
+            feet:      { item: "sneakers" }
+            underwear_top:    { item: "bra", style: "t-shirt" }
+            underwear_bottom: { item: "panties", style: "bikini" }
+            accessories: ["glasses","small backpack"]
+        - id: "bold_outfit"
           name: "Bold outfit"
-          tags: ["sexy", "revealing", "confident"]
-          unlocked_condition: "state.meters.emma.corruption >= 40 or state.meters.emma.boldness >= 60"
-          weather: ["warm", "hot"]
-          
+          unlock_when: "meters.emma.corruption >= 40 or meters.emma.boldness >= 60"
           layers:
-            top:
-              item: "crop top"
-              color: "black"
-              material: "stretchy fabric"
-              fit: "tight"
-              details: "shows midriff"
-            bottom:
-              item: "mini skirt"
-              color: "red"
-              length: "very short"
-              material: "pleated"
-              details: "barely covers her ass"
-            feet:
-              item: "heels"
-              color: "black"
-              height: "4 inch"
-              style: "strappy"
-            underwear_top:
-              item: "push-up bra"
-              style: "lace"
-              color: "black"
-              material: "lace and satin"
-              appeal: "sexy"
-            underwear_bottom:
-              item: "thong"
-              style: "g-string"
-              color: "black"
-              material: "lace"
-              appeal: "very sexy"
-            accessories:
-              - "choker necklace"
-              - "bold red lipstick"
-```
+            top: { item: "crop top", color: "black" }
+            bottom: { item: "mini skirt", color: "red" }
+            feet: { item: "heels" }
+            underwear_top: { item: "push-up bra", style: "lace" }
+            underwear_bottom: { item: "thong", style: "g-string" }
+            accessories: ["choker"]
 
-### 2.5 Behavior System
-
-```yaml
+    # --- Behaviors & consent gates (progressive) ---
     behaviors:
-      # Progressive consent gates
       gates:
         - id: "accept_compliment"
-          conditions: "always"
-          
+          when: "always"
         - id: "accept_flirting"
-          conditions: "state.meters.emma.trust >= 20 or state.meters.emma.corruption >= 30"
-          
+          when: "meters.emma.trust >= 20 or meters.emma.corruption >= 30"
         - id: "accept_date"
-          conditions:
-            any:
-              - condition:
-                  all:
-                    - "state.meters.emma.attraction >= 40"
-                    - "state.meters.emma.trust >= 30"
-              - condition:
-                  all:
-                    - "state.meters.emma.corruption >= 40"
-                    - "state.meters.emma.attraction >= 30"
-                    
+          when_any:
+            - "meters.emma.attraction >= 40 and meters.emma.trust >= 30"
+            - "meters.emma.corruption >= 40 and meters.emma.attraction >= 30"
         - id: "accept_kiss"
-          conditions:
-            any:
-              - condition:
-                  all:
-                    - "state.meters.emma.attraction >= 60"
-                    - "state.meters.emma.trust >= 50"
-                    - "state.flags.first_date_done == true"
-              - condition:
-                  all:
-                    - "state.meters.emma.corruption >= 50"
-                    - "state.meters.emma.arousal >= 40"
-                    
-        - id: "accept_groping"
-          conditions:
-            any:
-              - condition:
-                  all:
-                    - "state.meters.emma.arousal >= 60"
-                    - "state.meters.emma.trust >= 60"
-                    - "state.meters.emma.attraction >= 70"
-              - condition:
-                  all:
-                    - "state.meters.emma.corruption >= 60"
-                    - "state.meters.emma.arousal >= 50"
-                    
+          when_any:
+            - "meters.emma.attraction >= 60 and meters.emma.trust >= 50 and flags.first_date_done == true"
+            - "meters.emma.corruption >= 50 and meters.emma.arousal >= 40"
         - id: "accept_oral"
-          conditions:
-            all:
-              - "state.meters.emma.arousal >= 70"
-              - condition:
-                  any:
-                    - "state.meters.emma.trust >= 70"
-                    - "state.meters.emma.corruption >= 60"
-              - "state.privacy == 'high'"
-              
+          when_all:
+            - "meters.emma.arousal >= 70"
+            - "(meters.emma.trust >= 70) or (meters.emma.corruption >= 60)"
+            - "privacy == 'high'"
         - id: "accept_sex"
-          conditions:
-            all:
-              - "state.meters.emma.arousal >= 80"
-              - condition:
-                  any:
-                    - condition:
-                        all:
-                          - "state.meters.emma.trust >= 80"
-                          - "state.meters.emma.attraction >= 80"
-                    - "state.meters.emma.corruption >= 70"
-              - "state.privacy == 'high'"
-              - "state.flags.protection_available == true or state.meters.emma.corruption >= 80"
-        
-        - id: "accept_anal"
-          conditions:
-            all:
-              - "state.meters.emma.corruption >= 80"
-              - "state.meters.emma.arousal >= 90"
-              - "state.meters.emma.boldness >= 60"
-              - "state.flags.anal_discussed == true"
-              
-        - id: "accept_public"
-          conditions:
-            all:
-              - "state.meters.emma.corruption >= 70"
-              - "state.meters.emma.boldness >= 70"
-              - "state.meters.emma.arousal >= 80"
-```
+          when_all:
+            - "meters.emma.arousal >= 80"
+            - "(meters.emma.trust >= 80 and meters.emma.attraction >= 80) or (meters.emma.corruption >= 70)"
+            - "privacy == 'high'"
+            - "flags.protection_available == true or meters.emma.corruption >= 80"
+      refusals:
+        generic: "She pulls back, not ready for that yet."
+        low_trust: "She shakes her head—she doesn’t know you well enough."
+        wrong_place: "Not here. It’s too public."
 
-### 2.6 Dialogue and Schedule
-
-```yaml
+    # --- Dialogue profile ---
     dialogue:
-      base_style: "intelligent but casual, occasional nervousness when flustered"
-      
-      vocabulary:
-        normal: ["like", "maybe", "I guess", "sort of"]
-        aroused: ["please", "need", "want", "god"]
-        corrupted: ["fuck", "cock", "pussy", "dirty"]
-        
-      speech_patterns:
-        shy: "trailing off sentences, lots of 'um' and 'uh'"
-        confident: "direct statements, less hedging"
-        aroused: "breathless, incomplete sentences"
-        corrupted: "suggestive, double entendres"
-        
+      base_style: "intelligent, a bit shy; warms with trust"
+      vocab:
+        normal: ["maybe","I guess","sort of"]
+        aroused: ["please","need","want"]
+      styles:
+        shy: "hesitant, hedging"
+        confident: "direct, fewer qualifiers"
+
+    # --- Schedule (week-aware) ---
     schedule:
       weekday:
-        morning:
-          location: "cafeteria"
-          activity: "having breakfast"
-          availability: "high"
-        afternoon:
-          location: "library"
-          activity: "studying"
-          availability: "medium"
-        evening:
-          location: "emma_room"
-          activity: "relaxing"
-          availability: "high"
-        night:
-          location: "emma_room"
-          activity: "sleeping"
-          availability: "none"
-        late_night:
-          location: "emma_room"
-          activity: "sleeping"
-          availability: "none"
+        morning:   { location: "cafeteria", activity: "breakfast", availability: "high" }
+        afternoon: { location: "library",   activity: "study",     availability: "medium" }
+        evening:   { location: "emma_room", activity: "relax",     availability: "high" }
+        night:     { location: "emma_room", activity: "sleep",     availability: "none" }
       weekend:
-        morning:
-          location: "emma_room"
-          activity: "sleeping in"
-          availability: "low"
-```
-### 2.7 Movement Behavior
+        morning:   { location: "emma_room", activity: "sleep in",  availability: "low" }
 
-```yaml
-    movement_preferences:
-      # Where NPC is willing to go
+    # --- Movement preferences ---
+    movement:
       willing_zones:
-        - zone: "campus"
-          condition: "always"
-        - zone: "downtown"
-          condition: "meters.emma.trust >= 50 or meters.emma.corruption >= 40"
-        - zone: "redlight"
-          condition: "meters.emma.corruption >= 70"
-          
+        - { zone: "campus",    when: "always" }
+        - { zone: "downtown",  when: "meters.emma.trust >= 50 or meters.emma.corruption >= 40" }
       willing_locations:
-        - location: "player_room"
-          condition: "meters.emma.trust >= 40"
-        - location: "hotel_room"
-          condition: "meters.emma.arousal >= 70"
-          
-      transport_preferences:
+        - { location: "player_room", when: "meters.emma.trust >= 40" }
+        - { location: "hotel_room",  when: "meters.emma.arousal >= 70" }
+      transport:
         walk: "always"
-        bus: "always"
-        car: "meters.emma.trust >= 30"
-        motorcycle: "meters.emma.boldness >= 60"
-        
-      follow_behavior:
-        eager_threshold: 70  # attraction + trust
-        willing_threshold: 40
-        reluctant_threshold: 20
-        
-      refusal_reasons:
-        trust_too_low: "I don't think I should go there with you..."
-        inappropriate_location: "That's not really my kind of place."
-        too_dangerous: "That seems dangerous. Let's not."
-        wrong_time: "Not at this hour!"
+        bus:  "always"
+        car:  "meters.emma.trust >= 30"
+      follow_thresholds:
+        eager: 70     # attraction + trust
+        willing: 40
+        reluctant: 20
+      refusal_text:
+        low_trust: "I don't feel comfortable going there with you yet."
+        wrong_time: "Now isn't a good time."
 ```
+
+**Character Card Generation (engine-facing)** — at runtime the engine compiles a card per NPC containing summarized meters (with threshold labels), current outfit & clothing state (removed/displaced layers), active modifiers, behavior gates (allowed vs rejected), recent context beats, and a compact appearance snippet (base + active contexts).
 
 ---
 
-## 3. Effects and Modifiers System
+## 4. Effects & Modifiers System (`effects` blocks, `modifier_system` in `game.yaml`)
 
-### 3.1 Effect Types
+Effects are **atomic state changes** (authored or AI-extracted). Modifiers are **named, stackable states** that alter behavior/appearance and can expire or be condition-bound.
+
+### 4.1 Effect Types (authorable atoms)
 
 ```yaml
-# Meter modification
-- type: "meter_change"
-  target: "{character}"  # Can use variables
-  meter: "arousal"
-  operation: "add"  # add | subtract | set | multiply
-  value: 10
-  cap: true  # Respect min/max
-  
-# Apply temporary modifier
-- type: "apply_modifier"
-  target: "emma"
-  modifier_id: "drunk"
-  duration: 180  # minutes
-  
-# Apply permanent modifier
-- type: "apply_permanent_modifier"
-  target: "emma"
-  modifier_id: "corrupted"
-  
-# Remove modifier
-- type: "remove_modifier"
-  target: "emma"
-  modifier_id: "drunk"
-  
-# Conditional effect
-- type: "conditional"
-  condition: "state.meters.emma.trust >= 50"
-  then:
-    - type: "meter_change"
-      target: "emma"
-      meter: "arousal"
-      value: 20
-  else:
-    - type: "meter_change"
-      target: "emma"
-      meter: "trust"
-      value: -10
-      
-# Random effect
-- type: "random"
-  chances:
-    - weight: 70
-      effects:
-        - type: "meter_change"
-          target: "emma"
-          meter: "attraction"
-          value: 5
-    - weight: 30
-      effects:
-        - type: "meter_change"
-          target: "emma"
-          meter: "attraction"
-          value: -5
-          
-# Cascading effects
-- type: "cascade"
-  effects:
-    - type: "meter_change"
-      target: "emma"
-      meter: "arousal"
-      value: 10
-    - type: "trigger"
-      event: "emma_aroused"
-      if: "state.meters.emma.arousal >= 50"
-      
-# Flag modification
-- type: "flag_set"
-  flag: "emma_kissed"
-  value: true
-  
-# Inventory modification
-- type: "inventory_add"
-  item: "emma_panties"
-  count: 1
-  
-# Time advancement
-- type: "advance_time"
-  slots: 1
-  
-# Location change
-- type: "move_to"
-  location: "emma_room"
-  with_characters: ["emma"]
-  
-# Outfit change
-- type: "outfit_change"
-  character: "emma"
-  outfit: "revealing_outfit"
-  
-# Clothing removal
-- type: "clothing_remove"
-  character: "emma"
-  layers: ["outerwear", "top"]
-  
-# Node transition
-- type: "goto_node"
-  node: "emma_bedroom_scene"
+effects:
+  - type: meter_change
+    target: "emma"                # player | npc id
+    meter: "arousal"
+    op: "add"                     # add | subtract | set | multiply | divide
+    value: 10
+    respect_caps: true
+    cap_per_turn: true
+
+  - type: flag_set
+    key: "first_kiss"
+    value: true
+
+  - type: inventory_add
+    owner: "player"
+    item: "flowers"
+    count: 1
+
+  - type: apply_modifier
+    character: "emma"
+    modifier_id: "drunk"
+    duration_min: 120
+
+  - type: remove_modifier
+    character: "emma"
+    modifier_id: "drunk"
+
+  - type: outfit_change
+    character: "emma"
+    outfit: "bold_outfit"
+
+  - type: clothing_remove
+    character: "emma"
+    layers: ["top","outerwear"]
+
+  - type: move_to
+    location: "emma_room"
+    with_characters: ["emma"]
+
+  - type: advance_time
+    minutes: 30
+
+  - type: goto_node
+    node: "emma_bedroom_scene"
+
+  - type: conditional
+    when: "meters.emma.trust >= 50"
+    then:
+      - { type: meter_change, target: "emma", meter: "arousal", op: "add", value: 10 }
+    else:
+      - { type: meter_change, target: "emma", meter: "trust", op: "add", value: -5 }
+
+  - type: random
+    choices:
+      - weight: 70
+        effects: [{ type: meter_change, target: "emma", meter: "attraction", op: "add", value: 5 }]
+      - weight: 30
+        effects: [{ type: meter_change, target: "emma", meter: "attraction", op: "add", value: -5 }]
 ```
 
-### 3.2 Modifier Rules
+> **Engine guarantees** — effects are declarative, order-preserving, validated, and clamped. Unknown keys are rejected.
+
+---
+
+### 4.2 Modifiers (named, stackable states)
 
 ```yaml
 modifier_system:
-  # How modifiers combine
-  stacking_rules:
-    default: "highest"  # highest | additive | multiplicative | replace
-    
-    specific_rules:
-      arousal_modifiers: "additive"
-      inhibition_modifiers: "multiplicative"
-      
-  # Priority resolution
-  priority_groups:
-    - name: "status_effects"
-      priority: 100
-      members: ["poisoned", "paralyzed", "unconscious"]
-    - name: "intoxication"
-      priority: 90
-      members: ["drunk", "high", "drugged"]
-    - name: "emotional_states"
-      priority: 50
-      members: ["aroused", "angry", "sad", "happy"]
-    - name: "relationship_states"
-      priority: 30
-      members: ["trusting", "suspicious", "in_love"]
-    - name: "environmental"
-      priority: 20
-      members: ["hot", "cold", "wet", "tired"]
-      
-  # Conflicting modifiers
+  stacking:
+    default: "highest"
+    per_group:
+      arousal: "additive"
+      inhibition: "multiplicative"
+
+  priority:
+    groups:
+      - name: "status"
+        priority: 100
+        members: ["unconscious","paralyzed"]
+      - name: "intoxication"
+        priority: 90
+        members: ["drunk","high"]
+
   exclusions:
     - group: "intoxication"
-      exclusive: true  # Only one active at a time
-    - group: "temperature"
       exclusive: true
-      members: ["freezing", "cold", "hot", "overheated"]
-      
-  # Modifier interactions
+
   interactions:
     - source: "drunk"
       target: "aroused"
-      effect: "target.effectiveness *= 1.5"
-    - source: "tired"
-      target: "aroused"
-      effect: "target.effectiveness *= 0.5"
+      effect: "multiply"
+      value: 1.5
+
+  library:
+    aroused:
+      group: "emotional"
+      appearance: { cheeks: "flushed" }
+      behavior:
+        dialogue_style: "breathless"
+        inhibition: -1
+      when: "meters.{character}.arousal >= 40"
+
+    drunk:
+      group: "intoxication"
+      appearance: { eyes: "glossy" }
+      behavior: { inhibition: -3, coordination: -2 }
+      safety:
+        disallow_gates: ["accept_sex"]
+      duration_default_min: 120
 ```
 
 ---
-## 4. World Structure and Locations
 
-### 4.1 Hierarchical World System
+### 4.3 Evaluation Order (per turn)
 
-The game world uses a three-tier spatial hierarchy:
+1. Safety gates  
+2. Authored entry effects  
+3. Checker deltas  
+4. Resolve modifiers (activate, tick, resolve exclusions)  
+5. Meter interactions  
+6. Advance time  
+7. Evaluate transitions/events  
 
-1. **World Level**: Contains all zones, manages inter-zone travel
-2. **Zone Level**: Thematic areas containing multiple locations
-3. **Location Level**: Individual rooms/areas where scenes occur
+---
 
-### 4.2 World Configuration (`world.yaml`)
+### 4.4 Expression DSL
+- Comparisons, boolean logic, `in`, dot paths, `.get()`, arithmetic.  
+- Helpers: `has(item_id)`, `npc_present(id)`, `rand(p)`.  
 
-```yaml
-world_config:
-  id: "game_world"
-  name: "City and Campus"
-  
-  # World-level settings
-  settings:
-    time_passes_during_travel: true
-    npcs_have_own_movement: true
-    weather_affects_movement: true
-    random_travel_events: true
-    fog_of_war: true  # Undiscovered areas hidden
-    
-  # Global travel methods
-  transport_methods:
-    walk:
-      always_available: true
-      base_time: 30  # minutes per zone
-      energy_cost: 20
-      weather_affected: true
-      
-    bike:
-      requires: "inventory.bike"
-      base_time: 15
-      energy_cost: 10
-      weather_affected: true
-      unavailable_conditions: ["weather == 'storm'"]
-      
-    car:
-      requires: "inventory.car_keys and flag.has_license"
-      base_time: 10
-      fuel_cost: 1
-      money_cost: 2  # parking
-      capacity: 4  # can bring 3 NPCs
-      
-    bus:
-      available_times: ["morning", "afternoon", "evening"]
-      base_time: 20
-      money_cost: 5
-      routes_defined: true  # specific zone connections
-      
-    taxi:
-      always_available: true
-      base_time: 12
-      money_cost_formula: "15 * distance"
-      surge_pricing:
-        night: 1.5
-        weekend: 1.3
-        
-  # Distance matrix for zone travel
-  zone_distances:
-    campus:
-      downtown: 2
-      suburbs: 3
-      industrial: 4
-    downtown:
-      campus: 2
-      suburbs: 2
-      industrial: 1
-```
+---
 
-### 4.3 Zone Definitions (`zones.yaml`)
+### 4.5 Safety & Consent
+- Modifiers cannot override hard safety rules.  
+- Intimate effects must pass behavior gates + privacy checks, else trigger refusal text.  
+
+---
+
+## 5. World & Locations (`locations.yaml`)
+
+The file defines the **zones** of the game world and all **locations** within them.
+
+---
+
+### 5.1 Hierarchical Model
+- **Zones**: thematic areas (e.g., *Campus*, *Downtown*).  
+- **Locations**: places within zones (rooms, streets, venues).  
+- **Features**: interactable sub-areas inside locations (bed, desk, stage).  
+
+> This mirrors narrative scale: *Zone travel* consumes more time/resources; *local movement* is near-instant.
+
+---
+
+### 5.2 File Structure (zones with inline locations)
 
 ```yaml
+# ===============================
+# Locations (zones + locations)
+# ===============================
 zones:
   - id: "campus"
     name: "University Campus"
-    type: "educational"
-    
-    # Discovery and access
-    unlock:
-      discovered: true  # Known from start
-      accessible: true  # Can enter from start
-      
-    unlock_conditions:
-      discovered: "always"
-      accessible: "always"
-      
-    # Zone properties
+    discovered: true
+    accessible: true
     properties:
       size: "large"
       security: "medium"
       privacy: "low"
-      law_enforcement: "campus_security"
-      
-    # Zone-wide rules
-    zone_rules:
-      reputation_matters: true
-      dress_code: "casual"
-      restricted_hours:
-        late_night: ["library", "cafeteria"]
-        
-    # Entry/exit points
-    world_connections:
-      - id: "main_gate"
-        location: "campus_entrance"
-        allows: ["walk", "bike", "car", "taxi"]
-        bidirectional: true
-        
-      - id: "bus_stop"
-        location: "campus_square"
-        allows: ["bus"]
-        schedule: "every_30_minutes"
-        
-    # Zone events
+
+    transport_connections:
+      - to: "downtown"
+        methods: ["bus","walk","bike","car"]
+        distance: 2
+
     events:
       on_first_enter:
         narrative: "The campus sprawls before you."
         effects:
-          - type: "flag_set"
-            flag: "entered_campus"
-            
+          - { type: flag_set, key: "entered_campus", value: true }
+
+    # Inline locations for this zone
+    locations:
+      - id: "dorm_room"
+        name: "Your Dorm Room"
+        type: "private"
+        privacy: "high"
+        discovered: true
+        access:
+          locked: true
+          unlock_methods: [{ item: "dorm_key" }]
+        connections:
+          - to: "dorm_hallway"
+            type: "door"
+            bidirectional: true
+        features: ["bed","desk","computer"]
+
+      - id: "emma_room"
+        name: "Emma’s Room"
+        type: "private"
+        privacy: "high"
+        discovered: false
+        discovery_conditions:
+          - "flags.emma_mentioned_room"
+          - "meters.emma.trust >= 30"
+        access:
+          locked: true
+          unlock_methods:
+            - { flag: "emma_invites_in", requires_presence: "emma" }
+        hidden_until_discovered: true
+
   - id: "downtown"
     name: "City Downtown"
-    type: "urban"
-    
-    unlock:
-      discovered: false
-      accessible: false
-      
-    unlock_conditions:
-      discovered:
-        any:
-          - "flag.heard_about_downtown"
-          - "day >= 3"
-      accessible:
-        all:
-          - "zone.downtown.discovered"
-          - any:
-              - "money >= 20"
-              - "inventory.bike"
-              
+    discovered: false
+    accessible: false
     properties:
       size: "very_large"
-      security: "low"
       privacy: "very_low"
       crime_rate: "medium"
-      
-    zone_rules:
-      night_dangers: true
-      commercial_zone: true
-      
-    world_connections:
-      - id: "subway_station"
-        location: "downtown_station"
-        allows: ["subway"]
-        
-      - id: "highway_exit"
-        location: "downtown_parking"
-        allows: ["car", "taxi"]
-```
 
-### 4.4 Location Definitions (`locations.yaml`)
+    unlock_conditions:
+      discovered: "day >= 3 or flags.heard_about_downtown"
+      accessible: "zones.downtown.discovered and money >= 20"
+
+    transport_connections:
+      - to: "campus"
+        methods: ["bus","car","taxi"]
+        distance: 2
+
+    locations:
+      - id: "downtown_square"
+        name: "Downtown Square"
+        type: "public"
+        privacy: "low"
+        discovered: false
+        access: { locked: false }
+        connections:
+          - to: "downtown_station"
+            type: "street"
+            distance: "short"
+```
+---
+
+### 5.3 Movement System
 
 ```yaml
-locations:
-  # Transition location (zone entry/exit)
-  - id: "campus_entrance"
-    name: "Campus Main Gate"
-    zone: "campus"
-    type: "transition"
-    
-    properties:
-      discovered: true
-      always_accessible: true
-      privacy: "none"
-      
-    # Local connections within zone
-    connections:
-      - to: "campus_square"
-        type: "path"
-        bidirectional: true
-        distance: "short"
-        visibility: "clear"  # destination known
-        
-      - to: "security_booth"
-        type: "door"
-        bidirectional: true
-        distance: "immediate"
-        visibility: "clear"
-        
-    # World exit point
-    world_exit:
-      enabled: true
-      transport_options: ["walk", "bike", "car", "taxi"]
-      
-    description:
-      default: "The main gate stands open."
-      night: "The gate is lit by streetlamps."
-      
-  # Standard room
-  - id: "dorm_room"
-    name: "Your Dorm Room"
-    zone: "campus"
-    type: "room"
-    
-    properties:
-      discovered: true
-      privacy: "high"
-      owned_by: "player"
-      
-    access:
-      locked: true
-      unlock_methods:
-        - item: "dorm_key"
-        - flag: "window_open"
-          
-    connections:
-      - to: "dorm_hallway"
-        type: "door"
-        bidirectional: true
-        distance: "immediate"
-        visibility: "clear"
-        lockable: true
-        
-    features: ["bed", "desk", "computer"]
-    
-  # Hidden/unexplored location
-  - id: "mysterious_door"
-    name: "Unmarked Door"
-    zone: "campus"
-    type: "room"
-    
-    properties:
-      discovered: true  # Can see door
-      explored: false  # Don't know what's inside
-      
-    display:
-      unexplored_name: "Unmarked Door"
-      explored_name: "Storage Room"
-      unexplored_description: "A plain door."
-      explored_description: "A dusty storage room."
-      
-    exploration:
-      type: "blind"  # Must enter to discover
-      reveal_on_entry: true
-      
-    access:
-      locked: true
-      unlock_methods:
-        - item: "master_key"
-        - skill_check:
-            skill: "lockpicking"
-            difficulty: 40
-            
-    revelation_effects:
-      - type: "flag_set"
-        flag: "found_storage_room"
-        
-  # NPC room with special access
-  - id: "emma_room"
-    name: "Emma's Room"
-    zone: "campus"
-    type: "room"
-    
-    properties:
-      discovered: false
-      privacy: "high"
-      owned_by: "emma"
-      
-    discovery_conditions:
-      any:
-        - "flag.emma_mentioned_room"
-        - "meters.emma.trust >= 30"
-        
-    access:
-      locked: true
-      unlock_methods:
-        - flag: "emma_invites_in"
-          requires_presence: "emma"
-        - item: "emma_spare_key"
-          condition: "flag.emma_gave_key"
-          
-    connections:
-      - to: "dorm_hallway"
-        type: "door"
-        bidirectional: false  # Can't enter from hallway
-        from_inside: true  # Can always leave
-        visibility: "hidden"  # Unknown until discovered
-        
-    hidden_until_discovered: true
-```
-
-### 4.5 Movement System
-
-```yaml
-movement_system:
-  # Zone-level travel
+movement:
+  local:
+    base_time: 1
+    distance_modifiers: { immediate: 0, short: 1, medium: 3, long: 5 }
   zone_travel:
     requires_exit_point: true
-    consumes_time: true
-    allows_companions: true
-    
-    time_calculation: "base_time * distance * weather_modifier"
-    
-    interruption_events:
-      enabled: true
-      types: ["encounter", "breakdown", "weather"]
-      
-  # Local movement (within zone)
-  local_movement:
-    base_time: 1  # minute
-    
-    time_modifiers:
-      distance:
-        immediate: 0
-        short: 1
-        medium: 3
-        long: 5
-      movement_type:
-        door: 0
-        stairs: 1
-        path: 2
-        climb: 3
-      conditions:
-        injured: 2.0
-        drunk: 1.5
-        running: 0.5
-        
-  # Movement restrictions
+    time_formula: "base_time * distance"
+    allow_companions: true
   restrictions:
-    energy_minimum: 5
     requires_consciousness: true
+    min_energy: 5
     check_npc_consent: true
-    respect_boundaries: true
-    
-  # Group movement
-  group_movement:
-    leader_decides: true
-    followers_can_refuse: true
-    apply_slowest_speed: true
-    
-    npc_willingness:
-      check_conditions: true
-      based_on_relationship: true
-      based_on_destination: true
 ```
+---
 
-### 4.6 Exploration and Discovery
+### 5.4 Exploration & Discovery
 
 ```yaml
 exploration:
-  # Discovery methods
   discovery:
-    proximity:
-      enabled: true
-      auto_reveal_adjacent: true
-      
-    social:
-      learn_from_npcs: true
-      overhear_conversations: true
-      find_maps: true
-      
-    active_search:
-      action: "explore_area"
-      energy_cost: 10
-      time_cost: 30
-      reveal_hidden: true
-      
-  # Visibility levels
-  visibility:
-    clear:
-      shows_destination: true
-      shows_requirements: true
-      
-    obscured:
-      shows_destination: true
-      shows_requirements: false
-      
-    hidden:
-      shows_destination: false
-      shows_requirements: false
-      
-  # Map system
+    social: { enabled: true }                 # learn via NPC hints
+    active: { cost_energy: 10, cost_time: 30 }
   map:
     fog_of_war: true
-    reveal_on_discovery: true
     show_connections: "only_known"
-    show_details: "only_explored"
-    
-  # Unlock progression
-  progression:
-    zones:
-      story_based: true  # Unlock through plot
-      exploration_based: true  # Find through exploring
-      social_based: true  # Learn from NPCs
-      purchase_based: true  # Buy access
-      
-    locations:
-      automatic_nearby: true
-      key_items: true
-      relationship_gates: true
-      time_gates: true
-      skill_checks: true
+    reveal_on_discovery: true
 ```
+---
 
-### 4.7 Movement Actions
+### 5.5 Design Notes
+- **Zones** act like narrative hubs.  
+- **Locations** provide privacy, NPC presence, and gating for scenes.  
+- **Privacy**: none | low | medium | high — feeds into consent checks.  
+- **Exploration** supports gradual discovery (NPC hints or wandering).  
+- **Transport methods** can gate access (bus schedule, car ownership).  
+- **Companions**: NPC willingness to travel is evaluated via their `movement` gates.  
 
-```yaml
-# Movement action structure
-movement_actions:
-  # Local movement (within zone)
-  - type: "move_local"
-    from: "current_location"
-    to: "target_location"
-    validate:
-      - connection_exists
-      - meets_requirements
-      - has_energy
-    effects:
-      - advance_time: "calculated"
-      - reduce_energy: "calculated"
-      - trigger_events: "on_enter"
-      
-  # Zone travel
-  - type: "travel_zone"
-    from: "current_zone"
-    to: "target_zone"
-    method: "transport_type"
-    validate:
-      - zone_accessible
-      - has_exit_point
-      - can_afford_transport
-      - meets_transport_requirements
-    effects:
-      - advance_time: "base * distance"
-      - reduce_resources: "by_transport"
-      - move_companions: "if_willing"
-      - trigger_events: "travel_events"
-      
-  # Exploration
-  - type: "explore"
-    location: "current"
-    validate:
-      - has_energy: 10
-      - has_time: true
-    effects:
-      - discover_connections: true
-      - reveal_hidden: "chance_based"
-      - advance_time: 30
-      - reduce_energy: 10
-      
-  # Fast travel
-  - type: "fast_travel"
-    to: "known_location"
-    validate:
-      - location_discovered: true
-      - not_in_combat: true
-      - not_in_scene: true
-    effects:
-      - instant_move: true
-      - advance_time: "calculated"
-      - skip_encounters: true
-```
-
-### 4.8 Location-Based Events
-
-```yaml
-location_events:
-  # Triggered by entering locations
-  on_enter:
-    first_time:
-      check: "not flag.location_{id}_visited"
-      effects:
-        - flag_set: "location_{id}_visited"
-        - discovery_xp: 10
-        
-    conditional:
-      - condition: "time_slot == 'night'"
-        narrative_modifier: "night_description"
-      - condition: "weather == 'rain'"
-        narrative_modifier: "rain_description"
-        
-  # Random encounters
-  random_encounters:
-    chance: 0.1
-    types:
-      - npc_meeting
-      - item_discovery
-      - mini_event
-      
-  # Scheduled events
-  scheduled:
-    - location: "library"
-      time: "afternoon"
-      day: 7
-      event: "midterm_study_panic"
-      
-  # NPC presence
-  npc_schedules:
-    emma:
-      morning:
-        cafeteria: 0.8
-        emma_room: 0.2
-      afternoon:
-        library: 0.7
-        campus_square: 0.3
-      evening:
-        emma_room: 0.9
-        gym: 0.1
-```
 
 ---
 
-## 5. Items (`items.yaml`)
+## 6. Nodes & Story Structure (`nodes.yaml`)
 
-```yaml
-items:
-  - id: "aphrodisiac"
-    name: "Strange Pink Pill"
-    category: "consumable"
-    description: "A small pink pill with unknown effects"
-    value: 100
-    tags: ["drug", "corruption"]
-    
-    effects_on_use:
-      target: "character"  # or "player"
-      effects:
-        - type: "meter_change"
-          meter: "arousal"
-          value: 50
-        - type: "meter_change"
-          meter: "corruption"
-          value: 10
-        - type: "apply_modifier"
-          modifier_id: "aphrodisiac_effect"
-          duration: 120
-          
-    can_give: true
-    single_use: true
-    
-  - id: "emma_panties"
-    name: "Emma's Panties"
-    category: "trophy"
-    description: "A pair of Emma's panties, still warm"
-    value: 0
-    tags: ["intimate", "emma"]
-    droppable: false
-    
-    obtain_conditions:
-      all:
-        - "state.meters.emma.corruption >= 60"
-        - "state.flags.emma_undressed == true"
-```
+Nodes are the authored backbone of PlotPlay. They define **where the story is**, **what the player can do**, and **how the game moves forward**. The Writer expands a node’s authored beats into prose; the Checker interprets the prose back into structured deltas and confirms any transitions.
 
 ---
-
-## 6. Story Nodes (`nodes.yaml`)
 
 ### 6.1 Node Types
+- **scene** — Focused moment with guided beats; supports freeform actions and optional choices.
+- **hub** — An interactive menu of choices; limited freeform, typically used for navigation or management.
+- **encounter** — Short, reactive vignette (often event-driven); usually returns to a hub.
+- **ending** — Terminal node; saves final state and stops the run.
+
+> Every node must declare a `type`. Endings must set `ending_id`.
+
+---
+
+### 6.2 Node Object (human-readable schema)
+
+```yaml
+# ===============================
+# Nodes (nodes.yaml)
+# ===============================
+nodes:
+  - id: "tavern_entry"             # Required, unique across the game
+    type: "hub"                    # scene | hub | encounter | ending
+    title: "Warm Lights of the Tavern"
+
+    # Node is available only if this is true. If false, engine searches next matching node or falls back.
+    preconditions: "time.slot in ['evening','night'] and zones.campus.discovered"
+
+    # Optional node-level narration overrides (clamped by game.yaml budgets)
+    narration_override:
+      paragraphs: "1-2"
+      writer_profile: "cheap"      # choose model profile for cost control
+
+    # Effects applied once upon **entering** this node
+    entry_effects:
+      - { type: meter_change, target: "player", meter: "energy", op: "subtract", value: 5 }
+
+    # Optional: block or steer the Writer + UI about disallowed actions
+    action_filters:
+      banned_freeform:
+        - pattern: "steal"         # simple contains match; see DSL for advanced
+          reason: "This is a friendly tavern—no theft here."
+      banned_topics:
+        - "non-consensual acts"
+        - "minors"
+
+    # Author guidance bullets the Writer should cover (not shown to player)
+    beats:
+      - "Alex (barmaid) is present; she looks busy but notices the player."
+      - "Establish warmth, noise, and smells; keep it tight (2 short paragraphs)."
+      - "Offer light hooks for conversation or ordering a drink."
+
+    # Pre-authored menu choices for hubs/scenes (in addition to freeform input)
+    choices:
+      - id: "order_drink"
+        prompt: "Order a drink"
+        conditions: "money >= 5"
+        effects:
+          - { type: inventory_add, owner: "player", item: "ale", count: 1 }
+          - { type: meter_change, target: "player", meter: "money", op: "subtract", value: 5 }
+
+      - id: "talk_to_alex"
+        prompt: "Talk to Alex"
+        conditions: "npc_present('alex')"
+        # node-local transition when selecting this choice (skips rule-based transitions)
+        goto: "alex_smalltalk"
+
+    # Choices that appear when their condition becomes true
+    dynamic_choices:
+      - id: "flirt_with_alex"
+        prompt: "Flirt with Alex"
+        conditions: "gates.alex.accept_flirting"
+
+    # Rule-based transitions evaluated after effects + checker deltas
+    transitions:
+      - when: "has('ale') and rand(0.25)"      # 25% chance to trigger a bar brawl encounter
+        to: "bar_brawl"
+        reason: "Random bar event after drink"
+      - when: "always"
+        to: "tavern_idle"                      # safe fallback to avoid dead-ends
+
+    # Optional: node-local hints for the Writer to bias scene pacing
+    pacing:
+      expected_turns: 2-4
+      prefers_short_replies: true
+```
+
+**Field notes**
+- `preconditions` use the shared expression DSL. If false, the engine searches the next node that matches or falls back to a designated default.
+- `narration_override` lets authors tune verbosity/cost per node.
+- `beats` are **author guidance** only—never shown verbatim. The Writer must weave them into prose.
+- `choices` are UI buttons; **freeform input** remains available unless filtered.
+- `transitions` always include a **final fallback** (`when: "always"`).
+
+---
+
+### 6.3 Choices: preauthored vs dynamic
+
+```yaml
+choices:
+  - id: "ask_for_room"
+    prompt: "Ask Alex for a room"
+    conditions: "money >= 20 and gates.alex.accept_date"
+    effects:
+      - { type: meter_change, target: "alex", meter: "trust", op: "add", value: 5 }
+    goto: "rent_room"
+
+dynamic_choices:
+  - id: "apologize_for_rudeness"
+    prompt: "Apologize for earlier rudeness"
+    conditions: "flags.rude_to_alex == true"
+    effects:
+      - { type: flag_set, key: "rude_to_alex", value: false }
+      - { type: meter_change, target: "alex", meter: "trust", op: "add", value: 2 }
+```
+
+- **Preauthored choices** exist up front and gray-out/hide via `conditions`.
+- **Dynamic choices** appear only when `conditions` become true.
+
+---
+
+### 6.4 Endings (terminal nodes)
+
+```yaml
+- id: "confession_ending"
+  type: "ending"
+  title: "A Quiet Confession"
+  ending_id: "alex_good"
+  preconditions: "meters.alex.trust >= 80 and meters.alex.attraction >= 80"
+  entry_effects:
+    - { type: flag_set, key: "ending_reached", value: "alex_good" }
+  credits:
+    summary: "You and Alex begin something real."
+    epilogue:
+      - "In the weeks that follow, the tavern feels like home."
+      - "Alex smiles more when you walk in."
+```
+
+Rules for endings:
+- Must set `ending_id` (stable string used by achievements and save summaries).
+- Engine **auto-saves** and stops accepting input after rendering the ending.
+
+---
+
+### 6.5 Ending Taxonomy & Variants
+Support multiple endings per character/route and richer metadata for UIs and achievements.
+```yaml
+# Endings catalog (optional; can live in nodes.yaml top-level or endings.yaml)
+endings_index:
+  - id: "alex_good"
+    character: "alex"              # who this ending primarily concerns (optional)
+    tone: "good"                   # good | neutral | bad | secret | joke
+    route: "romance"               # freeform tag (e.g., corruption, purity)
+    spoiler_level: "low"           # none | low | high (for UI reveal policy)
+    summary: "Committed relationship with Alex."
+    unlock_hint: "High trust & attraction; private setting; protection available."
+
+```
+Node ending fields (augment existing example):
+```yaml
+- id: "confession_ending"
+  type: "ending"
+  ending_id: "alex_good"           # REQUIRED
+  ending_meta:
+    character: "alex"
+    tone: "good"
+    route: "romance"
+  preconditions: "meters.alex.trust >= 80 and meters.alex.attraction >= 80"
+  entry_effects:
+    - { type: flag_set, key: "ending_reached", value: "alex_good" }
+  credits:
+    summary: "You and Alex begin something real."
+    epilogue:
+      - "In the weeks that follow, the tavern feels like home."
+
+```
+Runtime notes
+- Engine auto-saves on endings and records ```ending_id``` + ```ending_meta``` for the save summary.
+- UIs may group endings by ```character``` and color-code by tone.
+
+---
+
+### 6.6 Transition Resolution
+
+When a turn finishes, the engine resolves the next node using this priority:
+1. **Forced `goto` from an effect or choice** (e.g., `{ type: goto_node }` or `choice.goto`).
+2. **Rule-based `transitions` in the current node** (first match wins; keep ordered).
+3. **Checker suggestion** (optional): the Checker may propose `{ node_transition: { to, reason } }` that matches authored rules.
+4. **Stay-in-node policy**: if nothing else matches, remain in the current node or jump to its `fallback` (if declared) to avoid dead-ends.
+
+---
+
+### 6.7 Writer/Checker Turn Loop (per node)
+
+1. **Assemble context**: node metadata (title, type), beats, character cards, recent dialogue memory, action filters, and global narration constraints (POV/tense/paragraphs).
+2. **Writer generates**: a short scene continuation that respects beats, state, and gates (e.g., refuses prohibited actions with in-character text drawn from `behaviors.refusals`).
+3. **Checker emits JSON**: `meter_deltas`, `flag_updates`, `inventory`, `clothing`, `location`, optional `node_transition {to,reason}`, `events_fired`, `safety`, and `memory.append`.
+4. **Engine applies**: validate + clamp deltas, run modifier resolution and meter_interactions, and evaluate transitions.
+5. **Advance time**: via explicit effects or node semantics (e.g., `hub` no time; `scene` 5–15 minutes by default—tunable in node).
+
+---
+
+### 6.8 Node-Level Overrides & Hints
+
+```yaml
+narration_override:
+  pov: "second"           # keep aligned with game unless you need a stylistic shift
+  paragraphs: "1-2"       # tighten verbose models
+  writer_profile: "cheap" # cost control per node
+
+pacing:
+  expected_turns: 2-3
+  default_time_minutes: 10 # used if turn had no explicit time advance
+```
+
+---
+
+### 6.9 Minimal Example (`nodes.yaml` excerpt)
 
 ```yaml
 nodes:
-  - id: "intro"
-    type: "scene"  # scene | interactive | branch | ending
-    category: "main_story"
-    
-    # Entry conditions
-    preconditions:
-      all:
-        - "state.day == 1"
-        - "state.time_slot == 'morning'"
-        
-    # What happens when entering
+  - id: "tavern_entry"
+    type: "hub"
+    title: "Warm Lights of the Tavern"
+    preconditions: "time.slot in ['evening','night']"
+    beats:
+      - "The bar is lively; Alex is present behind the counter."
+    choices:
+      - { id: "order_drink", prompt: "Order a drink", conditions: "money >= 5" }
+      - { id: "talk_to_alex", prompt: "Talk to Alex", conditions: "npc_present('alex')", goto: "alex_smalltalk" }
+    transitions:
+      - { when: "always", to: "tavern_idle" }
+
+  - id: "alex_smalltalk"
+    type: "scene"
+    title: "Small Talk with Alex"
+    preconditions: "npc_present('alex')"
+    beats:
+      - "Alex teases lightly; keep tone warm."
+      - "If the player is polite, nudge trust by +1; if rude, -1."
+    transitions:
+      - { when: "gates.alex.accept_flirting and meters.alex.attraction >= 40", to: "alex_flirt" }
+      - { when: "always", to: "tavern_entry" }
+
+  - id: "alex_goodbye"
+    type: "ending"
+    title: "A Promising Start"
+    ending_id: "alex_good"
+    preconditions: "meters.alex.trust >= 80 and meters.alex.attraction >= 80"
     entry_effects:
-      - type: "flag_set"
-        flag: "game_started"
-        value: true
-        
-    # Narrative content
-    narrative:
-      text: |
-        You wake up in your dorm room, sunlight streaming through the window.
-        Today is the first day of the new semester.
-        
-    # Choices presented
-    choices:
-      - text: "Get up and get ready"
-        effects:
-          - type: "advance_time"
-            slots: 1
-        goto: "morning_routine"
-      - text: "Sleep in"
-        effects:
-          - type: "meter_change"
-            target: "player"
-            meter: "energy"
-            value: 20
-        goto: "late_morning"
+      - { type: flag_set, key: "ending_reached", value: "alex_good" }
 ```
+---
 
-### 6.2 Interactive Scenes
-
-```yaml
-  - id: "emma_bedroom_intimate"
-    type: "interactive"
-    category: "romance"
-    tags: ["emma", "intimate", "nsfw"]
-    
-    # Location requirement uses zone/location
-    location_requirement:
-      zone: "campus"
-      location: "library"
-      
-    # Can specify movement as entry
-    entry_movement:
-      type: "move_local"
-      to: "library_private_room"
-      with: ["emma"]
-      
-    # Zone-aware exits
-    exit_options:
-      - text: "Leave campus"
-        type: "travel_zone"
-        to: "downtown"
-        method: "bus"
-      - text: "Go to your room"
-        type: "move_local"
-        to: "dorm_room"
-    required_privacy: "high"
-    
-    preconditions:
-      all:
-        - "emma in state.present_characters"
-        - "state.meters.emma.arousal >= 60"
-        - "emma.behaviors.accept_intimate"
-        
-    # Initial state
-    scene_state:
-      clothing_emma: "current"  # or specific outfit
-      position: "standing_close"
-      mood: "intimate"
-      
-    # Dynamic options based on state
-    dynamic_actions:
-      - id: "kiss"
-        text: "Kiss her"
-        conditions: "always"
-        effects:
-          - type: "meter_change"
-            target: "emma"
-            meter: "arousal"
-            value: 10
-            
-      - id: "undress_top"
-        text: "Remove her top"
-        conditions:
-          all:
-            - "state.meters.emma.arousal >= 70"
-            - "emma.clothing.top != null"
-        effects:
-          - type: "clothing_remove"
-            character: "emma"
-            layers: ["top"]
-          - type: "meter_change"
-            target: "emma"
-            meter: "arousal"
-            value: 15
-            
-      - id: "go_further"
-        text: "Go further"
-        conditions:
-          all:
-            - "state.meters.emma.arousal >= 80"
-            - "emma.behaviors.accept_sex"
-        goto: "emma_sex_scene"
-        
-    # AI behavior hints
-    ai_instructions:
-      tone: "sensual, romantic"
-      include: ["physical descriptions", "emma's responses", "consent checks"]
-      avoid: ["sudden escalation", "out of character behavior"]
-      respect_state: true  # Must follow current meters/modifiers
-```
+### 6.10 Authoring Guidelines
+- Always include a **fallback transition** to prevent soft-locks.
+- Keep **beats** concise and actionable; avoid prose in beats.
+- Use **gates** instead of raw meter checks when possible (centralizes consent logic in `characters.yaml`).
+- Prefer **scene** for conversational moments and **hub** for navigation/choices.
+- Tag **ending** nodes explicitly and let the engine auto-save.
 
 ---
 
-## 7. Random Events (`events.yaml`)
+## 7. Events & Random Encounters (`events.yaml`)
+
+> Events inject variety into the narrative: scheduled beats, conditional encounters, or random interruptions. They can occur during travel, upon entering a location, while idling in a node, or as background triggers.
+
+---
+
+### 7.1 Event Object (annotated schema)
 
 ```yaml
+# ===============================
+# Events (events.yaml)
+# ===============================
 events:
-  - id: "emma_drunk_text"
-    category: "relationship"
-    weight: 10  # Relative probability
-    
-    preconditions:
-      all:
-        - "state.time_slot in ['night', 'late_night']"
-        - "state.meters.emma.attraction >= 50"
-        - "emma not in state.present_characters"
-        - "state.day_of_week in ['friday', 'saturday']"
-        
-    cooldown: 7  # Days before can trigger again
-    
-    effects:
-      - type: "flag_set"
-        flag: "emma_drunk_texting"
-        value: true
-        
-    narrative: |
-      Your phone buzzes. It's Emma:
-      "heyyyy... cant stop thinking bout u... maybe we should talk? 😳"
-      
-    choices:
-      - text: "Come over"
+  - id: "emma_drunk_text"              # Unique, stable
+    title: "Late-night Text from Emma" # Optional, for logs/UI
+    category: "relationship"           # For grouping & filtering (UI/tools)
+
+    scope: "global"                    # global | zone | location | node
+    zone: null                          # if scope=zone, restrict to this zone id
+    location: null                      # if scope=location, restrict to this location id
+    node: null                          # if scope=node, only when in this node
+
+    trigger:                            # one or more trigger types
+      scheduled:                        # Fires on specific day/time windows
+        - when: "time.weekday in ['friday','saturday']"
+          slot: ["night"]              # slots OR time window (hybrid mode supports both)
+          hhmm: ["22:00".."02:00"]    # wrap-around ranges allowed
+      conditional:
+        - when_all:
+            - "meters.emma.attraction >= 50"
+            - "not npc_present('emma')"
+      random:
+        pool: "late_night_texts"       # optional: include in a named pool
+        base_weight: 10                 # relative weight inside pool
+
+    cooldown:
+      days: 7                           # won't refire for N narrative days
+      on_failures: true                 # cooldown even if player declined (optional)
+    once_per_run: false                 # if true, can trigger only once per save
+    max_fires: 3                        # hard cap across the run (optional)
+
+    narrative: |                        # Short prompt for the Writer to weave in
+      Your phone buzzes. It’s Emma: *heyyyy... cant stop thinking bout u... maybe we should talk?* 😳
+
+    choices:                            # Optional menu for event resolution
+      - id: "invite_over"
+        text: "Come over"
+        conditions: "gates.emma.accept_flirting"
         effects:
-          - type: "meter_change"
-            target: "emma"
-            meter: "corruption"
-            value: 5
-        goto: "emma_drunk_visit"
-      - text: "Let's talk tomorrow"
+          - { type: meter_change, target: "emma", meter: "corruption", op: "add", value: 5 }
+        goto: "emma_drunk_visit"       # Direct transition to a node (if set)
+
+      - id: "delay_talk"
+        text: "Let’s talk tomorrow"
         effects:
-          - type: "meter_change"
-            target: "emma"
-            meter: "trust"
-            value: 10
+          - { type: meter_change, target: "emma", meter: "trust", op: "add", value: 10 }
+
+    effects:                            # Auto-applied when the event fires (before choices)
+      - { type: flag_set, key: "emma_drunk_texting", value: true }
+
+    priority: 50                        # When multiple events are eligible, higher wins
+    interrupt: true                     # If true, can pre-empt node prose and surface immediately
+```
+---
+
+### 7.2 Trigger Types
+
+* **Scheduled** — fires on exact/relative times (day, slot, weekday, hh\:mm windows).
+* **Conditional** — fires when expressions become true.
+* **Random (pooled)** — sampled from named pools using **weights**; optional per-turn chance.
+* **Location-enter** — fires when entering a location (`scope: location`).
+* **Node-enter/exit** — fires on node entry/exit hooks (`scope: node`).
+* **Travel interrupts** — fires during zone travel (robbery, encounter). Use `interrupt: true`.
+
+---
+
+### 7.3 Event Pools & Sampling
+
+```yaml
+event_pools:
+  tavern_randoms:
+    chance_per_turn: 0.20            # roll each eligible turn
+    max_per_slot: 1                   # avoid spam within the same slot
+    members:
+      - id: "bar_brawl"              # weight defaults to event.base_weight
+        weight: 15
+      - id: "bard_song"
+        weight: 10
+      - id: "stranger_flirt"
+        weight: 5
+```
+
+**Sampling semantics**
+
+1. If `chance_per_turn` succeeds, build the candidate list: events that are eligible, off cooldown, and within scope.
+2. Weighted random pick by `weight` (or `base_weight` on the event).
+3. Apply `priority` if multiple events compete **outside** pools (higher first).
+
+---
+
+### 7.4 Evaluation Order (per turn)
+
+1. **Safety checks** (global)
+2. **Forced interrupts** (interrupt: true) gathered from all sources (scheduled/conditional/pools).
+    - Pick highest priority → tie-breaker: category lexical ASC → id lexical ASC
+3. **Location-enter hooks** (if player just moved).
+4. **Node-enter hooks** (first tick inside node).
+5. **Scheduled triggers** due this tick (collect all eligible).
+6. **Conditional events** becoming true this tick (collect all eligible).
+7. **Random pools** - For each pool that rolls success:
+    - Build candidates off cooldown & in scope.
+    - Sample one winner by weight (```weight``` or ```base_weight```).
+    - Attach that single pool winner to the candidate set (ignore other members).
+8. **Candidate resolution** - If there are multiple candidates from steps 5–7:
+    - Select highest priority.
+    - Tie-breaker order: scheduled > conditional > pool_winner.
+    - Final tie-breaker: id lexical ASC.
+9. Apply ```event.effects```, present ```event.choices``` or weave ```event.narrative```, enforce ```cooldown```, ```once_per_run```, ```max_fires```
+
+
+>Notes
+>- Inside a pool, ```priority``` does not affect weighted sampling; it only matters later at step 8 if multiple sources exist.
+>- Set ```priority``` mainly to let key plot events beat ambience.
+
+---
+
+### 7.5 Time & Calendar Integration
+
+* In **slots** mode: use `slot: [...]` and `day >= N` conditions.
+* In **hybrid** mode: prefer `hhmm` windows; the engine derives `slot` automatically from `slot_windows` (see Time & Calendar).
+* Week-aware content: `time.weekday in ['friday','saturday']`.
+* Travel time: events marked `interrupt: true` may **pause and consume** travel minutes.
+
+---
+
+### 7.6 Location & Travel Hooks
+
+```yaml
+# Location-enter example
+- id: "tavern_applause"
+  scope: "location"
+  location: "tavern"
+  trigger:
+    location_enter: true
+  narrative: "A round of applause erupts as you step inside."
+
+# Travel interrupt example
+- id: "rainstorm"
+  category: "weather"
+  scope: "global"
+  interrupt: true
+  trigger:
+    random:
+      pool: "travel_interrupts"
+      base_weight: 8
+  narrative: "Rain lashes the street, slowing you down."
+  effects:
+    - { type: advance_time, minutes: 10 }
 ```
 
 ---
 
-## 8. Milestones (`arcs.yaml`)
+### 7.7 Writer/Checker Interaction for Events
+
+* The **Writer** receives `event.narrative` and a short "event header" (id, title, category) to weave into the scene **without breaking POV/tense**.
+* The **Checker** may include `events_fired: [event_id]` and any state deltas caused by the event resolution.
+* If an event sets `goto`, it counts as a **forced transition** (priority over node `transitions`).
+
+---
+
+### 7.8 Authoring Guidelines
+
+* Keep `narrative` **short**; let the Writer style it to current scene.
+* Use `cooldown` generously to avoid repetition.
+* Prefer **pools** for ambience; use **scheduled** for plot beats.
+* Always include a **decline/opt-out** choice for intrusive events.
+* For NSFW content, ensure relevant **gates** are satisfied; otherwise provide a refusal path.
+
+---
+
+## 8. Milestones & Arcs (`arcs.yaml`)
+
+> Milestones track **medium/long-term progression** (relationship stages, corruption paths, chapters). They gate content, grant achievements, and shape NPC behavior.
+
+---
+
+### 8.1 Arc Object (annotated schema)
 
 ```yaml
-milestones:
-  - id: "emma_corruption_path"
-    name: "Emma's Corruption"
-    category: "character_development"
-    
+# ===============================
+# Milestones / Arcs (arcs.yaml)
+# ===============================
+
+arcs:
+  - id: "emma_corruption"
+    name: "Emma — Corruption"
+    category: "character_development"   # For UI/tools
+    visibility: "hidden"                 # hidden | discovered | visible
+
+    progression:
+      mode: "threshold"                  # threshold | ordered
+      evaluation: "highest"              # highest | first_match
+      priority: 50                        # Compete with other arcs for overlays
+    exclusive_with: ["emma_purity"]      # Only one from this set can be active
+
+    requirements:                         # Arc activates only if true
+      all:
+        - "flags.met_emma == true"
+        - "not flags.route_locked"
+
+    stages:                               # Mutually exclusive; one active at a time
+      - id: "innocent"
+        when: "meters.emma.corruption < 20"
+        title: "Innocent"
+        description: "Emma is pure and cautious."
+        overlays:                         # Temporary evaluation nudges while active
+          behavior_gates: { disallow: ["accept_sex"] }
+        entry_effects: []                 # One-time on entering this stage
+        exit_effects: []                  # One-time on leaving this stage
+
+      - id: "curious"
+        when: "20 <= meters.emma.corruption < 40"
+        title: "Curious"
+        unlock_effects:
+          - { type: unlock_outfit, character: "emma", outfit: "sexy_underwear" }
+        description: "Emma is open to gentle experimentation."
+
+      - id: "experimenting"
+        when: "40 <= meters.emma.corruption < 60"
+        title: "Experimenting"
+        unlock_effects:
+          - { type: unlock_actions, actions: ["suggest_roleplay","introduce_toys"] }
+        overlays:
+          behavior_gates: { allow: ["accept_kiss","accept_oral"] }
+
+      - id: "corrupted"
+        when: "60 <= meters.emma.corruption < 80"
+        title: "Corrupted"
+        unlock_effects:
+          - { type: unlock_outfit, character: "emma", outfit: "fetish_outfit" }
+
+      - id: "depraved"
+        when: "meters.emma.corruption >= 80"
+        title: "Depraved"
+        unlock_effects:
+          - { type: unlock_ending, ending: "emma_corruption_ending" }
+        achievement:
+          id: "ach_emma_corruption_max"
+          title: "Complete Corruption"
+          description: "Fully corrupted Emma."
+          points: 25
+          secret: false
+```
+
+#### Stage Hysteresis (optional fields)
+
+You can express stages with separate enter/exit conditions or numeric thresholds.
+```yaml
+arcs:
+  - id: "emma_corruption"
+    progression: { mode: "threshold", evaluation: "highest" }
     stages:
       - id: "innocent"
-        conditions:
-          all:
-            - "state.meters.emma.corruption < 20"
-        description: "Emma is pure and innocent"
-        
+        # leave when corruption rises above 22 (exit condition wider than enter of next stage)
+        exit_when: "meters.emma.corruption > 22"
+
       - id: "curious"
-        conditions:
-          all:
-            - "state.meters.emma.corruption >= 20"
-            - "state.meters.emma.corruption < 40"
-        unlock_effects:
-          - type: "unlock_outfit"
-            character: "emma"
-            outfit: "sexy_underwear"
-        description: "Emma is becoming curious about her desires"
-        
+        # enter at 20+, but only drop back if < 18 (hysteresis band)
+        enter_when: "meters.emma.corruption >= 20"
+        exit_when:  "meters.emma.corruption < 18"
+
       - id: "experimenting"
-        conditions:
-          all:
-            - "state.meters.emma.corruption >= 40"
-            - "state.meters.emma.corruption < 60"
-        unlock_effects:
-          - type: "unlock_actions"
-            actions: ["suggest_roleplay", "introduce_toys"]
-        description: "Emma is actively experimenting"
-        
-      - id: "corrupted"
-        conditions:
-          all:
-            - "state.meters.emma.corruption >= 60"
-            - "state.meters.emma.corruption < 80"
-        unlock_effects:
-          - type: "unlock_outfit"
-            character: "emma"
-            outfit: "fetish_outfit"
-        description: "Emma has embraced her dark desires"
-        
-      - id: "depraved"
-        conditions:
-          all:
-            - "state.meters.emma.corruption >= 80"
-        unlock_effects:
-          - type: "unlock_ending"
-            ending: "emma_corruption_ending"
-        achievement:
-          title: "Complete Corruption"
-          description: "Fully corrupted Emma"
+        enter_when: "meters.emma.corruption >= 40"
+        exit_when:  "meters.emma.corruption < 36"
+
+```
+
+Alternative numeric shorthand (engine may expand to expressions):
+```yaml
+stages:
+  - id: "curious"
+    thresholds: { enter: 20, exit: 18 }     # applies to the arc’s primary meter
+
+```
+
+Debounce (time-based)
+```yaml
+arcs:
+  - id: "emma_corruption"
+    debounce:
+      min_turns_in_stage: 2   # must remain ≥N turns before switching again
+      min_minutes_in_stage: 5 # optional for clock/hybrid
+```
+
+Evaluation updates
+- Stage selection honors ```debounce``` first, then ```exit_when/enter_when```, then the usual ```evaluation``` rule.
+- If both ```when``` and hysteresis fields are present, hysteresis wins.
+
+
+---
+
+### 8.2 Semantics
+
+* **Activation**: An arc is *eligible* when `requirements` pass.
+* **Stage selection**: Depending on `progression.mode`, pick the **highest** matching stage or the **first** in order.
+* **Mutual exclusivity**: `exclusive_with` deactivates other arcs in its set (most recent win, or highest `priority`).
+* **Overlays**: While a stage is active, it may temporarily **allow/disallow gates**, provide meter evaluation nudges, or expose UI hints.
+* **Unlocks**: `unlock_effects` fire **once** per stage the first time it’s entered.
+
+---
+
+### 8.3 Achievements (optional)
+
+```yaml
+achievements:
+  - id: "ach_emma_corruption_max"
+    title: "Complete Corruption"
+    description: "Fully corrupted Emma."
+    icon: "trophy_corrupt.png"      # optional, UI-only
+    points: 25
+    secret: false
+    when: "arcs.emma_corruption.stage == 'depraved'"
 ```
 
 ---
 
-## 9. AI Integration Instructions
+### 8.4 Integration Points
 
-### 9.1 Writer Model Prompts
+* **Nodes**: use `transitions.when` with arc state, e.g., `arcs.emma_corruption.stage == 'experimenting'`.
+* **Events**: preconditions can require a stage or arc activation.
+* **Gates**: stage `overlays` can add/remove gate allowances (e.g., allow `accept_kiss`).
+* **Endings**: terminal stages can unlock an `ending_id` and/or force transition.
+
+---
+
+### 8.5 Save/Load & Telemetry
+
+Engine should persist per-arc:
 
 ```yaml
-writer_prompts:
-  standard:
-    system: |
-      You are narrating an adult interactive fiction game.
-      Content rating: {content_rating}
-      
-      CRITICAL RULES:
-      1. Stay in character for all NPCs
-      2. Respect current game state and meters
-      3. Check consent gates before intimate content
-      4. Include sensory details and character reactions
-      5. Track clothing state accurately
-      6. End with clear moment for player input
-      
-    template: |
-      CURRENT SCENE: {node_id}
-      LOCATION: {location_name} (Privacy: {privacy_level})
-      TIME: Day {day}, {time_slot}
-      
-      CHARACTERS PRESENT:
-      {character_cards}
-      
-      RECENT ACTIONS:
-      {last_3_actions}
-      
-      PLAYER ACTION: "{player_input}"
-      
-      Generate 2-3 paragraphs continuing the scene.
-      {special_instructions}
-      
-  intimate:
-    additional_instructions: |
-      This is an intimate scene. Include:
-      - Physical descriptions and sensations
-      - Emotional responses
-      - Consent and enthusiasm
-      - Current arousal levels affecting behavior
-      - Corruption/boldness affecting actions
-      Current clothing state: {clothing_state}
+state.arcs:
+  emma_corruption:
+    active: true
+    stage: "experimenting"
+    entered_at_day: 5
+    history: ["innocent","curious","experimenting"]
 ```
 
-### 9.2 Checker Model Prompts
+* Persist **history** for achievements and analytics.
+* On spec migrations, provide a **stage remap** if thresholds change.
+
+---
+
+### 8.6 Authoring Guidelines
+
+* Prefer **threshold** stages for meters (trust/attraction/corruption).
+* Use **ordered** stages for linear chapters (chapter\_1 → chapter\_2).
+* Keep stage **descriptions** author-facing (not shown verbatim).
+* Give players tangible **unlocks** at key stages.
+* Avoid stage thrashing: add **hysteresis** (slightly different enter vs exit thresholds) if needed.
+
+---
+
+### 8.7 Testing Hooks
+
+* Provide a console command to **set arc stage** and to **print arc evaluation** for the current state.
+* Golden tests pin a seed and assert arc transitions when meter thresholds are crossed.
+
+---
+
+## 9. Items & Inventory (`items.yaml`)
+
+> Items provide concrete gameplay affordances: things the player can carry, give, consume, equip, or use to unlock content. They integrate with meters, modifiers, clothing, and nodes.
+
+
+---
+
+### 9.1 Item Object (annotated schema)
 
 ```yaml
-checker_prompts:
-  extract_state_changes:
-    system: |
-      Extract state changes from narrative text.
-      Return valid JSON only.
-      
-    template: |
-      NARRATIVE: "{narrative}"
-      PLAYER ACTION: "{player_action}"
-      
-      Extract and return as JSON:
-      {
-        "meter_changes": {
-          "character_id": {
-            "meter_name": change_value
-          }
-        },
-        "clothing_changes": {
-          "character_id": {
-            "removed": [],
-            "displaced": []
-          }
-        },
-        "flags": {
-          "flag_name": value
-        },
-        "modifiers_applied": [
-          {"character": "id", "modifier": "modifier_id"}
-        ]
-      }
-```
+# ===============================
+# Items (items.yaml)
+# ===============================
+items:
+  - id: "aphrodisiac"                  # unique stable id
+    name: "Strange Pink Pill"          # display name
+    category: "consumable"             # consumable | equipment | key | gift | trophy | misc
+    description: "A small pink pill with unknown effects"
+    value: 100                          # money value for shops/economy
+    stackable: true                     # if true, counts >1 merge
+    tags: ["drug","corruption"]        # freeform search/classification
 
-### 9.3 Character Card Template for AI
+    # --- Usage ---
+    consumable: true                    # if true, destroyed on use
+    target: "character"                 # player | character | any
+    use_text: "You swallow the pill..."
+    effects_on_use:
+      - { type: meter_change, target: "player", meter: "arousal", op: "add", value: 50 }
+      - { type: meter_change, target: "player", meter: "corruption", op: "add", value: 10 }
+      - { type: apply_modifier, character: "player", modifier_id: "aphrodisiac_effect", duration_min: 120 }
 
-```yaml
-character_card_template: |
-  === {name} ===
-  APPEARANCE: {appearance_description}
-  OUTFIT: {current_outfit_description}
-  
-  CURRENT STATE:
-  - Trust: {trust_level} ({trust}/100) - {trust_description}
-  - Attraction: {attraction_level} ({attraction}/100) - {attraction_description}  
-  - Arousal: {arousal_level} ({arousal}/100) - {arousal_description}
-  - Corruption: {corruption_level} ({corruption}/100) - {corruption_description}
-  - Boldness: {boldness_level} ({boldness}/100) - {boldness_description}
-  
-  ACTIVE MODIFIERS: {modifier_list}
-  
-  BEHAVIOR NOTES:
-  - Will accept: {acceptable_actions}
-  - Will reject: {rejected_actions}
-  - Current mood: {mood}
-  - Dialogue style: {dialogue_style}
-  
-  RECENT CONTEXT: {recent_events}
+    can_give: true                      # can be gifted to NPCs (gift logic in behaviors)
+    gift_effects:
+      - { type: meter_change, target: "emma", meter: "trust", op: "add", value: 5 }
+
+  - id: "dorm_key"
+    name: "Dorm Key"
+    category: "key"
+    description: "Opens your dorm room."
+    stackable: false
+    droppable: false                    # cannot be dropped
+    unlocks:
+      location: "dorm_room"
+
+  - id: "flowers"
+    name: "Bouquet of Flowers"
+    category: "gift"
+    description: "Freshly picked roses."
+    value: 20
+    tags: ["romance"]
+    consumable: true
+    gift_effects:
+      - { type: meter_change, target: "emma", meter: "attraction", op: "add", value: 10 }
+      - { type: flag_set, key: "emma_received_flowers", value: true }
+
+  - id: "emma_panties"
+    name: "Emma’s Panties"
+    category: "trophy"
+    description: "A pair of Emma’s panties, still warm."
+    value: 0
+    tags: ["intimate","emma"]
+    droppable: false
+    obtain_conditions:
+      - "meters.emma.corruption >= 60"
+      - "flags.emma_undressed == true"
 ```
 
 ---
 
-## 10. Runtime State Structure
+### 9.2 Equipment Slots
 
 ```yaml
-game_state:
-  # Session info
-  session_id: "unique_session_id"
-  game_id: "college_romance"
-  version: "1.0.0"
-  
-  # Story position
-  current_node: "library_study"
-  visited_nodes: ["intro", "morning_routine", "meet_emma"]
-  
-  # Time and location
-  day: 3
-  time_slot: "afternoon"
-  location_current: "library"
-  location_previous: "dorm_room"
-  
-  # Characters
-  present_characters: ["emma"]
-  
-  # Meters (per character + player)
-  meters:
-    player:
-      health: 100
-      energy: 75
-      money: 250
-      confidence: 60
-    emma:
-      trust: 45
-      attraction: 62
-      arousal: 35
-      corruption: 15
-      boldness: 25
-      academic_stress: 40
-      
-  # Active modifiers
-  modifiers:
-    emma:
-      - id: "slightly_aroused"
-        remaining: null  # Permanent until condition changes
-      - id: "happy"
-        remaining: 30  # minutes
-        
-  # Flags and variables
-  flags:
-    game_started: true
-    emma_met: true
-    first_kiss: true
-    emma_route: "romance"  # romance | corruption | both
-    
-  # Inventory
-  inventory:
-    condoms: 3
+equipment_slots:
+  weapon: { max: 1 }
+  outfit: { max: 1 }
+  accessory: { max: 2 }
+  underwear_top: { max: 1 }
+  underwear_bottom: { max: 1 }
+```
+
+- Clothing uses the wardrobe system; items.yaml can extend with accessories/equipment.
+- Engine validates exclusivity per slot.
+
+---
+
+### 9.3 Inventory Structure (runtime state excerpt)
+
+```yaml
+state.inventory:
+  player:
     flowers: 1
-    wine: 0
-    
-  # Clothing states
-  clothing_states:
-    emma:
-      current_outfit: "casual_day"
-      removed_layers: []
-      displaced_layers: []
-  
-  # Location tracking
-  location:
-    current_zone: "campus"
-    current_location: "library"
-    previous_zone: "campus"
-    previous_location: "dorm_room"
-    
-  # Discovery tracking
-  discovered:
-    zones: ["campus", "downtown"]
-    locations: {
-      "campus": ["dorm_room", "library", "cafeteria"],
-      "downtown": ["downtown_station"]
-    }
-    
-  # Movement state
-  movement:
-    available_transport: ["walk", "bike"]
-    current_vehicle: null
-    companion_npcs: ["emma"]
-    movement_modifiers: []
-    
-  # Zone-specific states
-  zone_states:
-    campus:
-      reputation: 50
-      security_alert: false
-    downtown:
-      first_visit: false
-      known_locations: 3    
-  
-  # History for context
-  action_history: [
-    {action: "compliment emma", response: "she blushed"},
-    {action: "suggest coffee", response: "she agreed"},
-    {action: "hold hand", response: "she squeezed back"}
-  ]
-  
-  # Stats tracking
-  statistics:
-    choices_made: 47
-    days_played: 3
-    emma_interactions: 23
-    intimate_scenes: 2
+    dorm_key: 1
+    condoms: 3
+  emma:
+    gifted_items: ["flowers"]
 ```
 
 ---
 
-## 11. Save System
+### 9.4 Mechanics
+
+- **Acquisition**: via node effects, events, milestones, shops, or crafting.
+- **Stacking**: if `stackable: true`, counts merge; otherwise each item is unique.
+- **Dropping/Trading**: items may set `droppable: false` to forbid removal.
+- **Keys**: unlock locations via `unlock_methods`.
+- **Consumables**: apply `effects_on_use` when consumed.
+- **Gifts**: apply `gift_effects` when given; conditions may reference NPC gates.
+- **Trophies**: narrative collectibles; often non-droppable, may set unique flags.
+
+---
+
+### 9.5 Integration Points
+
+- **Nodes**: choices can consume or require items.
+- **Events**: preconditions/effects may add or remove items.
+- **Milestones**: unlock special items as rewards.
+- **Clothing**: normal clothes handled in wardrobe; items.yaml may add accessories or special outfits.
+- **AI Context**: Checker recognizes inventory adds/removes; Writer sees notable items in character cards.
+
+---
+
+### 9.6 Authoring Guidelines
+
+- Keep item descriptions short and evocative.
+- Only create unique items when they matter for narrative or mechanics.
+- Use categories consistently: `consumable`, `gift`, `key`, `equipment`, `trophy`.
+- Test gifts on multiple NPCs to ensure trust/attraction balance.
+- Avoid inventory bloat—prefer flags for abstract progress.
+
+---
+## 10. AI Contracts (Writer & Checker)
+
+> This section defines the exact **prompts**, **inputs**, and **outputs** for both models. It is implementation-agnostic (OpenRouter, etc.) and focuses on invariants the engine depends on.
+
+---
+
+### 10.1 Shared Concepts
+
+#### Turn Context Envelope (engine → models)
+
+The engine sends a compact envelope each turn. Both Writer and Checker receive parts of this structure.
 
 ```yaml
-save_format:
-  version: "3.0.0"
-  timestamp: "2024-01-21T15:30:00Z"
-  
-  metadata:
-    slot: 1
-    description: "At library with Emma"
-    playtime: 3600  # seconds
-    completion: 35  # percentage
-    thumbnail: "data:image/png;base64,..."  # Optional screenshot
-    
-  state: 
-    # Complete game_state object
-    
-  config:
-    # Game configuration used
-    
-  # Location data
-  location_data:
-    current_position:
-      zone: "campus"
-      location: "library"
-    discovered_zones: ["campus", "downtown"]
-    discovered_locations: {}  # Map of zone -> location list
-    explored_locations: []  # Fully explored
-    unlocked_zones: []
-    unlocked_locations: []
-    
-  # Movement data
-  movement_data:
-    available_transport: []
-    owned_vehicles: []
-    transport_unlocks: []
-    fast_travel_points: []
+turn:
+  game:
+    id: "college_romance"
+    spec_version: "3.2"
+    narration: { pov: "second", tense: "present", paragraphs: "2-3" }
+  time: { day: 3, slot: "evening", time_hhmm: "19:42", weekday: "friday" }
+  location: { zone: "campus", id: "tavern", privacy: "low" }
+  node:
+    id: "tavern_entry"
+    type: "hub"
+    title: "Warm Lights of the Tavern"
+    beats: ["Alex is present behind the counter.", "Keep it tight; set ambience."]
+    action_filters:
+      banned_topics: ["minors", "non-consensual acts"]
+      banned_freeform: [{ pattern: "steal", reason: "no theft" }]
+    overrides: { paragraphs: "1-2" }
+  player:
+    name: "You"
+    inventory: { money: 45, items: { flowers: 1 } }
+  npcs:
+    - id: "alex"
+      card:
+        summary: "barmaid, warm, observant"
+        meters: { trust: 42, attraction: 38, arousal: 10, boldness: 22 }
+        gates: { accept_flirting: true, accept_kiss: false }
+        outfit: "work_uniform"  # clothing state already validated by engine
+        modifiers: ["aroused:light"]
+        dialogue_style: "teasing, warm"
+  recent_dialogue:
+    - speaker: player
+      text: "Busy night, huh?"
+    - speaker: alex
+      text: "Always. You here for company or a drink?"
+  last_player_action: { type: "say", text: "Maybe both." }
+  ui:
+    choices: [{ id: "order_drink", prompt: "Order a drink" }]
+```
 
-  settings:
-    # Player preferences
-    text_speed: "normal"
-    auto_save: true
-    content_filter: "none"
+#### Content Safety & Consent (hard rules)
+
+* Characters are **18+**.
+* Non-consensual content is disallowed; characters use **refusal text** from their behavior definitions when gates fail.
+* Public vs private scenes must respect `privacy` value from location and character gates.
+
+---
+
+### 10.2 Writer Contract
+
+The Writer turns the envelope into **short, vivid prose** and **dialogue** that strictly follows style and state.
+
+#### Input (Writer sees)
+
+* `turn` envelope except: numerical internals (full meter ranges), raw flags, and author-only notes are **not** shown verbatim; instead they’re summarized via **character cards** and **beats**.
+* If an **event** fires or a **choice** is selected, a short header is included.
+
+#### Output (Writer must return)
+
+A **plain text block**, ≤ target paragraph count. The Writer **must not** invent crossings (moving rooms, removing clothes) or hard state changes; instead it should imply intent and dialogue.
+
+**Required behaviors**
+
+* Follow `pov` and `tense` strictly.
+* Respect `action_filters` and consent gates (use refusal lines if needed).
+* Keep **verbosity** under `paragraphs` guidance; one paragraph = 1–4 sentences.
+* Use **naturalistic dialogue** with quotation marks; avoid screenplay formatting.
+* Provide hooks that align with `ui.choices` when present.
+
+**Example (Writer)**
+
+```
+Heat spills from the doorway as you step in. The tavern hums with chatter and clinking glass. Alex catches your eye above a half-polished mug, a quick smile warming her face.
+
+“Company’s free,” she teases, “the drink will cost you.”
+```
+
+> Note: The engine will append UI choices after this text. The Writer does not output buttons.
+
+#### Style Guards (engine-side)
+
+To control verbosity and POV:
+
+* **Prefix** the prompt with a compact style charter (see 9.4 prompts).
+* Add **few-shot** examples showing correct paragraphing and refusals.
+* Set **token ceilings**: `writer_budget` from `game.yaml`.
+
+---
+
+### 10.3 Checker Contract
+
+The Checker extracts structured state deltas **only** from what actually happened in the Writer’s prose **and** validates them against rules.
+
+#### Input (Checker sees)
+
+* The full `turn` envelope (including numeric meters, flags).
+* The Writer’s **returned text**.
+* Any **event headers** and the **player’s input** for the turn.
+
+#### Output (Checker JSON)
+
+Return **strict JSON** matching this shape. No extra keys, no comments, no trailing commas.
+
+```json
+{
+  "safety": { "ok": true, "violations": [] },
+  "meters": {
+    "player": {},
+    "npcs": { "alex": { "trust": +1 } }
+  },
+  "flags": { "rude_to_alex": false },
+  "inventory": { "player": { "money": -5, "ale": +1 } },
+  "clothing": { "alex": { "top": "intact" } },
+  "modifiers": { "alex": [ { "apply": "aroused", "duration_min": 15 } ] },
+  "location": null,
+  "events_fired": ["tavern_ambience"],
+  "node_transition": null,
+  "memory": { "append": ["Alex teased warmly when you arrived at the tavern."] }
+}
+```
+
+**Rules**
+
+* Only emit deltas that are **explicitly implied** by the prose or confirmed by authored effects.
+* Clamp to meter caps; ignore out-of-range requests.
+* Never perform disallowed actions (e.g., clothing removal) unless gates + privacy allow. If attempted in prose, set `safety.ok=false` and add a violation (engine will enforce refusal next turn).
+
+#### Error Recovery
+
+If the Checker returns malformed JSON, the engine:
+
+1. Runs a **cleanup pass** (strip code blocks, fix trailing commas, replace single quotes).
+2. If still invalid, re-prompts the Checker with: *“Return JSON only. Your last output failed to parse at: <snippet>.”*
+3. If it fails twice, the engine applies **no deltas** for that turn and logs an error.
+
+---
+
+### 10.4 Prompt Templates
+
+#### Writer (system + user)
+
+**System**
+
+```
+You are the PlotPlay Writer. Stay within the authored node’s intent and the character cards. POV: {pov}. Tense: {tense}. Write {paragraphs} short paragraph(s) max. Never describe state changes that require mechanics (moving zones, removing clothing, spending money). Use refusal lines when a gate would be violated. Avoid repetition. Keep it tight and evocative.
+```
+
+**User** (engine-filled)
+
+```
+NODE: {node.title} ({node.type})
+BEATS: {node.beats.join(" | ")}
+LOCATION: {location.id} (privacy: {location.privacy})
+TIME: day {time.day}, {time.slot} {time.time_hhmm}, {time.weekday}
+CARD[alex]: trust {meters.alex.trust}/100, attraction {meters.alex.attraction}/100, style {dialogue_style}, gates {allowed_gates}
+RECENT: {last 3 dialogue turns}
+PLAYER INPUT: {say/do text if any}
+EVENT: {event.title if any}
+UI CHOICES: {list visible choice prompts}
+```
+
+#### Checker (system + user)
+
+**System**
+
+```
+You are the PlotPlay Checker. Extract ONLY what the prose and authored effects justify. Enforce consent gates and privacy rules. Output strict JSON matching the schema. No comments, no prose.
+```
+
+**User**
+
+```
+TURN ENVELOPE (machine-readable):
+{compact JSON of time, node, meters, flags, inventory, clothing, gates}
+
+WRITER TEXT:
+"""
+{writer_text}
+"""
+
+PLAYER INPUT:
+{player_action_json}
+
+Return JSON ONLY following this schema keys:
+[safety, meters, flags, inventory, clothing, modifiers, location, events_fired, node_transition, memory]
 ```
 
 ---
 
-## 12. Implementation Notes
+### 10.5 Character Card Template (engine → Writer)
 
-### For Game Engine
+A minimal, consistent format the Writer can rely on.
 
-1. **Meter System**
-   - Load game-specific meters from config.yaml
-   - Track values per character
-   - Evaluate thresholds for named ranges
-   - Apply decay rates daily
-   - Check reveal conditions each turn
-
-2. **Modifier System**
-   - Evaluate modifier conditions each action
-   - Apply modifiers based on priority
-   - Handle stacking/exclusion rules
-   - Update duration-based modifiers
-   - Compile effects for character cards
-
-3. **Character Cards**
-   - Generate dynamically from current state
-   - Include active modifiers in description
-   - Adjust behavior based on meters
-   - Provide context-appropriate descriptions
-
-4. **State Management**
-   - Validate all state changes
-   - Cascade related effects
-   - Maintain history for AI context
-   - Support save/load with full state
-
-### For AI Integration
-
-1. **Writer Model**
-   - Include full character cards in prompt
-   - Provide recent action history
-   - Specify content boundaries based on meters
-   - Give clear instructions for tone/style
-
-2. **Checker Model**
-   - Use structured extraction prompts
-   - Validate JSON output
-   - Map keywords to state changes
-   - Handle edge cases gracefully
-
-### For Frontend
-
-1. **Display Systems**
-   - Show visible meters with icons
-   - Update character portraits based on state
-   - Display clothing state visually
-   - Animate meter changes
-
-2. **Interaction**
-   - Show available actions based on conditions
-   - Gray out unavailable options
-   - Provide hover hints for requirements
-   - Quick save/load functionality
-
-### Content Guidelines
-
-1. **Progressive Intimacy**
-   - Start with trust building
-   - Attraction before arousal
-   - Consent gates for all intimate content
-   - Corruption provides alternate paths
-
-2. **Meter Balance**
-   - Small changes (±5) for minor actions
-   - Large changes (±20) for significant events
-   - Decay creates urgency
-   - Thresholds create clear progression
-
-3. **Modifier Usage**
-   - Temporary for states (drunk, aroused)
-   - Permanent for achievements (corrupted)
-   - Visual cues in descriptions
-   - Behavioral changes in AI responses
+```yaml
+card:
+  id: "alex"
+  name: "Alex"
+  summary: "barmaid, warm, observant"
+  meters: { trust: 42, attraction: 38, arousal: 10, boldness: 22 }
+  thresholds:
+    trust: "acquaintance"
+    attraction: "interested"
+  outfit: "work_uniform"              # derived clothing summary
+  appearance: "soft smile, rolled sleeves, ink-black hair in a band"
+  modifiers: ["aroused:light"]
+  dialogue_style: "teasing, warm"
+  gates:
+    allow: ["accept_flirting"]
+    deny:  ["accept_kiss", "accept_sex"]
+  refusals:
+    wrong_place: "Not here. Too many eyes."
+    low_trust:   "Slow down. We barely know each other."
+```
 
 ---
 
+### 10.6 JSON Schemas (formal)
 
-## Appendix: Common Meter Configurations
+> Pseudotype notation for brevity; implement as JSON Schema in `/spec/ai/`.
 
-### Romance Game Meters
-```yaml
-trust: [0-100]
-attraction: [0-100]
-arousal: [0-100]
-corruption: [0-100]
-boldness: [0-100]
-love: [0-100]
-jealousy: [0-100]
+```txt
+Safety = {
+  ok: boolean,
+  violations: [ { code: string, message: string, gate?: string } ]
+}
+
+Meters = {
+  player?: { [meterId]: intDelta },
+  npcs?:   { [npcId]: { [meterId]: intDelta } }
+}
+
+Flags = { [flagKey]: boolean | number | string }
+
+Inventory = {
+  player?: { [itemId]: intDelta | { count?: intDelta, money?: intDelta } },
+  npcs?:   { [npcId]: { [itemId]: intDelta } }
+}
+
+Clothing = { [npcId]: { [layerId]: "intact" | "displaced" | "removed" } }
+
+ModifierOp = { apply?: string, remove?: string, duration_min?: int }
+Modifiers = { [npcId]: [ModifierOp] }
+
+Location = null | { move_to: string, with?: [npcId] }
+
+NodeTransition = null | { to: string, reason?: string }
+
+Memory = { append?: [string], forget?: [string] }
+
+CheckerOutput = {
+  safety: Safety,
+  meters: Meters,
+  flags: Flags,
+  inventory: Inventory,
+  clothing: Clothing,
+  modifiers: Modifiers,
+  location: Location,
+  events_fired: [string],
+  node_transition: NodeTransition,
+  memory: Memory
+}
 ```
 
-### RPG Adventure Meters
-```yaml
-health: [0-100]
-mana: [0-100]
-stamina: [0-100]
-corruption: [0-100]
-reputation: [-100 to 100]
-karma: [-100 to 100]
-```
+**Constraints**
 
-### Survival Horror Meters
-```yaml
-health: [0-100]
-sanity: [0-100]
-fear: [0-100]
-corruption: [0-100]
-infection: [0-100]
-hunger: [0-100]
-```
+* `intDelta` is an integer delta (e.g., `+2`, `-5`).
+* Unknown keys are rejected; engine validates against schema.
+* Missing objects mean **no change**.
 
+---
+
+### 10.7 Guardrails & Heuristics
+
+* **Verbosity**: engine enforces paragraph cap; if exceeded, truncate at sentence boundary.
+* **POV/Tense**: engine checks first two verbs; if mismatch, prepend corrective system reminder next turn.
+* **Refusals**: if Writer attempts a gate-violating act, Checker adds `safety.violation` and **does not** apply the change; engine injects refusal line next turn using character’s profile.
+* **Clothing**: any `removed` layer must pass privacy + gate checks; otherwise revert to `intact` and add a violation.
+* **Money**: only change via explicit item purchase, node effects, or Checker delta with textual justification (e.g., the prose states the bartender charges 5 coins).
+
+---
+
+### 10.8 Memory Handling
+
+* `memory.append` stores compact, factual scene reminders (e.g., “Alex teased you when you arrived”).
+* Engine keeps a rolling window (e.g., last 6–10 memory lines) to feed into Writer as **recent\_context**.
+* Avoid storing explicit sexual acts in memory unless they form a **milestone** or **flag** already tracked.
+
+---
+
+### 10.9 Few-Shot Snippets (recommended)
+
+Include 1–2 mini examples for the Writer showing:
+
+* A **polite flirt** accepted (uses `accept_flirting`).
+* A **boundary push** refused (uses `refusals.low_trust`).
+
+Include 1 mini example for the Checker showing:
+
+* Parsing a **purchase** (money−, item+), a **meter nudge**, and a **no-op** on disallowed clothing removal.
+
+---
+
+### 10.10 Streaming & Partial Turns (optional)
+
+* If streaming is enabled, Writer sends chunks; engine displays after full paragraph boundaries.
+* Checker is invoked **once** after the final Writer chunk.
+* On stream failure, the engine falls back to a compact retry prompt with increased temperature slightly.
+
+---
+
+### 10.11 Cost Profiles
+
+* **cheap**: concise Writer, low temperature, nucleus sampling; Checker = fast model.
+* **luxe**: more evocative Writer, higher temperature; Checker = accurate model with larger context window.
+* **custom**: per-game overrides in `game.yaml`.
