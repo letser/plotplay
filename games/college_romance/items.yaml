@@ -1,0 +1,176 @@
+# ===============================
+# Items (items.yaml)
+# College Romance — Emma Route
+# ===============================
+
+items:
+  - id: "dorm_key"
+    name: "Dorm Key"
+    category: "key"
+    description: "Opens your dorm room."
+    stackable: false
+    droppable: false
+    unlocks:
+      location: "dorm_room"
+
+  - id: "condoms"
+    name: "Condoms"
+    category: "consumable"
+    description: "Basic protection. Necessary for responsible intimacy unless corruption is very high."
+    value: 5
+    stackable: true
+    consumable: true
+    effects_on_use:
+      - { type: flag_set, key: "protection_available", value: true }
+
+  - id: "flowers"
+    name: "Bouquet of Flowers"
+    category: "gift"
+    description: "Fresh roses wrapped neatly."
+    value: 20
+    stackable: false
+    consumable: true
+    gift_effects:
+      - { type: meter_change, target: "emma", meter: "attraction", op: "add", value: 10 }
+      - { type: meter_change, target: "zoe",  meter: "attraction", op: "add", value: 10 }
+
+  - id: "textbook"
+    name: "Advanced Textbook"
+    category: "consumable"
+    description: "A heavy reference book. Helps improve mind when studied."
+    value: 25
+    stackable: true
+    consumable: true
+    effects_on_use:
+      - { type: meter_change, target: "player", meter: "mind", op: "add", value: 5 }
+
+  - id: "protein_bar"
+    name: "Protein Bar"
+    category: "consumable"
+    description: "Quick snack favored by Liam. Restores some energy."
+    value: 5
+    consumable: true
+    effects_on_use:
+      - { type: meter_change, target: "player", meter: "energy", op: "add", value: 10 }
+      - { type: meter_change, target: "player", meter: "hygiene", op: "subtract", value: 5 }
+
+  - id: "stylish_outfit"
+    name: "Stylish Outfit"
+    category: "equipment"
+    description: "Trendy outfit that boosts looks when worn."
+    value: 50
+    tags: ["clothing"]
+    equip_slot: "outfit"
+    equip_effects:
+      - { type: meter_change, target: "player", meter: "looks", op: "add", value: 10 }
+
+  - id: "emma_panties"
+    name: "Emma’s Panties"
+    category: "trophy"
+    description: "A pair of Emma’s panties, obtained only if intimacy deepens and corruption rises."
+    droppable: false
+    obtain_conditions:
+      - "meters.emma.corruption >= 60"
+      - "flags.emma_undressed == true"
+
+# ===============================
+# Events (events.yaml)
+# ===============================
+
+events:
+  - id: "emma_text_late"
+    title: "Emma’s Late-Night Text"
+    category: "relationship"
+    scope: "global"
+    trigger:
+      scheduled:
+        - when: "time.slot == 'late_night'"
+          day: ">=2"
+      conditional:
+        - when_all:
+            - "meters.emma.attraction >= 40"
+            - "not npc_present('emma')"
+    cooldown: { days: 5 }
+    narrative: |
+      Your phone buzzes with a hesitant text from Emma: “Can’t sleep… thinking about you.”
+    choices:
+      - id: "invite_over"
+        text: "Invite Emma over"
+        conditions: "gates.emma.accept_flirting"
+        effects:
+          - { type: meter_change, target: "emma", meter: "corruption", op: "add", value: 5 }
+        goto: "emma_visit_night"
+      - id: "reassure_sleep"
+        text: "Tell her to rest"
+        effects:
+          - { type: meter_change, target: "emma", meter: "trust", op: "add", value: 5 }
+
+  - id: "gym_with_liam"
+    title: "Workout with Liam"
+    category: "friendship"
+    scope: "location"
+    location: "gym"
+    trigger:
+      location_enter: true
+    narrative: |
+      Liam is at the gym, waving you over enthusiastically. “Let’s pump some iron, bro.”
+    choices:
+      - id: "join_workout"
+        text: "Join him"
+        effects:
+          - { type: meter_change, target: "player", meter: "body", op: "add", value: 5 }
+          - { type: meter_change, target: "liam", meter: "trust", op: "add", value: 5 }
+      - id: "decline"
+        text: "Not today"
+        effects:
+          - { type: meter_change, target: "liam", meter: "trust", op: "subtract", value: 2 }
+
+  - id: "zoe_cafe_shift"
+    title: "Zoe on Café Shift"
+    category: "relationship"
+    scope: "location"
+    location: "campus_cafe"
+    trigger:
+      location_enter: true
+    narrative: |
+      Zoe spots you as she works the counter. “Sweetheart, coffee’s on me if you keep me company.”
+    choices:
+      - id: "chat_with_zoe"
+        text: "Chat at the counter"
+        effects:
+          - { type: meter_change, target: "zoe", meter: "attraction", op: "add", value: 5 }
+      - id: "just_order"
+        text: "Just order quickly"
+        effects:
+          - { type: meter_change, target: "zoe", meter: "trust", op: "add", value: 2 }
+
+  - id: "club_both_girls"
+    title: "Emma and Zoe Together at the Club"
+    category: "encounter"
+    scope: "location"
+    location: "night_club"
+    trigger:
+      conditional:
+        - when_all:
+            - "npc_present('emma')"
+            - "npc_present('zoe')"
+            - "time.slot in ['night','late_night']"
+    narrative: |
+      The bass thunders as you notice Emma and Zoe together at the bar. Zoe grins, Emma looks flustered.
+    choices:
+      - id: "dance_with_both"
+        text: "Invite them both to dance"
+        conditions: "meters.zoe.attraction >= 40 and meters.emma.trust >= 40"
+        effects:
+          - { type: meter_change, target: "zoe", meter: "attraction", op: "add", value: 5 }
+          - { type: meter_change, target: "emma", meter: "boldness", op: "add", value: 5 }
+      - id: "focus_on_emma"
+        text: "Focus on Emma"
+        conditions: "gates.emma.accept_flirting"
+        effects:
+          - { type: meter_change, target: "emma", meter: "attraction", op: "add", value: 5 }
+      - id: "focus_on_zoe"
+        text: "Focus on Zoe"
+        conditions: "gates.zoe.accept_flirting"
+        effects:
+          - { type: meter_change, target: "zoe", meter: "attraction", op: "add", value: 5 }

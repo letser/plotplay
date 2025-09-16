@@ -1,0 +1,120 @@
+# ===============================
+# Arcs & Milestones (arcs.yaml)
+# College Romance — Emma Route
+# ===============================
+
+# Arcs define long-term progressions; milestones are beats with entry/exit conditions.
+
+arcs:
+  - id: "player_growth"
+    name: "Player Self-Improvement"
+    description: "Boost your mind, body, and looks to unlock dates and deeper intimacy."
+    milestones:
+      - id: "study_hard"
+        name: "Study Hard"
+        enter_if: ["time.day >= 1"]
+        complete_if: ["player.mind >= 60"]
+        reward:
+          - { type: unlock_flag, key: "midterms_over" }
+          - { type: meter_change, target: "emma", meter: "trust", op: "add", value: 5 }
+      - id: "workout_regime"
+        name: "Workout Regime"
+        enter_if: ["time.day >= 1"]
+        complete_if: ["player.body >= 60"]
+        reward:
+          - { type: meter_change, target: "zoe", meter: "attraction", op: "add", value: 5 }
+      - id: "style_upgrade"
+        name: "Style Upgrade"
+        enter_if: ["time.day >= 1"]
+        complete_if: ["player.looks >= 60"]
+        reward:
+          - { type: meter_change, target: "emma", meter: "attraction", op: "add", value: 5 }
+
+  - id: "emma_purity"
+    name: "Emma’s Purity Path"
+    description: "Emma stays mostly conservative, leading to a tender romance."
+    milestones:
+      - id: "first_meet"
+        name: "First Meeting"
+        enter_if: ["time.day == 1", "npc_present('emma')"]
+        complete_if: ["meters.emma.trust >= 20"]
+      - id: "study_together"
+        name: "Study Together"
+        enter_if: ["milestone('first_meet').completed"]
+        complete_if: ["meters.emma.trust >= 40", "meters.emma.attraction >= 30"]
+      - id: "first_date"
+        name: "First Date"
+        enter_if: ["milestone('study_together').completed"]
+        complete_if: ["meters.emma.attraction >= 50", "gates.emma.accept_date"]
+      - id: "first_kiss"
+        name: "First Kiss"
+        enter_if: ["milestone('first_date').completed"]
+        complete_if: ["gates.emma.accept_kiss"]
+      - id: "intimate_trust"
+        name: "Intimate Trust"
+        enter_if: ["milestone('first_kiss').completed"]
+        complete_if: ["meters.emma.trust >= 80", "meters.emma.attraction >= 80"]
+        ending:
+          id: "emma_love_pure"
+          name: "In Love with Emma (Pure)"
+          conditions: ["milestone('intimate_trust').completed"]
+
+  - id: "emma_corruption"
+    name: "Emma’s Corruption Path"
+    description: "Guide Emma down a bolder, corrupted path."
+    milestones:
+      - id: "temptations"
+        name: "Temptations"
+        enter_if: ["meters.emma.corruption >= 20"]
+        complete_if: ["meters.emma.corruption >= 40"]
+      - id: "club_outing"
+        name: "Club Outing"
+        enter_if: ["milestone('temptations').completed", "location.id == 'night_club'"]
+        complete_if: ["meters.emma.boldness >= 50"]
+      - id: "corrupted_romance"
+        name: "Corrupted Romance"
+        enter_if: ["milestone('club_outing').completed"]
+        complete_if: ["meters.emma.corruption >= 70", "gates.emma.accept_sex"]
+        ending:
+          id: "emma_corrupted_love"
+          name: "Corrupted Love with Emma"
+          conditions: ["milestone('corrupted_romance').completed"]
+      - id: "good_girl_gone_bad"
+        name: "Good Girl Gone Bad"
+        enter_if: ["milestone('corrupted_romance').completed"]
+        complete_if: ["meters.emma.corruption >= 90"]
+        ending:
+          id: "emma_good_girl_bad"
+          name: "Emma — Good Girl Gone Bad"
+          conditions: ["milestone('good_girl_gone_bad').completed"]
+
+  - id: "zoe_romance"
+    name: "Zoe’s Romance Path"
+    description: "Zoe offers a bolder, alternative relationship."
+    milestones:
+      - id: "cafe_flirt"
+        name: "Café Flirt"
+        enter_if: ["npc_present('zoe')", "location.id == 'campus_cafe'"]
+        complete_if: ["meters.zoe.attraction >= 30"]
+      - id: "club_dance"
+        name: "Club Dance"
+        enter_if: ["milestone('cafe_flirt').completed"]
+        complete_if: ["meters.zoe.attraction >= 50", "gates.zoe.accept_kiss"]
+      - id: "zoe_romance_full"
+        name: "Zoe’s Romance"
+        enter_if: ["milestone('club_dance').completed"]
+        complete_if: ["gates.zoe.accept_sex"]
+        ending:
+          id: "zoe_romance_ending"
+          name: "In Love with Zoe"
+          conditions: ["milestone('zoe_romance_full').completed"]
+
+  - id: "triangle_dynamic"
+    name: "Emma & Zoe Triangle"
+    description: "Both girls encounter path (club overlap, possible tension)."
+    milestones:
+      - id: "club_triangle"
+        name: "Club Triangle"
+        enter_if: ["event('club_both_girls').triggered"]
+        complete_if: ["meters.emma.attraction >= 40 and meters.zoe.attraction >= 40"]
+        notes: "Player may lean toward one or stir drama. No unique ending yet, but influences Emma/Zoe paths."

@@ -1,0 +1,141 @@
+# ===============================
+# Game Manifest (game.yaml)
+# College Romance — PlotPlay content pack
+# ===============================
+
+game:
+  id: "college_romance"
+  title: "College Romance: Emma Route"
+  version: "0.1.0"
+  spec_version: "3.1"  # Targets PlotPlay Spec v3.1
+  author: "AutoGen"
+  content_rating: "explicit"   # all_ages | teen | mature | explicit
+  tags: ["romance", "college", "slice_of_life", "NSFW", "corruption", "training"]
+
+  # --- Narration/style budgets (keeps Writer concise) ---
+  narration:
+    pov: "second"          # you …
+    tense: "present"       # now …
+    paragraphs: "2-3"       # keep turns tight
+    token_budget: 320       # Writer ceiling per turn
+    checker_budget: 220     # Checker ceiling per turn
+
+  # --- Model cost profiles (your backend maps these) ---
+  model_profiles:
+    writer: "cheap"         # e.g., mythomax-13B
+    checker: "fast"         # e.g., mistral-7B-instruct
+
+  # --- Global meters ---
+  meters:
+    player:
+      energy:   { min: 0, max: 100, default: 70, visible: true,  icon: "⚡", decay_per_slot: -10 }
+      money:    { min: 0, max: 9999, default: 60, visible: true,  icon: "💵", format: "currency" }
+      mind:     { min: 0, max: 100, default: 40, visible: true,  icon: "🧠" }   # study/knowledge
+      body:     { min: 0, max: 100, default: 35, visible: true,  icon: "💪" }   # fitness/strength
+      looks:    { min: 0, max: 100, default: 45, visible: true,  icon: "✨" }   # grooming/style
+      hygiene:  { min: 0, max: 100, default: 60, visible: true,  icon: "🧼", decay_per_slot: -5 }
+
+    # Default per-NPC meters (overridable in characters.yaml)
+    character_template:
+      trust:
+        min: 0; max: 100; default: 10
+        thresholds: { stranger: [0,19], acquaintance: [20,39], friend: [40,69], close: [70,89], intimate: [90,100] }
+      attraction:
+        min: 0; max: 100; default: 5
+        thresholds: { none: [0,19], interested: [20,39], attracted: [40,69], infatuated: [70,89], in_love: [90,100] }
+      arousal:
+        min: 0; max: 100; default: 0
+        hidden_until: "meters.{character}.attraction >= 30"
+      boldness:
+        min: 0; max: 100; default: 20
+        hidden_until: "meters.{character}.trust >= 40"
+      corruption:
+        min: 0; max: 100; default: 0
+
+  # --- Meter interaction heuristics (optional flavor) ---
+  meter_interactions:
+    - source: "player.energy"
+      target: "all.arousal"
+      when: "source < 25"
+      effect: "max = 60"  # low energy caps arousal escalation
+
+    - source: "player.hygiene"
+      target: "npc.{any}.attraction"
+      when: "source < 30"
+      effect: "effective_delta_multiplier = 0.5"  # attraction gains halved if smelly
+
+    - source: "player.mind"
+      target: "emma.trust"
+      when: "source >= 60"
+      effect: "soft_bonus = +1 on study/date scenes"
+
+    - source: "emma.corruption"
+      target: "emma.gates"
+      when: "source >= 40"
+      effect: "temporarily allow: ['accept_kiss','accept_oral'] (still needs privacy)"
+
+  # --- Time system ---
+  time:
+    mode: "slots"  # per request: days + slots
+    slots: ["morning", "noon", "afternoon", "night", "late_night"]
+    actions_per_slot: 3
+    auto_advance: true
+    calendar:
+      epoch: "2025-09-01"
+      week_days: ["monday","tuesday","wednesday","thursday","friday","saturday","sunday"]
+      start_day_index: 0
+    start:
+      day: 1
+      slot: "morning"
+
+  # --- Difficulty & pacing ---
+  difficulty:
+    meter_caps: { default: [0, 100] }
+    decay_multiplier: 1.0
+    money_multiplier: 1.0
+    hints: true
+
+  # --- Save system ---
+  save_system:
+    auto_save: true
+    slots: 8
+    checkpoints: ["emma_first_kiss", "midterms_over", "route_lock"]
+
+  # --- File table ---
+  files:
+    characters: "characters.yaml"
+    locations:  "locations.yaml"
+    nodes:      "nodes.yaml"
+    events:     "events.yaml"
+    milestones: "arcs.yaml"
+    items:      "items.yaml"
+
+  # --- Global action policies (UI/Writer guardrails) ---
+  action_filters:
+    banned_topics: ["minors", "non-consensual acts", "sexualized violence"]
+    banned_freeform:
+      - { pattern: "drugging", reason: "not allowed in this game" }
+      - { pattern: "incest",   reason: "forbidden" }
+
+  # --- Economy knobs (simple) ---
+  economy:
+    study_material_cost: 25
+    gym_day_pass_cost: 10
+    café_meal_cost: 8
+    club_entry_cost: 15
+
+  # --- Rest rules (sleep restores energy/hygiene) ---
+  rest:
+    sleep:
+      effects:
+        - { type: meter_change, target: "player", meter: "energy",  op: "set", value: 100 }
+        - { type: meter_change, target: "player", meter: "hygiene", op: "add", value: 25 }
+      advance:
+        slot: "morning"   # sleeping jumps to next morning
+        day_increment: 1
+
+  # --- UI defaults ---
+  ui:
+    show_privacy: true
+    show_presence: true
+    memory_window: 8

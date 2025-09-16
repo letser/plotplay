@@ -1,0 +1,172 @@
+# ===============================
+# Locations (locations.yaml)
+# College Romance — ≤10 locations total
+# ===============================
+
+# Two zones: campus (primary), downtown (nightclub)
+# Privacy: none | low | medium | high — influences consent gates
+
+zones:
+  - id: "campus"
+    name: "University Campus"
+    discovered: true
+    accessible: true
+
+    transport_connections:
+      - to: "downtown"
+        methods: ["bus","walk","car"]
+        distance: 2
+
+    locations:
+      - id: "player_room"
+        name: "Your Dorm Room"
+        type: "private"
+        privacy: "high"
+        discovered: true
+        access:
+          locked: true
+          unlock_methods: [{ item: "dorm_key" }]
+        features: ["bed","desk","shower","closet"]
+        on_enter:
+          narrative: "Your room is small but yours—bed unmade, notes everywhere."
+        actions:
+          - id: "sleep"
+            label: "Sleep"
+            effects:
+              - { type: meter_change, target: "player", meter: "energy",  op: "set", value: 100 }
+              - { type: meter_change, target: "player", meter: "hygiene", op: "add", value: 25 }
+              - { type: advance_time, minutes: 480 }
+              - { type: conditional, when: "time.slot != 'morning'", then: [ { type: goto_node, node: "wake_up" } ] }
+
+      - id: "dorm_common"
+        name: "Dorm Common Room"
+        type: "public"
+        privacy: "low"
+        discovered: true
+        features: ["couch","tv","vending_machine"]
+        connections:
+          - to: "player_room"
+            type: "hallway"
+
+      - id: "cafeteria"
+        name: "Campus Cafeteria"
+        type: "public"
+        privacy: "low"
+        discovered: true
+        features: ["food_counter","tables"]
+        actions:
+          - id: "eat_meal"
+            label: "Buy a meal (8$)"
+            conditions: "money >= 8"
+            effects:
+              - { type: meter_change, target: "player", meter: "energy", op: "add", value: 15 }
+              - { type: meter_change, target: "player", meter: "hygiene", op: "subtract", value: 5 }
+              - { type: inventory_add, owner: "player", item: "money", count: -8 }
+
+      - id: "library"
+        name: "University Library"
+        type: "public"
+        privacy: "medium"
+        discovered: true
+        features: ["study_desks","silent_floor","librarian"]
+        actions:
+          - id: "study"
+            label: "Study (+mind, -energy)"
+            effects:
+              - { type: meter_change, target: "player", meter: "mind",   op: "add", value: 8 }
+              - { type: meter_change, target: "player", meter: "energy", op: "subtract", value: 10 }
+
+      - id: "lecture_hall"
+        name: "Lecture Hall"
+        type: "public"
+        privacy: "low"
+        discovered: true
+        features: ["projector","seating"]
+        notes: "Classes happen mainly at noon; Emma present per schedule."
+
+      - id: "gym"
+        name: "Campus Gym"
+        type: "public"
+        privacy: "low"
+        discovered: true
+        features: ["weights","treadmills","showers"]
+        actions:
+          - id: "workout"
+            label: "Workout (+body, -energy, -hygiene)"
+            effects:
+              - { type: meter_change, target: "player", meter: "body",   op: "add", value: 8 }
+              - { type: meter_change, target: "player", meter: "energy", op: "subtract", value: 15 }
+              - { type: meter_change, target: "player", meter: "hygiene", op: "subtract", value: 15 }
+
+      - id: "campus_cafe"
+        name: "Campus Café"
+        type: "public"
+        privacy: "low"
+        discovered: true
+        features: ["barista","tables","sofa"]
+        actions:
+          - id: "coffee_date"
+            label: "Buy coffee for two (8$)"
+            conditions: "money >= 8 and (npc_present('emma') or npc_present('sophia'))"
+            effects:
+              - { type: inventory_add, owner: "player", item: "money", count: -8 }
+              - { type: meter_change, target: "emma", meter: "trust", op: "add", value: 3 }
+              - { type: meter_change, target: "sophia", meter: "trust", op: "add", value: 3 }
+
+      - id: "campus_quad"
+        name: "Campus Quad"
+        type: "public"
+        privacy: "low"
+        discovered: true
+        features: ["benches","fountain"]
+        notes: "Good spot for casual chats; events may trigger at evening."
+
+      - id: "emma_room"
+        name: "Emma’s Dorm Room"
+        type: "private"
+        privacy: "high"
+        discovered: false
+        discovery_conditions:
+          - "meters.emma.trust >= 40"
+          - "flags.emma_invites_in == true"
+        access:
+          locked: true
+          unlock_methods:
+            - { flag: "emma_invites_in", requires_presence: "emma" }
+        hidden_until_discovered: true
+        features: ["bed","desk","bookshelf"]
+
+      - id: "campus_cafe_back"
+        name: "Café Back Booth"
+        type: "semi_private"
+        privacy: "medium"
+        discovered: true
+        discovery_conditions:
+          - "meters.emma.trust >= 30 or meters.sophia.trust >= 30"
+        notes: "Quieter corner for deeper talks and kissing if gates allow."
+
+  - id: "downtown"
+    name: "Downtown"
+    discovered: false
+    accessible: false
+    unlock_conditions:
+      discovered: "day >= 2 or flags.heard_about_downtown"
+      accessible: "zones.downtown.discovered and money >= 15"
+
+    locations:
+      - id: "night_club"
+        name: "Pulse Nightclub"
+        type: "public"
+        privacy: "low"
+        discovered: false
+        access:
+          locked: false
+        features: ["dance_floor","bar","vip_booth"]
+        actions:
+          - id: "pay_entry"
+            label: "Pay entry (15$)"
+            conditions: "money >= 15"
+            effects:
+              - { type: inventory_add, owner: "player", item: "money", count: -15 }
+              - { type: apply_modifier, character: "player", modifier_id: "club_vibes", duration_min: 120 }
+        notes: "Zoe often appears late night; Emma may come if boldness/corruption high."

@@ -1,0 +1,254 @@
+# ===============================
+# Characters (characters.yaml)
+# College Romance — Emma Route
+# ===============================
+
+# Hard rules (engine enforces too):
+# - All characters are consenting adults (>= 18).
+# - No non-consensual content. Behavior gates + privacy must pass for intimacy.
+# - Public explicit actions require sufficient privacy.
+
+player:
+  id: "player"
+  name: "You"                 # UI may prompt for a custom name
+  age: 19
+  gender: "male"              # free text, can be customized later
+  pronouns: ["you"]           # narration POV is second-person
+  stats:                       # Mirrors game.yaml meters
+    energy: 70
+    money: 60
+    mind: 40
+    body: 35
+    looks: 45
+    hygiene: 60
+  traits: ["freshman", "earnest", "a bit awkward", "determined"]
+  inventory:
+    - { id: "dorm_key",     count: 1 }
+    - { id: "condoms",      count: 3 }
+    - { id: "notebook",     count: 1 }
+    - { id: "deodorant",    count: 1 }
+  wardrobe:
+    outfit: "casual_male"
+  dialogue:
+    style: "casual, sincere, occasionally witty"
+  goals:
+    - "Improve yourself (mind/body/looks) to unlock dates and scenes."
+    - "Win Emma’s affection — choose purity or corruption route."
+  behavior:
+    gates:
+      # Player-side allowances mainly influence suggested actions/UI; NPC gates rule consent.
+      - { id: "study_focus", when: "mind >= 50" }
+      - { id: "heavy_workout", when: "body >= 50 and energy >= 40" }
+      - { id: "sharp_style", when: "looks >= 60 and hygiene >= 60" }
+
+npcs:
+  - id: "emma"
+    name: "Emma Chen"
+    age: 20
+    gender: "female"
+    pronouns: ["she","her"]
+    role: "love_interest"
+
+    meters:               # Overrides template defaults
+      trust:       { default: 20 }
+      attraction:  { default: 15 }
+      arousal:     { default: 0 }
+      boldness:    { default: 15 }
+      corruption:  { default: 5 }
+      academic_stress: { min: 0, max: 100, default: 35, visible: true, icon: "📚" }
+
+    personality:
+      core_traits: ["shy", "studious", "kind", "rule-following"]
+      values: ["honesty", "boundaries", "academic success"]
+      fears: ["public embarrassment", "rumors", "failing exams"]
+      desires: ["safe intimacy", "feeling understood", "trying new things slowly"]
+      quirks: ["tucks hair behind ear when nervous", "color-codes notes"]
+
+    appearance:
+      base:
+        height: "162 cm"
+        build: "petite, athletic"
+        hair: { color: "black", length: "shoulder", style: "ponytail" }
+        eyes: { color: "dark brown" }
+        style: ["modest", "neat", "pastel palette"]
+      contexts:
+        - id: "study_mode"
+          when: "time.slot in ['noon','afternoon'] and location.id == 'library'"
+          description: "Glasses on, oversized cardigan."
+
+    wardrobe:
+      rules:
+        layer_order: ["outerwear","top","bottom","feet","underwear_top","underwear_bottom","accessories"]
+      outfits:
+        - id: "modest_campus"
+          name: "Campus Pastels"
+          layers:
+            outerwear: { item: "cardigan", color: "cream" }
+            top: { item: "blouse", color: "pastel pink" }
+            bottom: { item: "jeans", style: "high-waist" }
+            feet: { item: "sneakers" }
+            underwear_top: { item: "bra", style: "t-shirt" }
+            underwear_bottom: { item: "panties", style: "bikini" }
+            accessories: ["glasses","backpack"]
+        - id: "bold_weekend"
+          name: "Weekend Bold"
+          unlock_when: "meters.emma.corruption >= 40 or meters.emma.boldness >= 60"
+          layers:
+            top: { item: "crop top", color: "black" }
+            bottom: { item: "mini skirt", color: "red" }
+            feet: { item: "ankle boots" }
+            underwear_top: { item: "push-up bra", style: "lace" }
+            underwear_bottom: { item: "thong", style: "g-string" }
+            accessories: ["choker","lip gloss"]
+
+    behaviors:
+      limits:
+        hard_no: ["non-consensual acts", "minors", "public explicit with privacy < 'high'"]
+        soft_yes: ["light teasing", "kissing", "making out", "private nudity after trust"]
+      gates:
+        - { id: "accept_compliment", when: "always" }
+        - { id: "accept_flirting", when: "meters.emma.trust >= 25 or meters.emma.corruption >= 30" }
+        - { id: "accept_date", when_any: ["meters.emma.attraction >= 35 and meters.emma.trust >= 30", "meters.emma.corruption >= 35 and meters.emma.attraction >= 25"] }
+        - { id: "accept_kiss", when_any: ["meters.emma.attraction >= 55 and meters.emma.trust >= 45", "meters.emma.corruption >= 45 and meters.emma.arousal >= 35"] }
+        - { id: "accept_oral", when_all: ["meters.emma.arousal >= 70", "(meters.emma.trust >= 70) or (meters.emma.corruption >= 60)", "privacy == 'high'"] }
+        - { id: "accept_sex", when_all: ["meters.emma.arousal >= 80", "(meters.emma.trust >= 80 and meters.emma.attraction >= 80) or (meters.emma.corruption >= 70)", "privacy == 'high'", "flags.protection_available == true or meters.emma.corruption >= 80"] }
+      refusals:
+        generic: "She pulls back, cheeks warm. 'Not yet.'"
+        low_trust: "She shakes her head. 'Slow down… please.'"
+        wrong_place: "She glances around. 'Not here.'"
+
+    dialogue:
+      base_style: "soft-spoken, thoughtful; warms when safe"
+      vocab:
+        normal: ["maybe", "I guess", "um", "okay"]
+        aroused: ["please", "want", "need"]
+      styles:
+        shy: "hesitant, hedging"
+        bold: "shorter sentences, eye contact"
+
+    schedule:
+      weekday:
+        morning:   { location: "cafeteria", activity: "breakfast", availability: "high" }
+        noon:      { location: "lecture_hall", activity: "class",     availability: "low" }
+        afternoon: { location: "library",     activity: "study",     availability: "medium" }
+        night:     { location: "emma_room",   activity: "relax",    availability: "high" }
+        late_night:{ location: "emma_room",   activity: "sleep",    availability: "none" }
+      weekend:
+        morning:   { location: "emma_room",   activity: "sleep in", availability: "low" }
+        night:     { location: "campus_quad", activity: "walk",      availability: "medium" }
+
+    movement:
+      willing_locations:
+        - { location: "player_room", when: "meters.emma.trust >= 40" }
+        - { location: "emma_room",   when: "meters.emma.trust >= 50" }
+        - { location: "night_club",  when: "meters.emma.corruption >= 40 or time.weekday in ['friday','saturday']" }
+      follow_thresholds: { eager: 70, willing: 45, reluctant: 25 }
+
+  - id: "liam"
+    name: "Liam Park"
+    age: 20
+    gender: "male"
+    pronouns: ["he","him"]
+    role: "friend"
+
+    meters:
+      trust:      { default: 35 }
+      attraction: { default: 0 }     # not a romance route
+      boldness:   { default: 45 }
+
+    personality:
+      core_traits: ["supportive", "sarcastic", "social"]
+      values: ["loyalty", "fun", "self-improvement"]
+      quirks: ["keeps protein bars everywhere", "sends gym memes at 6am"]
+
+    appearance:
+      base:
+        height: "178 cm"
+        build: "lean, athletic"
+        hair: { color: "brown", style: "messy" }
+        style: ["athleisure", "graphic tees"]
+
+    behaviors:
+      gates:
+        - { id: "workout_buddy", when: "location.zone == 'campus' and location.id in ['gym','track']" }
+        - { id: "wingman", when: "meters.liam.trust >= 30 and npc_present('emma')" }
+      refusals:
+        generic: "Bro, that's not cool."
+
+    dialogue:
+      base_style: "casual, ribbing; wholesome when earnest"
+      vocab:
+        normal: ["bro", "dude", "let's go"]
+
+    schedule:
+      weekday:
+        morning:   { location: "gym",        activity: "workout", availability: "high" }
+        noon:      { location: "cafeteria",  activity: "eat",     availability: "high" }
+        afternoon: { location: "campus_quad",activity: "hang",    availability: "medium" }
+        night:     { location: "liam_room",  activity: "game",    availability: "high" }
+
+  - id: "zoe"
+    name: "Zoe Alvarez"
+    age: 21
+    gender: "female"
+    pronouns: ["she","her"]
+    role: "alt_love_interest"
+
+    meters:
+      trust:      { default: 25 }
+      attraction: { default: 20 }
+      arousal:    { default: 5 }
+      boldness:   { default: 55 }
+      corruption: { default: 35 }
+
+    personality:
+      core_traits: ["confident", "flirty", "adventurous", "protects friends"]
+      values: ["authenticity", "pleasure", "no drama"]
+      quirks: ["mixes playlists for every mood", "calls people 'sweetheart'"]
+
+    appearance:
+      base:
+        height: "168 cm"
+        build: "curvy"
+        hair: { color: "auburn", style: "wavy" }
+        style: ["bold", "street-chic"]
+
+    wardrobe:
+      rules:
+        layer_order: ["outerwear","top","bottom","feet","underwear_top","underwear_bottom","accessories"]
+      outfits:
+        - id: "club_ready"
+          name: "Club Ready"
+          layers:
+            top: { item: "halter top", color: "emerald" }
+            bottom: { item: "leather pants" }
+            feet: { item: "heels" }
+            underwear_top: { item: "lace bra" }
+            underwear_bottom: { item: "lace panties" }
+            accessories: ["hoops", "silver bangles"]
+
+    behaviors:
+      limits:
+        hard_no: ["minors", "non-consensual acts"]
+        soft_yes: ["public flirting", "dancing", "light exhibition if privacy >= 'medium'"]
+      gates:
+        - { id: "accept_flirting", when: "meters.zoe.attraction >= 20" }
+        - { id: "accept_date", when: "meters.zoe.attraction >= 35 and meters.zoe.trust >= 25" }
+        - { id: "accept_kiss", when_any: ["meters.zoe.attraction >= 45", "privacy >= 'medium'"] }
+        - { id: "accept_oral", when_all: ["meters.zoe.arousal >= 65", "privacy >= 'high'"] }
+        - { id: "accept_sex", when_all: ["meters.zoe.arousal >= 75", "(meters.zoe.trust >= 70) or (meters.zoe.corruption >= 60)", "privacy == 'high'", "flags.protection_available == true or meters.zoe.corruption >= 80"] }
+      refusals:
+        generic: "Zoe grins, but taps your chest. 'Not so fast, heartthrob.'"
+
+    dialogue:
+      base_style: "playful, bold, teasing"
+      vocab:
+        normal: ["sweetheart", "babe", "mm-hmm"]
+
+    schedule:
+      weekday:
+        night:       { location: "campus_cafe", activity: "shift",      availability: "high" }
+        late_night:  { location: "night_club",  activity: "dance",      availability: "high" }
+      weekend:
+        afternoon:   { location: "downtown_square", activity: "shop",   availability: "medium" }
+        night:       { location: "night_club",     activity: "host",   availability: "high" }
