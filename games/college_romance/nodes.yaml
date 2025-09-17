@@ -7,7 +7,7 @@
 
 nodes:
   - id: "intro_dorm"
-    kind: scene
+    type: scene
     location: dorm_room
     authored_beats:
       - "Your first morning as a freshman. Boxes half-unpacked, schedule in hand."
@@ -21,7 +21,7 @@ nodes:
         goto: "cafeteria_meet"
 
   - id: "first_lecture"
-    kind: scene
+    type: scene
     location: lecture_hall
     authored_beats:
       - "The lecture hall hums with chatter. Emma sits near the middle, notebook already open."
@@ -38,7 +38,7 @@ nodes:
         goto: "lecture_generic"
 
   - id: "lecture_smalltalk"
-    kind: scene
+    type: scene
     location: lecture_hall
     authored_beats:
       - "Emma glances up shyly as you sit down. She offers a polite smile."
@@ -55,7 +55,7 @@ nodes:
         goto: "study_together_intro"
 
   - id: "cafeteria_meet"
-    kind: scene
+    type: scene
     location: cafeteria
     authored_beats:
       - "The cafeteria buzzes with students. You spot Liam waving, and Zoe leaning against the counter."
@@ -72,7 +72,7 @@ nodes:
         goto: "zoe_chat"
 
   - id: "study_together_intro"
-    kind: scene
+    type: scene
     location: library
     authored_beats:
       - "Later in the library, Emma studies quietly. She hesitates, then gestures you over."
@@ -89,7 +89,7 @@ nodes:
         goto: "library_generic"
 
   - id: "study_session"
-    kind: scene
+    type: scene
     location: library
     authored_beats:
       - "Emma shares her notes. Her handwriting is precise, her voice quiet."
@@ -98,12 +98,12 @@ nodes:
         - "Respect her shy boundaries unless corruption high."
       checker_targets:
         meters: ["trust","attraction","corruption"]
-    exits:
+    transitions:
       - when: ["gates.emma.accept_date"]
         goto: "emma_first_date"
 
   - id: "liam_banter"
-    kind: scene
+    type: scene
     location: cafeteria
     authored_beats:
       - "Liam claps you on the shoulder. 'First day nerves?' He smirks."
@@ -115,7 +115,7 @@ nodes:
         goto: "cafeteria_generic"
 
   - id: "zoe_chat"
-    kind: scene
+    type: scene
     location: campus_cafe
     authored_beats:
       - "Zoe leans across the counter. 'So, you’re new around here?'"
@@ -133,7 +133,7 @@ nodes:
         goto: "zoe_interest"
 
   - id: "club_encounter"
-    kind: scene
+    type: scene
     location: night_club
     authored_beats:
       - "The nightclub is packed. Bass shakes the walls. Zoe is already on the dance floor; Emma lingers at the bar, uncertain."
@@ -159,7 +159,7 @@ nodes:
         goto: "zoe_club_progress"
 
   - id: "triangle_tension"
-    kind: scene
+    type: scene
     location: night_club
     authored_beats:
       - "With both girls on the dance floor, tension rises. Zoe is bold, Emma flushed but hesitant."
@@ -168,51 +168,51 @@ nodes:
         - "Writer must balance Emma’s shy nature vs Zoe’s boldness."
       checker_targets:
         meters: ["emma.attraction","zoe.attraction","emma.corruption"]
-    exits:
+    transitions:
       - when: ["milestone('club_triangle').completed"]
         goto: "triangle_resolution"
 
   - id: "emma_first_date"
-    kind: scene
+    type: scene
     location: campus_cafe_back
     authored_beats:
       - "Emma agrees to a coffee date. The quiet booth gives a rare privacy."
-    exits:
+    transitions:
       - when: ["gates.emma.accept_kiss"]
         goto: "emma_first_kiss"
 
   - id: "emma_first_kiss"
-    kind: scene
+    type: scene
     location: campus_cafe_back
     authored_beats:
       - "Emma looks down, then up again, leaning close. Her lips tremble against yours."
-    exits:
+    transitions:
       - when: ["milestone('intimate_trust').completed"]
         goto: "ending_emma_pure"
       - when: ["milestone('corrupted_romance').completed"]
         goto: "ending_emma_corrupt"
 
   - id: "ending_emma_pure"
-    kind: ending
+    type: ending
     authored_beats:
       - "Through patience and trust, you and Emma fall in love. She stays true to herself, and you respect her pace."
 
   - id: "ending_emma_corrupt"
-    kind: ending
+    type: ending
     authored_beats:
       - "Emma sheds her shy exterior completely. In your arms, she embraces a wilder side, corrupted but in love."
 
   - id: "ending_emma_bad"
-    kind: ending
+    type: ending
     authored_beats:
       - "Pressured and unready, Emma recoils. The relationship collapses, leaving only regret."
 
   - id: "ending_zoe_romance"
-    kind: ending
+    type: ending
     authored_beats:
       - "Zoe claims you boldly. The two of you thrive in late nights and fiery passion, a contrast to Emma’s path."
 
   - id: "ending_good_girl_bad"
-    kind: ending
+    type: ending
     authored_beats:
       - "Emma’s corruption goes too far. Once conservative, now reckless, she revels in excess—good girl gone bad."

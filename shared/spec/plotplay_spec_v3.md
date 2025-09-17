@@ -93,21 +93,26 @@ game:
       money:    { min: 0, max: 9999, default: 100, visible: true,  icon: "💰", format: "currency" }
 
     character_template:
-      trust:
-        min: 0; max: 100; default: 0
+      trust: {
+        min: 0, max: 100, default: 0,
         thresholds: { stranger: [0,19], acquaintance: [20,39], friend: [40,69], close: [70,89], intimate: [90,100] }
-      attraction:
-        min: 0; max: 100; default: 0
+      }
+      attraction: {
+        min: 0, max: 100, default: 0,
         thresholds: { none: [0,19], interested: [20,39], attracted: [40,69], infatuated: [70,89], in_love: [90,100] }
-      arousal:
-        min: 0; max: 100; default: 0
+      }
+      arousal: {
+        min: 0, max: 100, default: 0,
         hidden_until: "meters.{character}.attraction >= 30"
-      corruption:
-        min: 0; max: 100; default: 0
+      }
+      corruption: {
+        min: 0, max: 100, default: 0,
         hidden_until: "flags.corruption_revealed == true"
-      boldness:
-        min: 0; max: 100; default: 20
+      }
+      boldness: {
+        min: 0, max: 100, default: 20,
         hidden_until: "meters.{character}.trust >= 40"
+      }
 
   meter_interactions:
     - source: "{character}.arousal"
@@ -159,18 +164,19 @@ game:
     checkpoints: ["chapter_1_end", "chapter_2_end"]
 
   files:
-    characters: "characters.yaml"
-    world:      "world.yaml"      # optional; use only if multiple worlds/custom rules
-    locations:  "locations.yaml"  # zones + inline locations
-    nodes:      "nodes.yaml"
-    events:     "events.yaml"
-    milestones: "arcs.yaml"
-    items:      "items.yaml"
-```
+  # REQUIRED files (must exist):
+  characters.yaml   # Always required
+  nodes.yaml        # Always required
+  
+  # OPTIONAL files (can be inline or separate):
+  locations.yaml    # Can be inline in game.yaml
+  items.yaml        # Can be inline at end of characters.yaml  
+  events.yaml       # Can be inline at end of nodes.yaml
+  milestones.yaml   # Can be inline in arcs.yaml
 
 ---
 
-## 2. Time & Calendar Model (Design Notes)
+## 2. Time & Calendar Model
 
 We support **three modes** to fit different game styles:
 
@@ -187,6 +193,24 @@ We support **three modes** to fit different game styles:
   - `time.hhmm in ['22:00'..'02:00']` (engine handles wrap-around)
   - `time.weekday in ['friday','saturday']`
   - `time.day >= 7` (absolute narrative day)
+
+```yaml
+time:
+  mode: "slots"  # CHOOSE ONE: slots | clock | hybrid
+  
+  # FOR SLOTS MODE (simple, recommended):
+  slots: ["morning", "noon", "afternoon", "evening", "night", "late_night"]
+  actions_per_slot: 3    # After N actions, auto-advance slot
+  
+  # FOR HYBRID MODE (slots + minutes):
+  # Slots still exist but time tracks minutes within them
+  clock:
+    minutes_per_slot: {"morning": 240, "noon": 180, ...}
+    
+  # State representation differs by mode:
+  # Slots mode: {day: 3, slot: "evening"}
+  # Hybrid mode: {day: 3, slot: "evening", time_hhmm: "19:30"}```
+```
 
 ### Runtime State (time-related excerpt)
 
@@ -497,8 +521,38 @@ modifier_system:
 ---
 
 ### 4.4 Expression DSL
-- Comparisons, boolean logic, `in`, dot paths, `.get()`, arithmetic.  
-- Helpers: `has(item_id)`, `npc_present(id)`, `rand(p)`.  
+
+#### Operators:
+- Comparison: ==, !=, <, <=, >, >=
+- Boolean: and, or, not, in
+- Arithmetic: +, -, *, /
+- Grouping: ( )
+
+#### Path access:
+- Dot notation: meters.emma.trust
+- Bracket notation: meters['emma']['trust']
+
+#### Functions:
+- has(item_id) - check inventory
+- npc_present(npc_id) - check presence
+- rand(probability) - random chance (0.0-1.0)
+- max(a, b), min(a, b)
+- abs(value)
+
+#### Special variables:
+- time.day, time.slot, time.weekday
+- location.id, location.zone, location.privacy
+- flags.* - all flags
+- meters.* - all meters
+- player.* - player state
+- gates.{npc}.* - evaluated gates
+
+#### Examples:
+```yaml
+"meters.emma.trust >= 50 and gates.emma.accept_date"
+"time.slot in ['evening','night'] and rand(0.25)"
+"has('flowers') or money >= 20"
+```
 
 ---
 
@@ -676,10 +730,21 @@ Nodes are the authored backbone of PlotPlay. They define **where the story is**,
 ```yaml
 # ===============================
 # Nodes (nodes.yaml)
+#
+# Node Required Fields:
+# - id: string (unique)
+# - type: enum (scene|hub|encounter|ending)
+# - title: string (UI display)
+# - transitions: array (must have at least one with when:"always")
+#
+# Node Optional Fields:
+# - preconditions, beats, choices, effects, etc.
+
+
 # ===============================
 nodes:
   - id: "tavern_entry"             # Required, unique across the game
-    type: "hub"                    # scene | hub | encounter | ending
+    type: "hub"                    # Required: scene | hub | encounter | ending
     title: "Warm Lights of the Tavern"
 
     # Node is available only if this is true. If false, engine searches next matching node or falls back.
@@ -1257,19 +1322,67 @@ achievements:
 
 ### 8.5 Save/Load & Telemetry
 
-Engine should persist per-arc:
-
 ```yaml
-state.arcs:
-  emma_corruption:
-    active: true
-    stage: "experimenting"
-    entered_at_day: 5
-    history: ["innocent","curious","experimenting"]
-```
+# ===============================
+# Save System & State Persistence
+# ===============================
 
-* Persist **history** for achievements and analytics.
-* On spec migrations, provide a **stage remap** if thresholds change.
+save_file:
+  version: "1.0.0"              # Save format version
+  spec_version: "3.1"           # PlotPlay spec version
+  game_id: "college_romance"
+  game_version: "0.1.0"
+  
+  metadata:
+    created_at: "2025-01-15T14:30:00Z"
+    updated_at: "2025-01-15T15:45:00Z"
+    play_time_minutes: 75
+    turn_count: 42
+    
+  snapshot:
+    # Current state - complete snapshot
+    state:
+      time: { day: 3, slot: "evening" }
+      location: { zone: "campus", id: "library" }
+      current_node: "study_session"
+      
+      meters:
+        player: { energy: 65, money: 40, mind: 45 }
+        npcs:
+          emma: { trust: 42, attraction: 38, arousal: 0 }
+          
+      flags: { emma_met: true, first_kiss: false }
+      
+      inventory:
+        player: { dorm_key: 1, flowers: 1 }
+        
+      clothing:
+        emma: { outfit: "modest_campus", state: "intact" }
+      arcs:
+        emma_corruption:
+            active: true
+            stage: "experimenting"
+            entered_at_day: 5
+            history: ["innocent","curious","experimenting"]
+        
+    # Rolling history for context
+    history:
+      recent_nodes: ["intro_dorm", "first_lecture", "study_session"]
+      recent_dialogue: [
+        { turn: 40, speaker: "player", text: "Want to study together?" },
+        { turn: 41, speaker: "emma", text: "Sure, but just studying." }
+      ]
+      
+    # Progression tracking
+    progression:
+      endings_unlocked: []
+      milestones_completed: ["first_meet"]
+      achievements: []
+```
+>Note:
+>* Engine should persist per-arc:
+>* Persist **history** for achievements and analytics.
+>* On spec migrations, provide a **stage remap** if thresholds change.
 
 ---
 
@@ -1539,7 +1652,7 @@ Return **strict JSON** matching this shape. No extra keys, no comments, no trail
   "safety": { "ok": true, "violations": [] },
   "meters": {
     "player": {},
-    "npcs": { "alex": { "trust": +1 } }
+    "npcs": { "alex": { "trust": =1 } }
   },
   "flags": { "rude_to_alex": false },
   "inventory": { "player": { "money": -5, "ale": +1 } },
@@ -1554,9 +1667,12 @@ Return **strict JSON** matching this shape. No extra keys, no comments, no trail
 
 **Rules**
 
-* Only emit deltas that are **explicitly implied** by the prose or confirmed by authored effects.
-* Clamp to meter caps; ignore out-of-range requests.
-* Never perform disallowed actions (e.g., clothing removal) unless gates + privacy allow. If attempted in prose, set `safety.ok=false` and add a violation (engine will enforce refusal next turn).
+- Only emit deltas that are **explicitly implied** by the prose or confirmed by authored effects.
+- Clamp to meter caps; ignore out-of-range requests.
+- Never perform disallowed actions (e.g., clothing removal) unless gates + privacy allow. If attempted in prose, set `safety.ok=false` and add a violation (engine will enforce refusal next turn).
+- All numeric values are either DELTAS (changes), or ABSOLUTE values
+    - Format for deltas: +N or -N (always include sign for clarity)
+    - Format for absolute values: =N (explicitly include = operator without space )
 
 #### Error Recovery
 
@@ -1738,6 +1854,37 @@ Include 1 mini example for the Checker showing:
 * If streaming is enabled, Writer sends chunks; engine displays after full paragraph boundaries.
 * Checker is invoked **once** after the final Writer chunk.
 * On stream failure, the engine falls back to a compact retry prompt with increased temperature slightly.
+
+#### Streaming protocol
+```yaml
+# ===============================
+# Streaming Protocol
+# ===============================
+
+streaming:
+  enabled: true
+  
+  writer_streaming:
+    # Send chunks at natural boundaries
+    chunk_boundaries: ["sentence", "paragraph", "dialogue"]
+    min_chunk_tokens: 20
+    max_buffer_tokens: 100
+    
+    # Chunk format
+    chunk:
+      type: "partial" | "complete"
+      content: "text"
+      paragraph_count: 1
+      is_final: false
+      
+  checker_streaming:
+    enabled: false  # Checker always returns complete JSON
+    
+  error_recovery:
+    on_stream_break: "show_partial"
+    timeout_ms: 30000
+    retry_partial: false
+```
 
 ---
 

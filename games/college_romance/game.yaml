@@ -37,20 +37,25 @@ game:
 
     # Default per-NPC meters (overridable in characters.yaml)
     character_template:
-      trust:
-        min: 0; max: 100; default: 10
-        thresholds: { stranger: [0,19], acquaintance: [20,39], friend: [40,69], close: [70,89], intimate: [90,100] }
-      attraction:
-        min: 0; max: 100; default: 5
+      trust: {
+          min: 0, max: 100, default: 10,
+          thresholds: { stranger: [ 0,19 ], acquaintance: [ 20,39 ], friend: [ 40,69 ], close: [ 70,89 ], intimate: [ 90,100 ] }
+        }
+      attraction: {
+        min: 0, max: 100, default: 5,
         thresholds: { none: [0,19], interested: [20,39], attracted: [40,69], infatuated: [70,89], in_love: [90,100] }
-      arousal:
-        min: 0; max: 100; default: 0
+      }
+      arousal: {
+        min: 0, max: 100, default: 0,
         hidden_until: "meters.{character}.attraction >= 30"
-      boldness:
-        min: 0; max: 100; default: 20
+      }
+      boldness: {
+        min: 0, max: 100, default: 20,
         hidden_until: "meters.{character}.trust >= 40"
-      corruption:
-        min: 0; max: 100; default: 0
+      }
+      corruption: {
+        min: 0, max: 100, default: 0
+      }
 
   # --- Meter interaction heuristics (optional flavor) ---
   meter_interactions:
