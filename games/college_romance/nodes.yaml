@@ -3,216 +3,469 @@
 # College Romance — Emma Route
 # ===============================
 
-# Node kinds: scene | hub | event_gate | ending
+# Node types: scene | hub | encounter | ending
 
 nodes:
   - id: "intro_dorm"
-    type: scene
-    location: dorm_room
-    authored_beats:
+    type: "scene"
+    title: "Your First Morning"
+    preconditions: "true"  # Always available as starting node
+    beats:
       - "Your first morning as a freshman. Boxes half-unpacked, schedule in hand."
       - "The day stretches before you—lectures, cafeteria food, new faces."
-    dynamic_choices:
+    choices:
       - id: "go_lecture"
         prompt: "Head to your first lecture"
-        goto: "first_lecture"
+        to: "first_lecture"
       - id: "check_cafeteria"
         prompt: "Grab breakfast at the cafeteria"
-        goto: "cafeteria_meet"
+        to: "cafeteria_meet"
+    transitions:
+      - { when: "always", to: "campus_hub" }
+
+  - id: "campus_hub"
+    type: "hub"
+    title: "Campus Life"
+    preconditions: "true"
+    beats:
+      - "The campus buzzes with student activity."
+    choices:
+      - id: "go_library"
+        prompt: "Study at the library"
+        conditions: "true"
+        to: "library_generic"
+      - id: "go_cafeteria"
+        prompt: "Visit cafeteria"
+        conditions: "true"
+        to: "cafeteria_generic"
+      - id: "find_emma"
+        prompt: "Look for Emma"
+        conditions: "flags.emma_met == true"
+        to: "find_emma_scene"
+    transitions:
+      - { when: "always", to: "campus_hub" }  # Stay in hub by default
 
   - id: "first_lecture"
-    type: scene
-    location: lecture_hall
-    authored_beats:
+    type: "scene"
+    title: "Introduction to Psychology"
+    beats:
       - "The lecture hall hums with chatter. Emma sits near the middle, notebook already open."
-    dynamic_choices:
+    choices:
       - id: "sit_near_emma"
         prompt: "Sit near Emma"
         effects:
           - { type: meter_change, target: "emma", meter: "trust", op: "add", value: 5 }
-        goto: "lecture_smalltalk"
+          - { type: flag_set, key: "emma_met", value: true }
+        to: "lecture_smalltalk"
       - id: "sit_alone"
         prompt: "Sit alone in the back"
         effects:
           - { type: flag_set, key: "avoided_emma", value: true }
-        goto: "lecture_generic"
+        to: "lecture_generic"
+    transitions:
+      - { when: "always", to: "campus_hub" }
 
   - id: "lecture_smalltalk"
-    type: scene
-    location: lecture_hall
-    authored_beats:
+    type: "scene"
+    title: "Meeting Emma"
+    beats:
       - "Emma glances up shyly as you sit down. She offers a polite smile."
-    dynamic_choices:
+    choices:
       - id: "compliment_notes"
         prompt: "Compliment her neat notes"
         effects:
           - { type: meter_change, target: "emma", meter: "trust", op: "add", value: 3 }
-        goto: "study_together_intro"
+        to: "study_together_intro"
       - id: "ask_about_major"
         prompt: "Ask her about her major"
         effects:
           - { type: meter_change, target: "emma", meter: "trust", op: "add", value: 2 }
-        goto: "study_together_intro"
+        to: "study_together_intro"
+    transitions:
+      - { when: "always", to: "campus_hub" }
+
+  - id: "lecture_generic"
+    type: "scene"
+    title: "Psychology Lecture"
+    beats:
+      - "You focus on the professor's lecture about behavioral psychology."
+    transitions:
+      - { when: "always", to: "campus_hub" }
 
   - id: "cafeteria_meet"
-    type: scene
-    location: cafeteria
-    authored_beats:
+    type: "scene"
+    title: "Cafeteria Encounters"
+    beats:
       - "The cafeteria buzzes with students. You spot Liam waving, and Zoe leaning against the counter."
-    dynamic_choices:
+    choices:
       - id: "sit_with_liam"
         prompt: "Sit with Liam"
         effects:
           - { type: meter_change, target: "liam", meter: "trust", op: "add", value: 3 }
-        goto: "liam_banter"
+        to: "liam_banter"
       - id: "order_from_zoe"
         prompt: "Order from Zoe at the counter"
         effects:
           - { type: meter_change, target: "zoe", meter: "attraction", op: "add", value: 3 }
-        goto: "zoe_chat"
+        to: "zoe_chat"
+    transitions:
+      - { when: "always", to: "campus_hub" }
+
+  - id: "cafeteria_generic"
+    type: "hub"
+    title: "Campus Cafeteria"
+    beats:
+      - "The familiar sounds and smells of campus dining."
+    transitions:
+      - { when: "always", to: "campus_hub" }
+
+  - id: "library_generic"
+    type: "scene"
+    title: "Library Study Session"
+    beats:
+      - "The library offers quiet sanctuary for studying."
+    transitions:
+      - { when: "always", to: "campus_hub" }
+
+  - id: "find_emma_scene"
+    type: "scene"
+    title: "Looking for Emma"
+    beats:
+      - "You search the usual spots where Emma hangs out."
+    transitions:
+      - { when: "npc_present('emma')", to: "emma_found" }
+      - { when: "always", to: "campus_hub" }
+
+  - id: "emma_found"
+    type: "scene"
+    title: "Found Emma"
+    beats:
+      - "Emma looks up as you approach, a warm smile crossing her face."
+    transitions:
+      - { when: "gates.emma.accept_date", to: "emma_first_date" }
+      - { when: "meters.emma.trust >= 30", to: "study_session" }
+      - { when: "always", to: "campus_hub" }
 
   - id: "study_together_intro"
-    type: scene
-    location: library
-    authored_beats:
+    type: "scene"
+    title: "Study Invitation"
+    beats:
       - "Later in the library, Emma studies quietly. She hesitates, then gestures you over."
-    dynamic_choices:
+    choices:
       - id: "accept_invite"
         prompt: "Join her to study"
         effects:
           - { type: meter_change, target: "emma", meter: "trust", op: "add", value: 5 }
-        goto: "study_session"
+        to: "study_session"
       - id: "decline"
         prompt: "Politely decline"
         effects:
           - { type: meter_change, target: "emma", meter: "trust", op: "subtract", value: 3 }
-        goto: "library_generic"
+        to: "library_generic"
+    transitions:
+      - { when: "always", to: "campus_hub" }
 
   - id: "study_session"
-    type: scene
-    location: library
-    authored_beats:
+    type: "scene"
+    title: "Studying with Emma"
+    beats:
       - "Emma shares her notes. Her handwriting is precise, her voice quiet."
-    freeplay:
-      guardrails:
-        - "Respect her shy boundaries unless corruption high."
-      checker_targets:
-        meters: ["trust","attraction","corruption"]
+      - "Allow for flirting if corruption is high enough, otherwise keep it friendly."
+    action_filters:
+      banned_freeform:
+        - { pattern: "aggressive", reason: "Respect her shy boundaries" }
     transitions:
-      - when: ["gates.emma.accept_date"]
-        goto: "emma_first_date"
+      - { when: "gates.emma.accept_date", to: "emma_first_date" }
+      - { when: "meters.emma.trust >= 60", to: "emma_deeper_trust" }
+      - { when: "always", to: "campus_hub" }
 
   - id: "liam_banter"
-    type: scene
-    location: cafeteria
-    authored_beats:
+    type: "scene"
+    title: "Hanging with Liam"
+    beats:
       - "Liam claps you on the shoulder. 'First day nerves?' He smirks."
-    dynamic_choices:
+    choices:
       - id: "banter_back"
         prompt: "Banter back"
         effects:
           - { type: meter_change, target: "liam", meter: "trust", op: "add", value: 2 }
-        goto: "cafeteria_generic"
+    transitions:
+      - { when: "always", to: "campus_hub" }
 
   - id: "zoe_chat"
-    type: scene
-    location: campus_cafe
-    authored_beats:
-      - "Zoe leans across the counter. 'So, you’re new around here?'"
-    dynamic_choices:
+    type: "scene"
+    title: "Flirting with Zoe"
+    beats:
+      - "Zoe leans across the counter. 'So, you're new around here?'"
+    choices:
       - id: "flirt_back"
         prompt: "Flirt back"
         conditions: "meters.zoe.attraction >= 15"
         effects:
           - { type: meter_change, target: "zoe", meter: "attraction", op: "add", value: 5 }
-        goto: "zoe_interest"
       - id: "stay_casual"
         prompt: "Keep it casual"
         effects:
           - { type: meter_change, target: "zoe", meter: "trust", op: "add", value: 2 }
-        goto: "zoe_interest"
+    transitions:
+      - { when: "meters.zoe.attraction >= 40", to: "zoe_interest" }
+      - { when: "always", to: "campus_hub" }
+
+  - id: "zoe_interest"
+    type: "scene"
+    title: "Zoe's Interest"
+    beats:
+      - "Zoe's clearly interested, her flirtation becoming more direct."
+    transitions:
+      - { when: "gates.zoe.accept_date", to: "zoe_date" }
+      - { when: "always", to: "campus_hub" }
+
+  - id: "zoe_date"
+    type: "scene"
+    title: "Date with Zoe"
+    beats:
+      - "Zoe suggests heading somewhere more private."
+    transitions:
+      - { when: "gates.zoe.accept_kiss", to: "zoe_kiss" }
+      - { when: "always", to: "campus_hub" }
+
+  - id: "zoe_kiss"
+    type: "scene"
+    title: "First Kiss with Zoe"
+    beats:
+      - "Zoe pulls you close, her kiss confident and passionate."
+    transitions:
+      - { when: "meters.zoe.attraction >= 80", to: "ending_zoe_romance" }
+      - { when: "always", to: "campus_hub" }
 
   - id: "club_encounter"
-    type: scene
-    location: night_club
-    authored_beats:
+    type: "scene"
+    title: "Night at the Club"
+    preconditions: "location.id == 'night_club'"
+    beats:
       - "The nightclub is packed. Bass shakes the walls. Zoe is already on the dance floor; Emma lingers at the bar, uncertain."
-    dynamic_choices:
+    choices:
       - id: "invite_both"
         prompt: "Invite both Emma and Zoe to dance"
         conditions: "meters.emma.trust >= 40 and meters.zoe.attraction >= 40"
         effects:
           - { type: meter_change, target: "emma", meter: "boldness", op: "add", value: 5 }
           - { type: meter_change, target: "zoe", meter: "attraction", op: "add", value: 5 }
-        goto: "triangle_tension"
+        to: "triangle_tension"
       - id: "focus_emma"
         prompt: "Dance with Emma"
         conditions: "gates.emma.accept_flirting"
         effects:
           - { type: meter_change, target: "emma", meter: "attraction", op: "add", value: 5 }
-        goto: "emma_club_progress"
+        to: "emma_club_progress"
       - id: "focus_zoe"
         prompt: "Dance with Zoe"
         conditions: "gates.zoe.accept_flirting"
         effects:
           - { type: meter_change, target: "zoe", meter: "attraction", op: "add", value: 5 }
-        goto: "zoe_club_progress"
+        to: "zoe_club_progress"
+    transitions:
+      - { when: "always", to: "campus_hub" }
+
+  - id: "emma_club_progress"
+    type: "scene"
+    title: "Dancing with Emma"
+    beats:
+      - "Emma gradually relaxes in your arms, the music helping her shed her shyness."
+    transitions:
+      - { when: "meters.emma.corruption >= 50", to: "emma_corruption_path" }
+      - { when: "always", to: "campus_hub" }
+
+  - id: "zoe_club_progress"
+    type: "scene"
+    title: "Dancing with Zoe"
+    beats:
+      - "Zoe moves against you with practiced confidence."
+    transitions:
+      - { when: "gates.zoe.accept_sex", to: "ending_zoe_romance" }
+      - { when: "always", to: "campus_hub" }
 
   - id: "triangle_tension"
-    type: scene
-    location: night_club
-    authored_beats:
+    type: "scene"
+    title: "Between Two Women"
+    beats:
       - "With both girls on the dance floor, tension rises. Zoe is bold, Emma flushed but hesitant."
-    freeplay:
-      guardrails:
-        - "Writer must balance Emma’s shy nature vs Zoe’s boldness."
-      checker_targets:
-        meters: ["emma.attraction","zoe.attraction","emma.corruption"]
+      - "Balance Emma's shy nature against Zoe's boldness."
     transitions:
-      - when: ["milestone('club_triangle').completed"]
-        goto: "triangle_resolution"
+      - { when: "meters.emma.attraction >= 60 and meters.zoe.attraction >= 60", to: "triangle_resolution" }
+      - { when: "always", to: "campus_hub" }
+
+  - id: "triangle_resolution"
+    type: "scene"
+    title: "Making a Choice"
+    beats:
+      - "Both women await your decision. This moment will define your path."
+    choices:
+      - id: "choose_emma"
+        prompt: "Choose Emma"
+        effects:
+          - { type: flag_set, key: "chose_emma", value: true }
+        to: "emma_route_lock"
+      - id: "choose_zoe"
+        prompt: "Choose Zoe"
+        effects:
+          - { type: flag_set, key: "chose_zoe", value: true }
+        to: "zoe_route_lock"
+    transitions:
+      - { when: "always", to: "campus_hub" }
+
+  - id: "emma_route_lock"
+    type: "scene"
+    title: "Emma's Path"
+    beats:
+      - "You've chosen Emma. Her eyes light up with joy and relief."
+    transitions:
+      - { when: "meters.emma.trust >= 60", to: "emma_first_date" }
+      - { when: "always", to: "campus_hub" }
+
+  - id: "zoe_route_lock"
+    type: "scene"
+    title: "Zoe's Path"
+    beats:
+      - "You've chosen Zoe. She grins triumphantly and pulls you close."
+    transitions:
+      - { when: "meters.zoe.attraction >= 70", to: "ending_zoe_romance" }
+      - { when: "always", to: "campus_hub" }
 
   - id: "emma_first_date"
-    type: scene
-    location: campus_cafe_back
-    authored_beats:
+    type: "scene"
+    title: "Coffee Date with Emma"
+    preconditions: "gates.emma.accept_date"
+    beats:
       - "Emma agrees to a coffee date. The quiet booth gives a rare privacy."
     transitions:
-      - when: ["gates.emma.accept_kiss"]
-        goto: "emma_first_kiss"
+      - { when: "gates.emma.accept_kiss", to: "emma_first_kiss" }
+      - { when: "always", to: "campus_hub" }
+
+  - id: "emma_deeper_trust"
+    type: "scene"
+    title: "Growing Closer"
+    beats:
+      - "Your relationship with Emma deepens. She opens up about her dreams and fears."
+    transitions:
+      - { when: "meters.emma.trust >= 80", to: "emma_trust_confession" }
+      - { when: "always", to: "campus_hub" }
+
+  - id: "emma_trust_confession"
+    type: "scene"
+    title: "Emma's Confession"
+    beats:
+      - "Emma takes a deep breath. 'I think I'm falling for you.'"
+    transitions:
+      - { when: "gates.emma.accept_kiss", to: "emma_first_kiss" }
+      - { when: "always", to: "campus_hub" }
 
   - id: "emma_first_kiss"
-    type: scene
-    location: campus_cafe_back
-    authored_beats:
+    type: "scene"
+    title: "First Kiss with Emma"
+    beats:
       - "Emma looks down, then up again, leaning close. Her lips tremble against yours."
+    effects:
+      - { type: flag_set, key: "emma_first_kiss", value: true }
     transitions:
-      - when: ["milestone('intimate_trust').completed"]
-        goto: "ending_emma_pure"
-      - when: ["milestone('corrupted_romance').completed"]
-        goto: "ending_emma_corrupt"
+      - { when: "meters.emma.trust >= 80 and meters.emma.attraction >= 80", to: "ending_emma_pure" }
+      - { when: "meters.emma.corruption >= 70", to: "ending_emma_corrupt" }
+      - { when: "always", to: "campus_hub" }
+
+  - id: "emma_corruption_path"
+    type: "scene"
+    title: "Emma's Wild Side"
+    beats:
+      - "The corruption has awakened something in Emma. She's bolder, more demanding."
+    transitions:
+      - { when: "meters.emma.corruption >= 90", to: "ending_good_girl_bad" }
+      - { when: "meters.emma.corruption >= 70", to: "ending_emma_corrupt" }
+      - { when: "always", to: "campus_hub" }
+
+  # ===============================
+  # ENDINGS
+  # ===============================
 
   - id: "ending_emma_pure"
-    type: ending
-    authored_beats:
+    type: "ending"
+    title: "Pure Love"
+    ending_id: "emma_pure"
+    beats:
       - "Through patience and trust, you and Emma fall in love. She stays true to herself, and you respect her pace."
+    credits:
+      summary: "You found true love with Emma through patience and respect."
+      epilogue:
+        - "Emma graduates with honors."
+        - "Your relationship grows stronger each day."
 
   - id: "ending_emma_corrupt"
-    type: ending
-    authored_beats:
+    type: "ending"
+    title: "Corrupted Love"
+    ending_id: "emma_corrupt"
+    beats:
       - "Emma sheds her shy exterior completely. In your arms, she embraces a wilder side, corrupted but in love."
+    credits:
+      summary: "Emma transformed into someone new, wild and passionate."
+      epilogue:
+        - "Emma's grades suffer but she doesn't care."
+        - "Every night is an adventure."
 
   - id: "ending_emma_bad"
-    type: ending
-    authored_beats:
+    type: "ending"
+    title: "Relationship Failed"
+    ending_id: "emma_bad"
+    preconditions: "meters.emma.trust < 20 and day >= 30"
+    beats:
       - "Pressured and unready, Emma recoils. The relationship collapses, leaving only regret."
+    credits:
+      summary: "You pushed too hard, too fast. Emma withdrew completely."
+      epilogue:
+        - "Emma transfers to another university."
+        - "You never speak again."
 
   - id: "ending_zoe_romance"
-    type: ending
-    authored_beats:
-      - "Zoe claims you boldly. The two of you thrive in late nights and fiery passion, a contrast to Emma’s path."
+    type: "ending"
+    title: "Passionate Affair"
+    ending_id: "zoe_romance"
+    beats:
+      - "Zoe claims you boldly. The two of you thrive in late nights and fiery passion, a contrast to Emma's path."
+    credits:
+      summary: "You and Zoe burn bright together."
+      epilogue:
+        - "Every day is intense with Zoe."
+        - "Emma found someone else, someone gentler."
 
   - id: "ending_good_girl_bad"
-    type: ending
-    authored_beats:
-      - "Emma’s corruption goes too far. Once conservative, now reckless, she revels in excess—good girl gone bad."
+    type: "ending"
+    title: "Good Girl Gone Bad"
+    ending_id: "emma_gone_bad"
+    preconditions: "meters.emma.corruption >= 90"
+    beats:
+      - "Emma's corruption goes too far. Once conservative, now reckless, she revels in excess—good girl gone bad."
+    credits:
+      summary: "Emma transformed completely, losing herself in the process."
+      epilogue:
+        - "Emma drops out of college."
+        - "She parties every night, a shadow of her former self."
+        - "You wonder if you went too far."
+
+  # ===============================
+  # UTILITY/FALLBACK NODES
+  # ===============================
+
+  - id: "wake_up"
+    type: "scene"
+    title: "Morning"
+    beats:
+      - "You wake up refreshed, ready for a new day."
+    transitions:
+      - { when: "always", to: "campus_hub" }
+
+  - id: "emma_visit_night"
+    type: "scene"
+    title: "Late Night Visit"
+    beats:
+      - "Emma arrives at your door, nervous but determined."
+    transitions:
+      - { when: "gates.emma.accept_kiss", to: "emma_first_kiss" }
+      - { when: "always", to: "campus_hub" }
