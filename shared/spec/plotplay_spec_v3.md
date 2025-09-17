@@ -164,15 +164,26 @@ game:
     checkpoints: ["chapter_1_end", "chapter_2_end"]
 
   files:
-  # REQUIRED files (must exist):
-  characters.yaml   # Always required
-  nodes.yaml        # Always required
+    # REQUIRED files (must exist):
+    characters: "characters.yaml" # Always required
+    nodes:      "nodes.yaml"      # Always required
+
+    # OPTIONAL files (can be inline or separate):
+    locations:  "locations.yaml"  # Defines zones and locations; can be inline in game.yaml  
+    events:     "events.yaml"     # Defines events; can be inline at the end of nodes.yaml
+    arcs:       "arcs.yaml"       # Defines arcs and milestones       
+    items:      "items.yaml"      # Defines items; can be inline at the end of characters.yaml
+
+  files2:
+    # REQUIRED files (must exist):
+    - characters.yaml   # Always required
+    - nodes.yaml        # Always required
   
-  # OPTIONAL files (can be inline or separate):
-  arcs.yaml         # Defines arcs and milestones    
-  locations.yaml    # Defines zones and locaions, can be inline in game.yaml
-  items.yaml        # Defines items, can be inline at end of characters.yaml  
-  events.yaml       # Defines events, can be inline at end of nodes.yaml
+    # OPTIONAL files (can be inline or separate):
+    - arcs.yaml         # Defines arcs and milestones    
+    - locations.yaml    # Defines zones and locaions, can be inline in game.yaml
+    - items.yaml        # Defines items, can be inline at end of characters.yaml  
+    - events.yaml       # Defines events, can be inline at end of nodes.yaml
 ---
 
 ## 2. Time & Calendar Model

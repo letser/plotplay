@@ -112,7 +112,7 @@ game:
     locations:  "locations.yaml"
     nodes:      "nodes.yaml"
     events:     "events.yaml"
-    milestones: "arcs.yaml"
+    arcs:       "arcs.yaml"
     items:      "items.yaml"
 
   # --- Global action policies (UI/Writer guardrails) ---

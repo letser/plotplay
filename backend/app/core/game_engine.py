@@ -1,7 +1,7 @@
 import json
 import re
 from typing import Dict, Any, List, Optional
-from app.core.state_manager import StateManager
+from app.core.state_manager import StateManager, GameState
 from app.core.game_definition import GameDefinition
 from app.core.clothing_manager import ClothingManager
 from app.services.ai_service import AIService
@@ -161,6 +161,10 @@ class GameEngine:
         """Execute movement to a new location"""
         old_location = self.state_manager.state.location_current
 
+        # Track visited nodes
+        if destination not in self.state_manager.state.visited_nodes:
+            self.state_manager.state.visited_nodes.append(destination)
+
         # Update location
         self.state_manager.state.location_previous = old_location
         self.state_manager.state.location_current = destination
@@ -236,19 +240,7 @@ class GameEngine:
 
     def _advance_time(self):
         """Advance time to the next slot"""
-        state = self.state_manager.state
-        time_slots = self.game_def.config['game']['time_system']['slots']
-
-        current_idx = time_slots.index(state.time_slot)
-        current_idx += 1
-
-        if current_idx >= len(time_slots):
-            current_idx = 0
-            state.day += 1
-
-        state.time_slot = time_slots[current_idx]
-        state.actions_this_slot = 0
-        self.dialogue_count = 0
+        self.state_manager.advance_time()
 
         # Update NPC presence based on new time
         self._update_npc_presence()
@@ -446,8 +438,10 @@ class GameEngine:
         return {
             'day': self.state_manager.state.day,
             'time': self.state_manager.state.time_slot,
+            'weekday': self.state_manager.state.weekday,
             'location': self.state_manager.state.location_current,
             'present_characters': self.state_manager.state.present_chars,
+            'player_meters': self.state_manager.state.player_meters,
             'meters': {
                 char_id: meters
                 for char_id, meters in self.state_manager.state.meters.items()
