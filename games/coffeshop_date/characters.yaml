@@ -1,0 +1,54 @@
+# ===============================
+# Characters - Test Game
+# ===============================
+
+characters:
+  - id: "alex"
+    name: "Alex"
+    age: 22
+    gender: "female"
+    pronouns: ["she","her"]
+    role: "date"
+
+    meters:
+      comfort: { default: 20 }
+      interest: { default: 15 }
+
+    personality:
+      core_traits: ["friendly", "cautious", "witty"]
+      values: ["honesty", "humor"]
+      fears: ["awkward silences"]
+      quirks: ["laughs when nervous"]
+
+    appearance:
+      base:
+        height: "165 cm"
+        build: "average"
+        hair: { color: "brown", style: "shoulder-length" }
+        eyes: { color: "green" }
+
+    wardrobe:
+      outfits:
+        - id: "casual_date"
+          name: "Casual outfit"
+          layers:
+            top: { item: "sweater", color: "blue" }
+            bottom: { item: "jeans" }
+            feet: { item: "flats" }
+
+    behaviors:
+      gates:
+        - { id: "accept_compliment", when: "always" }
+        - { id: "accept_flirt", when: "meters.alex.comfort >= 40" }
+        - { id: "share_number", when: "meters.alex.interest >= 50" }
+        - { id: "accept_second_date", when: "meters.alex.interest >= 70" }
+        - { id: "accept_kiss", when: "meters.alex.comfort >= 70 and meters.alex.interest >= 80" }
+      refusals:
+        generic: "She smiles politely but changes the subject."
+        too_forward: "She looks uncomfortable. 'Let's slow down a bit.'"
+
+    dialogue:
+      base_style: "friendly but cautious"
+      vocab:
+        normal: ["maybe", "interesting", "tell me more"]
+        interested: ["definitely", "I'd like that", "sounds fun"]

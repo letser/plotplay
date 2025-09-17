@@ -169,11 +169,10 @@ game:
   nodes.yaml        # Always required
   
   # OPTIONAL files (can be inline or separate):
-  locations.yaml    # Can be inline in game.yaml
-  items.yaml        # Can be inline at end of characters.yaml  
-  events.yaml       # Can be inline at end of nodes.yaml
-  milestones.yaml   # Can be inline in arcs.yaml
-
+  arcs.yaml         # Defines arcs and milestones    
+  locations.yaml    # Defines zones and locaions, can be inline in game.yaml
+  items.yaml        # Defines items, can be inline at end of characters.yaml  
+  events.yaml       # Defines events, can be inline at end of nodes.yaml
 ---
 
 ## 2. Time & Calendar Model

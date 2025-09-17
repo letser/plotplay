@@ -1,0 +1,173 @@
+# ===============================
+# Nodes - Test Game (Linear Path)
+# ===============================
+
+nodes:
+  # Starting node
+  - id: "start"
+    type: "scene"
+    title: "Meeting Alex"
+    beats:
+      - "You arrive at the coffee shop. Alex is already there, sitting by the window."
+      - "She waves you over with a nervous smile."
+    choices:
+      - id: "confident_greeting"
+        prompt: "Greet her confidently"
+        effects:
+          - { type: meter_change, target: "alex", meter: "interest", op: "add", value: 10 }
+          - { type: meter_change, target: "player", meter: "confidence", op: "add", value: 10 }
+        to: "order_coffee"
+      - id: "nervous_greeting"
+        prompt: "Greet her nervously"
+        effects:
+          - { type: meter_change, target: "alex", meter: "comfort", op: "add", value: 10 }
+          - { type: meter_change, target: "player", meter: "confidence", op: "subtract", value: 5 }
+        to: "order_coffee"
+    transitions:
+      - { when: "always", to: "order_coffee" }
+
+  # Second node - ordering
+  - id: "order_coffee"
+    type: "scene"
+    title: "Ordering Coffee"
+    beats:
+      - "Time to order drinks. The barista waits patiently."
+    choices:
+      - id: "pay_for_both"
+        prompt: "Offer to pay for both"
+        conditions: "money >= 10"
+        effects:
+          - { type: meter_change, target: "alex", meter: "comfort", op: "add", value: 15 }
+          - { type: meter_change, target: "player", meter: "money", op: "subtract", value: 10 }
+        to: "conversation_1"
+      - id: "go_dutch"
+        prompt: "Each pay for your own"
+        effects:
+          - { type: meter_change, target: "player", meter: "money", op: "subtract", value: 5 }
+        to: "conversation_1"
+    transitions:
+      - { when: "always", to: "conversation_1" }
+
+  # Conversation nodes
+  - id: "conversation_1"
+    type: "scene"
+    title: "Getting to Know Each Other"
+    beats:
+      - "You both sit down with your drinks. Time to break the ice."
+      - "Alex seems more relaxed now."
+    choices:
+      - id: "ask_about_work"
+        prompt: "Ask about her work"
+        effects:
+          - { type: meter_change, target: "alex", meter: "comfort", op: "add", value: 10 }
+        to: "conversation_2"
+      - id: "tell_joke"
+        prompt: "Tell a funny story"
+        effects:
+          - { type: meter_change, target: "alex", meter: "interest", op: "add", value: 15 }
+        to: "conversation_2"
+      - id: "compliment_appearance"
+        prompt: "Compliment her appearance"
+        conditions: "gates.alex.accept_compliment"
+        effects:
+          - { type: meter_change, target: "alex", meter: "interest", op: "add", value: 10 }
+        to: "conversation_2"
+    transitions:
+      - { when: "always", to: "conversation_2" }
+
+  - id: "conversation_2"
+    type: "scene"
+    title: "Deeper Connection"
+    beats:
+      - "The conversation flows more naturally now."
+      - "Check if she's comfortable enough to flirt."
+    choices:
+      - id: "light_flirt"
+        prompt: "Flirt lightly"
+        conditions: "gates.alex.accept_flirt"
+        effects:
+          - { type: meter_change, target: "alex", meter: "interest", op: "add", value: 20 }
+        to: "conversation_3"
+      - id: "stay_friendly"
+        prompt: "Keep it friendly"
+        effects:
+          - { type: meter_change, target: "alex", meter: "comfort", op: "add", value: 15 }
+        to: "conversation_3"
+    transitions:
+      - { when: "always", to: "conversation_3" }
+
+  - id: "conversation_3"
+    type: "scene"
+    title: "Connection Building"
+    beats:
+      - "You've been talking for a while now. The coffee cups are nearly empty."
+      - "This is going well if her meters are high enough."
+    choices:
+      - id: "suggest_walk"
+        prompt: "Suggest a walk outside"
+        effects:
+          - { type: meter_change, target: "alex", meter: "comfort", op: "add", value: 10 }
+        to: "date_ending"
+      - id: "ask_second_date"
+        prompt: "Ask about a second date"
+        conditions: "gates.alex.accept_second_date"
+        effects:
+          - { type: meter_change, target: "alex", meter: "interest", op: "add", value: 15 }
+        to: "date_ending"
+    transitions:
+      - { when: "always", to: "date_ending" }
+
+  # Decision point
+  - id: "date_ending"
+    type: "scene"
+    title: "End of the Date"
+    beats:
+      - "The date is winding down. You walk outside together."
+      - "This is the moment of truth."
+    transitions:
+      - { when: "gates.alex.accept_kiss", to: "ending_kiss" }
+      - { when: "gates.alex.share_number", to: "ending_number" }
+      - { when: "always", to: "ending_awkward" }
+
+  # ===============================
+  # ENDINGS
+  # ===============================
+
+  - id: "ending_kiss"
+    type: "ending"
+    title: "Perfect First Date"
+    ending_id: "kiss"
+    beats:
+      - "As you stand outside, Alex moves closer."
+      - "She kisses you softly. 'I had a wonderful time.'"
+    credits:
+      summary: "The date went perfectly!"
+      epilogue:
+        - "You got her number and a kiss."
+        - "Second date confirmed for next week."
+
+  - id: "ending_number"
+    type: "ending"
+    title: "Good First Date"
+    ending_id: "number"
+    beats:
+      - "Alex smiles warmly. 'I had a nice time. Here's my number.'"
+      - "She gives you a quick hug before leaving."
+    credits:
+      summary: "The date went well."
+      epilogue:
+        - "You got her number."
+        - "Maybe a second date soon?"
+
+  - id: "ending_awkward"
+    type: "ending"
+    title: "Awkward Ending"
+    ending_id: "awkward"
+    beats:
+      - "Alex checks her phone. 'I should go. Thanks for the coffee.'"
+      - "She leaves quickly with a polite smile."
+    credits:
+      summary: "The date was awkward."
+      epilogue:
+        - "No number exchanged."
+        - "Maybe you'll see her around..."

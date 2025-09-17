@@ -1,0 +1,17 @@
+# ===============================
+# Items - Test Game
+# ===============================
+
+items:
+  - id: "phone"
+    name: "Your Phone"
+    category: "key"
+    description: "Your smartphone."
+    stackable: false
+    droppable: false
+
+  - id: "alex_number"
+    name: "Alex's Phone Number"
+    category: "trophy"
+    description: "Alex's phone number written on a napkin."
+    stackable: false

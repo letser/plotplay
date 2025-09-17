@@ -1,0 +1,24 @@
+# ===============================
+# Locations - Test Game
+# ===============================
+
+zones:
+  - id: "downtown"
+    name: "Downtown"
+    discovered: true
+    accessible: true
+
+    locations:
+      - id: "coffee_shop"
+        name: "Corner Coffee Shop"
+        type: "public"
+        privacy: "low"
+        discovered: true
+        features: ["counter", "tables", "window_seats"]
+
+      - id: "outside"
+        name: "Outside the Coffee Shop"
+        type: "public"
+        privacy: "low"
+        discovered: true
+        features: ["sidewalk", "bench"]
