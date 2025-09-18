@@ -8,40 +8,40 @@
 # - No non-consensual content. Behavior gates + privacy must pass for intimacy.
 # - Public explicit actions require sufficient privacy.
 
-player:
-  id: "player"
-  name: "You"                 # UI may prompt for a custom name
-  age: 19
-  gender: "male"              # free text, can be customized later
-  pronouns: ["you"]           # narration POV is second-person
-  stats:                       # Mirrors game.yaml meters
-    energy: 70
-    money: 60
-    mind: 40
-    body: 35
-    looks: 45
-    hygiene: 60
-  traits: ["freshman", "earnest", "a bit awkward", "determined"]
-  inventory:
-    - { id: "dorm_key",     count: 1 }
-    - { id: "condoms",      count: 3 }
-    - { id: "notebook",     count: 1 }
-    - { id: "deodorant",    count: 1 }
-  wardrobe:
-    outfit: "casual_male"
-  dialogue:
-    style: "casual, sincere, occasionally witty"
-  goals:
-    - "Improve yourself (mind/body/looks) to unlock dates and scenes."
-    - "Win Emma’s affection — choose purity or corruption route."
-  behavior:
-    gates:
-      # Player-side allowances mainly influence suggested actions/UI; NPC gates rule consent.
-      - { id: "study_focus", when: "mind >= 50" }
-      - { id: "heavy_workout", when: "body >= 50 and energy >= 40" }
-      - { id: "sharp_style", when: "looks >= 60 and hygiene >= 60" }
+characters:
+  - id: "player"
+    player: true
+    name: "You"                 # UI may prompt for a custom name
+    age: 19
+    gender: "male"              # free text, can be customized later
+    pronouns: ["you"]           # narration POV is second-person
+    stats:                       # Mirrors game.yaml meters
+      energy: 70
+      money: 60
+      mind: 40
+      body: 35
+      looks: 45
+      hygiene: 60
+    traits: ["freshman", "earnest", "a bit awkward", "determined"]
+    inventory:
+      - { id: "dorm_key",     count: 1 }
+      - { id: "condoms",      count: 3 }
+      - { id: "notebook",     count: 1 }
+      - { id: "deodorant",    count: 1 }
+    wardrobe:
+      outfit: "casual_male"
+    dialogue:
+      style: "casual, sincere, occasionally witty"
+    goals:
+      - "Improve yourself (mind/body/looks) to unlock dates and scenes."
+      - "Win Emma’s affection — choose purity or corruption route."
+    behavior:
+      gates:
+        # Player-side allowances mainly influence suggested actions/UI; NPC gates rule consent.
+        - { id: "study_focus", when: "mind >= 50" }
+        - { id: "heavy_workout", when: "body >= 50 and energy >= 40" }
+        - { id: "sharp_style", when: "looks >= 60 and hygiene >= 60" }
 
-npcs:
   - id: "emma"
     name: "Emma Chen"
     age: 20

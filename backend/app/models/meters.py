@@ -14,10 +14,10 @@ class MeterDefinition(BaseModel):
     max: int = 100
     default: int = 0
     visible: bool = True
-    icon: Optional[str] = None
-    format: Optional[str] = None
-    decay_per_day: Optional[int] = None
-    decay_per_slot: Optional[int] = None
+    icon: str | None = None
+    format: str | None = None
+    decay_per_day: int | None = 0
+    decay_per_slot: int | None = 0
     thresholds: Optional[Dict[str, List[int]]] = None
     hidden_until: Optional[str] = None
 
@@ -28,3 +28,13 @@ class MeterInteraction(BaseModel):
     target: str
     when: str
     effect: str
+
+
+class Action(BaseModel):
+    """Atomic action that may be performed."""
+    id: str
+    name: str
+    description: str
+    icon: str
+    effects: List[str] = Field(default_factory=list)
+    interactions: List[MeterInteraction] = Field(default_factory=list)

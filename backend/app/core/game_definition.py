@@ -7,6 +7,7 @@ PlotPlay v3 Game Models - Complete game definition structures.
 from typing import Dict, List, Optional, Any, Union
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from app.models.game import GameManifest
 from app.models.enums import ContentRating
 from app.models.meters import MeterInteraction, MeterDefinition
 from app.models.narration import NarrationConfig, ModelProfiles
@@ -50,15 +51,23 @@ class WorldConfig(BaseModel):
 
 
 class GameDefinition(BaseModel):
-    """Complete v3 game definition."""
-    # Core config (from game.yaml or config.yaml)
-    game: Optional[GameConfig] = None
-    config: Optional[Dict[str, Any]] = None  # Legacy support
+    """Complete game definition compiled from different pieces defined in manifest."""
+    # Core manifest (from game.yaml)
+    game: GameManifest
+
+    # Game parts
+
 
     # World
     world: Optional[Union[WorldConfig, Dict[str, Any]]] = None
 
     # Content
+    player: Character | None = None
+    characters: list[Character] | None = Field(default_factory=list)
+    nodes: list[Node] | None = Field(default_factory=list)
+    zones: dict[Zone] | None = Field(default_factory=list)
+
+    items: Optional[List[Item]] = None
     characters: List[Union[Character, Dict[str, Any]]] = Field(default_factory=list)
     npcs: Optional[List[Dict[str, Any]]] = None  # Legacy support
     player: Optional[Dict[str, Any]] = None  # Legacy support

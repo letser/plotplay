@@ -22,27 +22,33 @@ PlotPlay is an AI-driven text adventure engine that blends **pre-authored branch
 
 ---
 
-## Design Philosophy
-- **Player Agency**: Choices and freeform actions meaningfully affect characters, story, and outcomes.  
-- **State Coherence**: Narrative always respects the current state (clothing, meters, location, presence).  
-- **Progressive Intimacy**: Romantic and sexual content gated by consent mechanics, never bypassed.  
-- **Author-First**: YAML and schemas keep content authoring deterministic, predictable, and safe.  
-
----
 
 ## Core Concepts
+
+### Game Parts and Flow
+The game conept a glace 
+
+- **Character**: A single player or NPC.  
+- **Game**: A single playthrough of a single game.  
+- **Turn**: A single action by a single player.  
+- **Node**: A single point in the story.  
+- **Arc**: A single path through the story.  
+- **Milestone**: A single point in the story that triggers a transition.  
+- **Event**: A single occurrence that triggers a transition. 
+
+>Player is always present. If game definition does not include it, engine generates a default player character.
 
 ### State
 Game state is the single source of truth. It includes:
 - **Meters** — numeric values per player and NPC (trust, attraction, energy, etc.)  
 - **Flags** — boolean or scalar values for progression (e.g. `emma_met`, `first_kiss`)  
-- **Modifiers** — temporary or permanent effects (e.g. drunk, corrupted, aroused)  
+- **Modifiers** — temporary or permanent effects (e.g., drunk, corrupted, aroused)  
 - **Inventory** — items owned by the player or NPCs  
 - **Clothing** — layered outfits with rules for removal, replacement, validation  
 - **Location & Time** — hierarchical world, zones, locations, day/slot tracking  
 
 ### Character Cards
-Generated dynamically each turn from state. They describe base appearance, outfit & clothing state, active modifiers, summarized meters (threshold labels), dialogue style, and current behavior gates. Cards are passed to the Writer as context each turn.
+Generated dynamically each turn from state. They describe base appearance, outfit and clothing state, active modifiers, summarized meters (threshold labels), dialogue style, and current behavior gates. Cards are passed to the Writer as context each turn.
 
 ### Narrative Flow
 - **Nodes** define authored story structure (scenes, interactive hubs, endings).  
@@ -57,10 +63,32 @@ Generated dynamically each turn from state. They describe base appearance, outfi
 Both models run each turn; their outputs are merged into the game state.  
 
 ---
+## 1. State and measurements
+In order to keep the game state simple, we use a few simple rules:
+
 
 ## 1. Game Configuration (`game.yaml`)
 
 Below is the **manifest** for a game. It references all other files and defines global rules. The example is richly commented so authors understand each field at a glance.
+
+The full game definition in YAML format must contain the following sections:
+- **game**: the game manifest, including global rules and metadata. 
+- **characters**: character definitions
+- **nodes**: nodes definitions that define story structure and scenes 
+- **arcs**: arcs and milestones for game and characters progression 
+- **zones**: world map with zones and locations definitions
+- **events**: events definitions
+- **items**: item definitions for inventory
+
+The whole game may be placed in a single file, or broken into separate files.
+The main file is the games manifest named ```game.yaml``, it **must** contain the game manifest in the **game** node. 
+Other nodes may be either included into the main file or referenced separately in the game manifest.
+
+> **Note**
+> 
+> The final game definition will be assembled from the main file and referenced files in order of appearance.
+> In case of duplicate keys, the last definition wins in order of appearance. 
+
 
 ```yaml
 # ===============================
@@ -70,7 +98,7 @@ game:
   id: "unique_game_id"        # Stable ID used by saves and tooling
   title: "Game Title"
   version: "1.0.0"
-  spec_version: "3.1"          # REQUIRED: which spec this content targets
+  spec_version: "3"          # REQUIRED: which spec this content targets
   author: "Author Name"
   content_rating: "explicit"   # all_ages | teen | mature | explicit
   tags: ["romance", "fantasy", "adventure"]
@@ -81,10 +109,6 @@ game:
     paragraphs: "2-3"           # target prose length per Writer turn
     token_budget: 350           # hard cap for Writer model
     checker_budget: 200         # hard cap for Checker model
-
-  model_profiles:
-    writer: "cheap"            # cheap | luxe | custom
-    checker: "fast"            # fast | accurate | custom
 
   meters:
     player:
@@ -152,38 +176,15 @@ game:
       slot: "morning"
       time: "08:30"
 
-  difficulty:
-    meter_caps: { default: [0, 100] }
-    decay_multiplier: 1.0
-    money_multiplier: 1.0
-    hints: true
-
-  save_system:
-    auto_save: true
-    slots: 10
-    checkpoints: ["chapter_1_end", "chapter_2_end"]
-
+  # Additional files to include to build the full game definition 
   files:
-    # REQUIRED files (must exist):
-    characters: "characters.yaml" # Always required
-    nodes:      "nodes.yaml"      # Always required
-
-    # OPTIONAL files (can be inline or separate):
-    locations:  "locations.yaml"  # Defines zones and locations; can be inline in game.yaml  
-    events:     "events.yaml"     # Defines events; can be inline at the end of nodes.yaml
-    arcs:       "arcs.yaml"       # Defines arcs and milestones       
-    items:      "items.yaml"      # Defines items; can be inline at the end of characters.yaml
-
-  files2:
-    # REQUIRED files (must exist):
-    - characters.yaml   # Always required
-    - nodes.yaml        # Always required
-  
-    # OPTIONAL files (can be inline or separate):
-    - arcs.yaml         # Defines arcs and milestones    
-    - locations.yaml    # Defines zones and locaions, can be inline in game.yaml
-    - items.yaml        # Defines items, can be inline at end of characters.yaml  
-    - events.yaml       # Defines events, can be inline at end of nodes.yaml
+    - characters.yaml
+    - nodes.yaml
+    - arcs.yaml
+    - locations.yaml
+    - items.yaml
+    - events.yaml
+```     
 ---
 
 ## 2. Time & Calendar Model
@@ -242,6 +243,10 @@ state:
 
 Each character entry defines identity, hard safety facts, meters (overrides and additions), personality/background for context, appearance, wardrobe, behaviors/consent gates, dialogue profile, schedule, and movement preferences.
 
+One of characters may describe the player, while others are NPCs.
+The player character must be marked as `player: true`. 
+For NPCs the `player` field is optional is can be either `false` or ommitted.
+
 > **Hard rule:** every character must be an adult. `age >= 18` is required and validated.
 
 ```yaml
@@ -249,7 +254,8 @@ Each character entry defines identity, hard safety facts, meters (overrides and 
 # Characters (characters.yaml)
 # ===============================
 characters:
-  - id: "emma"                   # stable identifier
+  - id: "emma"   
+    player: false
     name: "Emma Chen"           # in-game display name
     full_name: "Emma Xiaoli Chen"
 
@@ -265,7 +271,7 @@ characters:
       trust: { default: 10 }     # override template default
       boldness: { default: 15 }
       academic_stress:          # character-specific meter (not in template)
-        min: 0; max: 100; default: 30; visible: true; icon: "📚"; decay_per_day: -5
+        {min: 0, max: 100, default: 30, visible: true, icon: "📚", decay_per_day: -5}
 
     # --- Personality & background (for Writer context; not rendered verbatim) ---
     personality:
@@ -572,9 +578,28 @@ modifier_system:
 
 ---
 
-## 5. World & Locations (`locations.yaml`)
+## 5. World, Locations, and Movement System
 
-The file defines the **zones** of the game world and all **locations** within them.
+The world system is represented by a hierarchical model: 
+- **zones** are thematic areas that act as narrative hubs (e.g., *Campus*, *Downtown*, *House*),
+- **locations** are places within zones (*rooms*, *streets*, *venues*), 
+- **features** are interactable sub-areas inside locations (*bed*, *desk*, *stage*). 
+
+Both zones and locations may be discovered/hidden and locked/unlocked. 
+Hidden zones and locations are not visible to player and must be revealed first during the game.
+Locked zones and locations can be entered only if specified conditions are met.
+
+System triggers events when zones/locations are entered/exited, so it is possible to apply effects.
+
+Movement between locations inside a zone is implemented via **connections**. 
+Each location provides connections to other locations inside a zone with optional access restriction.
+
+Traveling between zone is implemented in the similar via **transport connections**. 
+Each transport connection provides a list of zones that can be reached via the transport method.
+
+Available transportation methods are defined in the `movement` section of the game config. 
+
+Visibility and availability of locations and zones managed by **access conditions** evaluated on each turn.
 
 ---
 
@@ -588,6 +613,7 @@ The file defines the **zones** of the game world and all **locations** within th
 ---
 
 ### 5.2 File Structure (zones with inline locations)
+
 
 ```yaml
 # ===============================
@@ -619,7 +645,7 @@ zones:
       - id: "dorm_room"
         name: "Your Dorm Room"
         type: "private"
-        privacy: "high"
+        privacy: "high"       # low | medium | high 
         discovered: true
         access:
           locked: true
@@ -708,16 +734,6 @@ exploration:
 ```
 ---
 
-### 5.5 Design Notes
-- **Zones** act like narrative hubs.  
-- **Locations** provide privacy, NPC presence, and gating for scenes.  
-- **Privacy**: none | low | medium | high — feeds into consent checks.  
-- **Exploration** supports gradual discovery (NPC hints or wandering).  
-- **Transport methods** can gate access (bus schedule, car ownership).  
-- **Companions**: NPC willingness to travel is evaluated via their `movement` gates.  
-
-
----
 
 ## 6. Nodes & Story Structure (`nodes.yaml`)
 

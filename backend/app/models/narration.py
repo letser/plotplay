@@ -3,8 +3,7 @@ PlotPlay v3 Game Models - Complete game definition structures.
 
  ============== Narration & AI ==============
 """
-
-from pydantic import BaseModel
+from pydantic import BaseModel, PositiveInt
 
 from app.models.enums import POV, Tense
 
@@ -15,9 +14,3 @@ class NarrationConfig(BaseModel):
     paragraphs: str = "2-3"
     token_budget: int = 350
     checker_budget: int = 200
-
-
-class ModelProfiles(BaseModel):
-    """AI model profiles for cost/quality control."""
-    writer: str = "cheap"
-    checker: str = "fast"

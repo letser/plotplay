@@ -4,28 +4,37 @@ PlotPlay v3 Game Models - Complete game definition structures.
 ============== Location System ==============
 """
 
+from enum import StrEnum
 from typing import Dict, List, Optional, Any, Union
 from pydantic import BaseModel, Field
 
 
+class LocationPrivacy(StrEnum):
+    """Location privacy levels."""
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+
 class LocationConnection(BaseModel):
-    """Connection between locations."""
-    to: str
-    type: Optional[str] = "door"
-    bidirectional: bool = True
+    """Conditional connection to one or multiple locations."""
+    to: str | list[str]
+    type: str | None = "door"
+    discovered: bool | None = True
+    locked: bool | None = False
+    unlocked_when: str | None = None
 
 
 class Location(BaseModel):
     """Location definition."""
     id: str
     name: str
-    type: Optional[str] = "public"
-    privacy: str = "low"
-    description: Optional[Union[str, Dict[str, str]]] = None
+    type: str | None = "public"
+    privacy: LocationPrivacy = LocationPrivacy.LOW
+    description: str | dict[str, str] | None = None
     discovered: bool = True
-    connections: List[Union[LocationConnection, Dict[str, Any]]] = Field(default_factory=list)
-    features: List[str] = Field(default_factory=list)
-    available_actions: Optional[List[str]] = None
+    connections: LocationConnection | list[LocationConnection] | None = Field(default_factory=list)
+    features: list[str] | None = Field(default_factory=list)
+    available_actions: list[str] | None = None
 
 
 class Zone(BaseModel):
