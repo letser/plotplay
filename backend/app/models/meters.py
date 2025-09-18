@@ -8,7 +8,7 @@ from typing import Dict, List, Optional
 from pydantic import BaseModel
 
 
-class MeterDefinition(BaseModel):
+class Meter(BaseModel):
     """Meter definition with thresholds and visibility."""
     min: int = 0
     max: int = 100

@@ -7,7 +7,7 @@ PlotPlay Game Models - Complete game definition structures.
 from pydantic import BaseModel, Field
 
 from app.models.enums import ContentRating
-from app.models.meters import MeterInteraction, MeterDefinition
+from app.models.meters import MeterInteraction, Meter
 from app.models.narration import NarrationConfig
 from app.models.time import TimeConfig
 
@@ -24,7 +24,7 @@ class GameManifest(BaseModel):
 
     # Sub-configs
     narration: NarrationConfig | None = Field(default_factory=NarrationConfig)
-    meters: dict[str, MeterDefinition] | None = None
+    meters: dict[str, Meter] | None = None
     meter_interactions: list[MeterInteraction] | None = None
     time: TimeConfig | None = Field(default_factory=TimeConfig)
 

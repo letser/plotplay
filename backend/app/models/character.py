@@ -8,7 +8,7 @@ from typing import Dict, List, Optional, Any, Union, Literal
 from pydantic import BaseModel, Field, field_validator
 from pydantic_core.core_schema import ValidationInfo
 
-from app.models.meters import MeterDefinition
+from app.models.meters import Meter
 
 class Personality(BaseModel):
     """Character personality traits."""
@@ -129,7 +129,7 @@ class Character(BaseModel):
     role: Optional[str] = None
 
     # Meters (overrides template)
-    meters: Optional[Dict[str, Union[MeterDefinition, Dict[str, Any]]]] = None
+    meters: Optional[Dict[str, Union[Meter, Dict[str, Any]]]] = None
 
     # Personality & Background
     personality: Optional[Union[Personality, Dict[str, Any]]] = None

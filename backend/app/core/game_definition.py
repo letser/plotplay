@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.models.game import GameManifest
 from app.models.enums import ContentRating
-from app.models.meters import MeterInteraction, MeterDefinition
+from app.models.meters import MeterInteraction, Meter
 from app.models.narration import NarrationConfig, ModelProfiles
 from app.models.time import TimeConfig
 from app.models.location import Zone, Location
@@ -35,7 +35,7 @@ class GameConfig(BaseModel):
     narration: Optional[NarrationConfig] = Field(default_factory=NarrationConfig)
     model_profiles: Optional[ModelProfiles] = Field(default_factory=ModelProfiles)
     time: Optional[TimeConfig] = Field(default_factory=TimeConfig)
-    meters: Optional[Dict[str, MeterDefinition]] = None #TODO: was Any
+    meters: Optional[Dict[str, Meter]] = None #TODO: was Any
     meter_interactions: Optional[List[MeterInteraction]] = None
     
     # Legacy settings support
