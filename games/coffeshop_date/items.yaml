@@ -1,11 +1,11 @@
 # ===============================
-# Items - Test Game
+# Items - Coffee Shop Date (v3 Spec)
 # ===============================
 
 items:
   - id: "phone"
     name: "Your Phone"
-    category: "key"
+    category: "misc" # Changed from "key" to the more generic "misc"
     description: "Your smartphone."
     stackable: false
     droppable: false

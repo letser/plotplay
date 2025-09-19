@@ -3,8 +3,7 @@
 # Coffee Shop Date - v3 Spec
 # ===============================
 
-# This file contains the core metadata and includes other files.
-game:
+meta:
   id: "coffee_test"
   title: "Coffee Shop Date - Test Game"
   version: "1.0.0"
@@ -13,37 +12,44 @@ game:
   content_rating: "teen"
   tags: ["test", "romance", "linear"]
 
-  narration:
-    pov: "second"
-    tense: "present"
-    paragraphs: "1-2"
+# --- Starting point of the game ---
+start:
+  node: "start"
+  location: { zone: "downtown", id: "coffee_shop" }
 
-  meters:
-    player:
-      confidence: { min: 0, max: 100, default: 50, visible: true, icon: "😎" }
-      money: { min: 0, max: 100, default: 20, visible: true, icon: "💵" }
+# --- Default narration style ---
+narration:
+  pov: "second"
+  tense: "present"
+  paragraphs: "1-2"
 
-    character_template:
-      comfort: {
-        min: 0, max: 100, default: 20,
-        thresholds: { nervous: [0,30], relaxed: [31,70], comfortable: [71,100] }
-      }
-      interest: {
-        min: 0, max: 100, default: 15,
-        thresholds: { polite: [0,30], interested: [31,70], attracted: [71,100] }
-      }
+# --- Meter definitions ---
+meters:
+  player:
+    confidence: { min: 0, max: 100, default: 50, visible: true, icon: "😎" }
+    money: { min: 0, max: 100, default: 20, visible: true, icon: "💵" }
 
-  time:
-    mode: "slots"
-    slots: ["afternoon"]
-    actions_per_slot: 10
-    auto_advance: false
-    start:
-      day: 1
-      slot: "afternoon"
+  character_template:
+    comfort: {
+      min: 0, max: 100, default: 20,
+      thresholds: { nervous: [0,30], relaxed: [31,70], comfortable: [71,100] }
+    }
+    interest: {
+      min: 0, max: 100, default: 15,
+      thresholds: { polite: [0,30], interested: [31,70], attracted: [71,100] }
+    }
 
-# Includes: pull in external files and merge their sections.
-# Each included file must declare recognized root keys (e.g., characters, nodes, zones).
+# --- Time system configuration ---
+time:
+  mode: "slots"
+  slots: ["afternoon"]
+  actions_per_slot: 10
+  auto_advance: false
+  start:
+    day: 1
+    slot: "afternoon"
+
+# --- List of included content files ---
 includes:
   - "characters.yaml"
   - "locations.yaml"

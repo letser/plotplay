@@ -1,5 +1,5 @@
 # ===============================
-# Characters - Test Game
+# Characters - Coffee Shop Date (v3 Spec)
 # ===============================
 
 characters:
@@ -7,7 +7,7 @@ characters:
     name: "Alex"
     age: 22
     gender: "female"
-    pronouns: ["she","her"]
+    pronouns: ["she", "her"]
     role: "date"
 
     meters:
@@ -31,6 +31,7 @@ characters:
       outfits:
         - id: "casual_date"
           name: "Casual outfit"
+          tags: ["default"]
           layers:
             top: { item: "sweater", color: "blue" }
             bottom: { item: "jeans" }
