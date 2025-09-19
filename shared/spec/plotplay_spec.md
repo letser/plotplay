@@ -3,7 +3,7 @@
 
 ---
 
-## Introduction
+## 1. Introduction
 
 PlotPlay is an AI-driven text adventure engine that blends authored branching structure with dynamic prose. 
 Authors define worlds, characters, and story logic in YAML; the engine enforces state, consent, 
@@ -12,7 +12,33 @@ Unlike freeform AI sandboxes, every PlotPlay game is deterministic, replayable, 
 
 ---
 
-## Key Features
+## Table of Contents
+
+1. [Introduction](#1-introduction)  
+2. [Key Features](#2-key-features)  
+3. [Core Concepts](#3-core-concepts)  
+4. [Game Package & Manifest](#4-game-package--manifest)  
+5. [State Overview](#5-state-overview)  
+6. [Expression DSL & Condition Context](#6-expression-dsl-conditions)  
+7. [Characters](#7-characters)  
+8. [Meters](#8-meters)  
+9. [Flags](#9-flags)  
+10. [Modifiers](#10-modifiers)  
+11. [Inventory & Items](#11-inventory--items)  
+12. [Clothing & Wardrobe](#12-clothing--wardrobe)  
+13. [Effects](#13-effects)  
+14. [Locations & Zones](#14-locations--zones)  
+15. [Movement Rules](#15-movement-rules)  
+16. [Time & Calendar](#16-time--calendar)  
+17. [Nodes](#17-nodes)  
+18. [Events](#18-events)  
+19. [Arcs & Milestones](#19-arcs--milestones)  
+20. [AI Contracts (Writer & Checker)](#20-ai-contracts-writer--checker)  
+
+
+---
+
+## 2. Key Features
 - **Blended Narrative** — Pre-authored nodes give structure; AI prose fills the gaps, always within authored boundaries.
 - **Deterministic State System** — Meters, flags, modifiers, clothing, and inventory are validated and updated in predictable ways.
 - **Consent & Boundaries** — All intimacy is gated by explicit thresholds and privacy rules; non-consensual paths are impossible.
@@ -23,11 +49,11 @@ Unlike freeform AI sandboxes, every PlotPlay game is deterministic, replayable, 
 ---
 
 
-## Core Concepts
+## 3. Core Concepts
 
 PlotPlay is built on a small set of core entities. Authors combine these to define worlds, characters, and story flows.
 
-### Game Parts and Flow
+### 3.1. Game Parts and Flow
 
 **Game Loop Entities**
 - **Game** — A packaged story folder with game.yaml manifest and optional split files.
@@ -42,7 +68,7 @@ PlotPlay is built on a small set of core entities. Authors combine these to defi
 - **Character Card** — A compact runtime summary of a character (appearance, meters, gates, refusals) passed to the Writer for context.
 
 
-### State
+### 3.2. State
 Game state is the single source of truth. It includes:
 - **Meters** — numeric values per player and NPC (trust, attraction, energy, etc.)  
 - **Flags** — boolean or scalar values for progression (e.g. `emma_met`, `first_kiss`)  
@@ -51,17 +77,17 @@ Game state is the single source of truth. It includes:
 - **Clothing** — layered outfits with rules for removal, replacement, validation  
 - **Location & Time** — hierarchical world, zones, locations, day/slot tracking  
 
-### Character Cards
+### 3.3. Character Cards
 Generated dynamically each turn from the state. They describe base appearance, outfit and clothing state, active modifiers, summarized meters (threshold labels), dialogue style, and current behavior gates.
 Cards are passed to the Writer as context at each turn.
 
-### Narrative Flow
+### 3.4.Narrative Flow
 - **Nodes** define the authored story structure (scenes, interactive hubs, endings).  
 - **Writer Model** produces freeform prose, respecting node type, state, and character cards.  
 - **Checker Model** parses prose back into structured state deltas (meter changes, flags, clothing, etc.).  
 - **Transitions** move the story between nodes, determined by authored conditions + Checker outputs.  
 
-### Two-Model Architecture
+### 3.5. Two-Model Architecture
 - **Writer**: Expands on authored beats, generates dialogue and prose, stays within style/POV constraints.  
 - **Checker**: Strict JSON output, detects state changes, validates against rules, enforces consent & hard boundaries.  
 
@@ -69,15 +95,15 @@ Both models run each turn; their outputs are merged into the game state.
 
 ---
 
-## Game Package & Manifest
+## 4. Game Package & Manifest
 
-### Definition
+### 4.1. Definition
 
 A **game** is a single folder containing a primary manifest file `game.yaml`plus any optional, referenced YAML files. 
 The manifest declares metadata, core config, and (optionally) a list of **includes**. 
 This lets small games live in a single file, while bigger games split sections into multiple files — **without changing the schema**.
 
-### Folder Layout (required)
+### 4.2. Folder Layout (required)
 
 ```yaml
 <game_folder>/
@@ -92,7 +118,7 @@ This lets small games live in a single file, while bigger games split sections i
   # ...or any custom names you reference via include
 ```
 
-### Manifest Template - `game.yaml`
+### 4.3. Manifest Template - `game.yaml`
 ```yaml
 # REQUIRED top-level fields
 meta:
@@ -176,7 +202,7 @@ zones:
   - id: "campus"
     locations: [ ... ]
 ```
-### Loader behavior (deterministic)
+### 4.4. Loader behavior (deterministic)
 
 1. Load `game.yaml` (base).
 2. For each file in `includes` (listed order), **load** and **merge** any **recognized root keys** it contains.
@@ -186,7 +212,7 @@ zones:
     - Safety gates, time config sanity, start node/location exist.
 
 
-### Merge rules (section-aware)
+### 4.5. Merge rules (section-aware)
 
 - **Lists** (`characters`, `items`, `nodes`, `events`, `arcs`, `zones`): merged by id.
   - Duplicate `id` → error by default.
@@ -201,14 +227,14 @@ zones:
     - **Deep-merge** with **manifest** (`game.yaml`) winning on conflict.
     - `meta` and `start` are strongly recommended to live in `game.yaml` only; if present in includes, they **cannot remove required fields**.
 
-### Constraints & safety
+### 4.6. Constraints & safety
 
 - All included files must be inside the game folder; no `..`, no absolute paths, no URLs.
 - **Known root keys only**; unknown roots cause a load error (helps catch typos).
 - **No nested includes** inside included files (max depth = 1).
 - Deterministic: same files → identical assembled game.
 
-### Authoring tips
+### 4.7. Authoring tips
 
 - Small games: keep everything in **one** `game.yaml`.
  - Growing games: split by **natural sections** (`characters`, `nodes`, `events`, `arcs`, `zones`, `items`).
@@ -218,7 +244,7 @@ zones:
 
 ---
 
-## State overview
+## 5. State overview
 
 Game state is the single source of truth for everything that has happened in a game. 
 It captures the current snapshot of the world, characters, and story progression, 
@@ -245,11 +271,156 @@ The state is:
 - Drives **transitions**, **events**, and **milestones** deterministically.
 - Ensures **consistency**: narrative always reflects current meters, clothing, location, and consent gates.
 
+---
+## 6. Expression DSL (Conditions)
+
+### 6.1. Purpose
+A small, safe, deterministic expression language used anywhere the spec accepts a condition 
+(e.g., node `preconditions`, effect `when`, event triggers, outfit `unlock_when`, 
+flag `reveal_when`, arc `advance_when`).
+
+### 6.2. Syntax (EBNF-style)
+```
+expr        := or_expr
+or_expr     := and_expr { "or" and_expr }
+and_expr    := not_expr { "and" not_expr }
+not_expr    := ["not"] cmp_expr
+cmp_expr    := sum_expr [ ( "==" | "!=" | "<" | "<=" | ">" | ">=" | "in" ) sum_expr ]
+sum_expr    := term { ( "+" | "-" ) term }
+term        := factor { ( "*" | "/" ) factor }
+factor      := primary | "(" expr ")"
+primary     := literal | path | function_call
+
+literal     := boolean | number | string | list
+boolean     := "true" | "false"
+number      := /-?\d+(\.\d+)?/
+string      := double_quoted_string   # use "..."
+list        := "[" [literal {"," literal}] "]"
+
+path        := ident {("." ident) | ("[" string_or_number "]")}
+ident       := /[A-Za-z_][A-Za-z0-9_]*/
+
+function_call := ident "(" [ arg {"," arg} ] ")"
+arg            := expr
+```
+
+### 6.3. Types & Truthiness
+- Types: **boolean**, **number**, **string**, **list** (homogenous recommended).
+- Falsey: `false`, `0`, `""`, `[]`. Everything else is truthy.
+- Short-circuit: `and`/`or` evaluate left→right with short-circuit.
+
+### 6.4. Operators
+
+- Comparison: `== != < <= > >=`
+- Boolean: `and or not`
+- Arithmetic: `+ - *` / (numbers only)
+- Membership: `X in ["a","b"]` or `time.slot in ["evening","night"]`
+
+### 6.5. Path Access
+
+- Dotted or bracketed: `meters.emma.trust`, `flags["first_kiss"]`
+- **Safe resolution**: Missing paths evaluate to `null` (falsey). They **never throw**.
+- For dynamic paths, use `get("flags.route_locked", false)`.
+
+
+### 6.6. Built-in Functions
+
+- `has(item_id)` → bool (player inventory)
+- `npc_present(npc_id)` → bool (NPC currently in same location)
+- `rand(p)` → bool (Bernoulli; `0.0 ≤ p ≤ 1.0`; seeded per turn)
+- `min(a,b)`, `max(a,b)`, `abs(x)`
+- `clamp(x, lo, hi)`
+- `get(path_string, default)` → safe lookup (e.g., `get("meters.emma.trust", 0)`)
+
+### 6.7. Constraints & Safety
+
+- No assignments, no user-defined functions, no I/O, no imports, no eval.
+- Strings must be **double-quoted**.
+- Division by zero → expression is false (and the engine logs a warning).
+- Engine enforces **length & nesting caps** to prevent abuse.
+
+### 6.8. Examples
+```yaml
+"meters.emma.trust >= 50 and gates.emma.accept_date"
+"time.slot in ['evening','night'] and rand(0.25)"
+"has('flowers') and location.privacy in ['medium','high']"
+"arcs.emma_corruption.stage in ['experimenting','corrupted']"
+"get('flags.protection_available', false) == true"
+```
+
+### 6.9. Runtime Variables (Condition Context)
+
+All conditions are evaluated against a read-only **turn context** built by the engine.
+The following variables and namespaces are available:
+
+#### Time & Calendar
+- `time.day` (int) — narrative day counter (≥1)
+- `time.slot` (string) — current slot (e.g., "morning")
+- `time.time_hhmm` (string) — "HH:MM" in clock/hybrid modes
+- `time.weekday` (string) — e.g., "monday"
+
+#### Location
+- `location.zone` (string) — zone id
+- `location.id` (string) — location id
+- `location.privacy` (enum) — none | low | medium | high
+
+#### Characters & Presence
+- `characters` (list of ids) — NPC ids known in game
+- `present` (list of ids) — NPC ids present in current location
+  - Prefer `npc_present('emma')` for clarity.
+
+#### Meters
+- `meters.player.<meter_id>` (number)
+- `meters.<npc_id>.<meter_id>` (number)
+  - Example: `meters.emma.trust`, `meters.player.energy`
+
+#### Flags
+- `flags.<flag_key>` — boolean/number/string (as defined)
+  - Example: `flags.first_kiss == true`
+
+#### Modifiers (active)
+- `modifiers.player` (list[string]) — active modifier ids
+- `modifiers.<npc_id>` (list[string])
+  - Often checked via gates or effects rather than here.
+
+#### Inventory
+- `inventory.player.<item_id>` (int count)
+- `inventory.<npc_id>.<item_id>` (int count)
+  - Prefer `has('flowers')` for player possession checks.
+
+#### Clothing (runtime state)
+- `clothing.<npc_id>.layers.<layer_id>` — `"intact" | "displaced" | "removed"`
+- `clothing.<npc_id>.outfit` — current outfit id
+
+#### Gates (consent/behavior)
+- `gates.<npc_id>.<gate_id>` (bool)
+  - Gate values are derived from meters/flags/privacy; use this instead of re-implementing checks.
+  - Example: `gates.emma.accept_kiss`
+
+#### Arcs
+- `arcs.<arc_id>.stage` (string) — current stage id
+- `arcs.<arc_id>.history` (list[string]) — prior stages
+
+#### Player
+- `player.energy` (number) — convenience mirror of meters.player.energy if configured
+- Additional mirrored fields may exist per game config (document them if added).
+
+### 6.10. Authoring Guidelines
+- Prefer checking **gates** (`gates.emma.accept_kiss`) over raw meter math for consent/NSFW.
+- Keep expressions short; move complexity into flags/arcs or precomputed gates.
+- Use `get(...)` when a path might not exist yet (e.g., optional flags).
+- Randomness: use `rand(p)` sparingly and only where replay determinism is acceptable.
+
+### 6.11. Validation & Errors
+- Unknown variables/paths → resolve to `null` (falsey) and log a warning in dev builds.
+- Type errors (e.g., `"foo" + 1`) → expression evaluates false; warning logged.
+Exceeding size/nesting caps → expression rejected at a load or first evaluation.
+
 
 ---
-## Characters
+## 7. Characters
 
-### Definition
+### 7.1. Definition
 A **character** is any entity (NPC or player avatar) that participates in the story. 
 Characters are defined in YAML with **identity**, **meters**, **consent gates**, **wardrobe**, and **availability**.
 
@@ -258,7 +429,7 @@ All other aspects (meters, outfits, behaviors) are optional but strongly recomme
 
 Characters provide the core state the Writer and Checker operate on: they drive interpersonal progression, gating, and narrative consistency
 
-### Character Template
+### 7.2. Character Template
 ```yaml
 # Character definition lives under: characters: [ ... ]
 - id: "<string>"                  # REQUIRED. Unique stable ID.
@@ -280,6 +451,7 @@ Characters provide the core state the Writer and Checker operate on: they drive 
     met_player: { type: "bool", default: false }
 
   # --- Consent & behavior gates ---
+  # Gates use the Expression DSL (see ‘Expression DSL & Condition Context’).
   gates:                          # REQUIRED for NSFW characters.
     accept_date:  "meters.{id}.trust >= 30"
     accept_kiss:  "meters.{id}.trust >= 40 and meters.{id}.attraction >= 30"
@@ -315,7 +487,7 @@ Characters provide the core state the Writer and Checker operate on: they drive 
 
 ```
 
-### Runtime State (excerpt)
+### 7.3. Runtime State (excerpt)
 ```yaml
 state.characters:
   emma:
@@ -330,7 +502,7 @@ state.characters:
     modifiers: []
     location: "library"
 ```
-### Example Character
+### 7.4. Example Character
 ```yaml
 - id: "emma"
   name: "Emma Chen"
@@ -366,7 +538,7 @@ state.characters:
     - when: "time.slot == 'night'"
       location: "dorm_room"
 ```
-### Authoring Guidelines
+### 7.5. Authoring Guidelines
 
 - **Always set** `age >= 18` — validation rejects underage characters.
 - Define **gates explicitly**: they control intimacy and prevent unsafe AI output.
@@ -374,12 +546,13 @@ state.characters:
 - Keep wardrobe minimal unless outfits are narratively important.
 - Use **schedule** for predictable presence; events can override temporarily.
 - For romance/NSFW arcs, define **both trust and attraction** as core meters.
+- Gates use the Expression DSL (see ‘Expression DSL & Condition Context’).
 
 ---
 
-## Meters
+## 8. Meters
 
-### Definition
+### 8.1. Definition
 
 A **meter** is a numeric variable that tracks a continuous aspect of the player or an NPC. 
 Meters represent qualities such as trust, attraction, energy, health, arousal, or corruption. 
@@ -421,7 +594,7 @@ Meters are always defined in the game configuration and are validated at load ti
   description: "<string>"   # OPTIONAL. Brief author guidance about meaning and usage.
 
 ```
-### Example (NPC meter)
+### 8.2. Example (NPC meter)
 ```yaml
 meters:
   character_template:
@@ -441,9 +614,9 @@ meters:
 
 ---
 
-## Flags
+## 9. Flags
 
-### Definition
+### 9.1. Definition
 A **flag** is a small, named piece of state that marks discrete facts or progress (met someone, completed a step, 
 unlocked a route, etc.). Flags are lightweight, easy to query in conditions, and are validated at load time. 
 They can be boolean, number, or string, but should remain simple and stable over a whole run.
@@ -471,7 +644,7 @@ They can be boolean, number, or string, but should remain simple and stable over
     - <valueB>
 ```
 
-### Constraints & Notes
+### 9.2. Constraints & Notes
 
 - **Types**:
   - bool → true / false
@@ -481,7 +654,7 @@ They can be boolean, number, or string, but should remain simple and stable over
 - **Usage**: reference in expressions like `flags.first_kiss == true` or `flags.route_locked != true`.
 - **Scope**: flags are **global** ; if you need NPC-scoped facts, either prefix (`emma_*`) or use NPC's meters.
 
-### Examples
+### 9.3. Examples
 
 ```yaml
 flags:
@@ -519,9 +692,9 @@ flags:
 
 ---
 
-## Modifiers
+## 10. Modifiers
 
-### Definition
+### 10.1. Definition
 A **modifier** is a named, (usually) temporary state that overlays appearance/behavior rules 
 without directly rewriting canonical facts. Think **aroused**, **drunk**, **injured**, **tired**.
 Modifiers can auto-activate from conditions, be applied/removed by effects, stack or exclude each other, 
@@ -567,7 +740,7 @@ but don’t invent hard state changes by themselves.
   description: "<string>"    # OPTIONAL. Short guidance for authors/tools. Not shown to players.
 
 ```
-### System-Level Controls (where these live)
+### 10.2. System-Level Controls (where these live)
 Defined once under **modifier_system**, not per modifier:
 ```yaml
 modifier_system:
@@ -587,7 +760,7 @@ modifier_system:
         priority: 100
         members: ["unconscious","paralyzed"]
 ```
-### Constraints & Notes
+### 10.3. Constraints & Notes
 - **Source of truth**: modifiers overlay behavior/appearance; use **effects** if you need concrete state changes (meters, flags, clothing).
 - **Activation**: a modifier can be **auto-activated** by `when` each turn, or explicitly applied via an effect:
 ```yaml
@@ -608,7 +781,7 @@ Remove with:
 - **Safety**: safety.disallow_gates always wins; the engine blocks those actions even if prose suggests them.
 - **Determinism**: evaluation happens in the standard turn order (after safety checks, before/after effects as specified in your engine), ensuring replayable outcomes.
 
-### Examples
+### 10.4. Examples
 ```yaml
 modifier_system:
   library:
@@ -644,9 +817,9 @@ modifier_system:
 
 ---
 
-## Inventory and Items
+## 11. Inventory & Items
 
-### Definition
+### 11.1. Definition
 
 An **item** is a defined object (gift, key, consumable, equipment, trophy, etc.) that can be owned 
 by the player or NPCs. The inventory is the per-owner mapping of item IDs to counts 
@@ -703,7 +876,7 @@ Items and inventory are declared in game YAML and validated at load time.
 
 ```
 
-### Constraints & Notes
+### 11.2. Constraints & Notes
 
 - `id` must be unique across all items; referenced by inventory, nodes, effects.
 - Use **effects** to model concrete outcomes (money change, meter changes, flags) on use/gift.
@@ -711,7 +884,7 @@ Items and inventory are declared in game YAML and validated at load time.
 - Keep `description` concise; long lore should live in node prose.
 
 
-### Inventory structure
+### 11.3. Inventory structure
 
 ```yaml
 # Where inventories live at runtime (state)
@@ -739,7 +912,7 @@ Effects that mutate inventory (authorable + Checker deltas):
 - { type: inventory_remove, owner: "player|<npc_id>", item: "<item_id>", count: 1 }
 ```
 
-### Examples
+### 11.4. Examples
 
 #### Gift item
 
@@ -791,9 +964,9 @@ Effects that mutate inventory (authorable + Checker deltas):
 
 ---
 
-## Clothing & Wardrobe
+## 12. Clothing & Wardrobe
 
-### Definition
+### 12.1. Definition
 The **clothing system** represents what characters wear, how outfits are composed, and how layers can change
 state during play. Clothing provides narrative grounding (outfits described in prose), 
 mechanical gating (privacy, consent, embarrassment), and state tracking (layer `intact` / `displaced` / `removed`).
@@ -837,7 +1010,7 @@ wardrobe:
 
   outfits: [ ... see above ... ]
 ```
-### Clothing State (runtime)
+### 12.2. Clothing State (runtime)
 At runtime, each character has:
 ```yaml
 state.clothing:
@@ -851,7 +1024,7 @@ state.clothing:
       underwear_bottom: "removed"
 ```
 
-### Clothing Effects
+### 12.3. Clothing Effects
 Clothing changes are expressed through standard Effects (`outfit_change` and `clothing_set`), see Effects catalog.
 
 **Rules**
@@ -859,7 +1032,7 @@ Clothing changes are expressed through standard Effects (`outfit_change` and `cl
 - **Wardrobe rules** ensure mandatory layers exist and respect layer order.
 - **Engine validation**: unknown layers/outfits rejected.
 
-### Example
+### 12.4. Example
 ```yaml
 characters:
   - id: "emma"
@@ -892,7 +1065,7 @@ characters:
             accessories: ["choker"]
 
 ```
-### Authoring Guidelines
+### 12.5. Authoring Guidelines
 - Always provide at least one **default outfit** per character.
 - Use `unlock_when` for narrative progression (e.g., bold/corrupted outfits).
 - Keep **layer ontology consistent** across all characters.
@@ -901,7 +1074,9 @@ characters:
 
 ---
 
-## Effects
+## 13. Effects
+
+### 13.1. Definition
 
 An **effect** is an atomic, declarative instruction that changes the game state. Effects are:
 - **Deterministic** — applied in order, validated against schema.
@@ -918,7 +1093,7 @@ Effects can be authored in nodes, events, arcs, milestones, or items. The Checke
 
   # Fields depend on type.
 ```
-### Catalog of Effect Types
+### 13.2. Catalog of Effect Types
 
 #### Meter change
 ```yaml
@@ -1006,7 +1181,7 @@ Effects can be authored in nodes, events, arcs, milestones, or items. The Checke
   ending: "<ending_id>"
 
 ```
-### Execution Order (per turn)
+### 13.3. Execution Order (per turn)
 
 1. **Safety gates** (hard rules, consent).
 2. **Node entry_effects** / **event effects** (in order).
@@ -1016,15 +1191,16 @@ Effects can be authored in nodes, events, arcs, milestones, or items. The Checke
 6. **Advance time** (explicit or defaults).
 7. **Node transitions** (forced `goto` → authored `transitions` → fallback).
 
-### Constraints & Notes
+### 13.4. Constraints & Notes
 
+- Conditions use the Expression DSL.
 - Unknown `type` or invalid fields → effect rejected, log warning.
 - Invalid references (unknown meter/item/npc/location) → effect rejected.
 - `when` guard false → effect skipped silently.
 - All randomness is seeded deterministically (`game_id + run_id + turn_index`) for replay stability.
 - Effects **must not bypass consent/NSFW rules**; if violated, they are dropped, and refusal text is triggered.
 
-### Examples
+### 13.5. Examples
 **Trust boost or penalty**
 ```yaml
 - type: conditional
@@ -1054,9 +1230,9 @@ Effects can be authored in nodes, events, arcs, milestones, or items. The Checke
 
 ---
 
-## Locations and Zones
+## 14. Locations & Zones
 
-### Definition
+### 14.1. Definition
 The world model is hierarchical:
 - **Zones**: broad narrative areas (e.g., Campus, Downtown).
 - **Locations**: discrete places within zones (e.g., Library, Dorm Room).
@@ -1067,7 +1243,7 @@ Zones may define **transport options** and **events** tied to entering or explor
 This model allows authored content to target specific areas and the engine to enforce rules 
 for **movement**, **privacy**, **discovery**, and **NPC willingness**.
 
-### Zone template
+### 14.2. Zone template
 ```yaml
 # Zone definition lives under: zones: [ ... ]
 - id: "<string>"                  # REQUIRED. Unique stable zone ID.
@@ -1090,7 +1266,7 @@ for **movement**, **privacy**, **discovery**, and **NPC willingness**.
   locations: [ ... ]
 
 ```
-### Location template
+### 14.3. Location template
 ```yaml
 # Location definition lives under: zones[].locations[]
 - id: "<string>"                  # REQUIRED. Unique stable location ID (zone-local).
@@ -1127,14 +1303,14 @@ for **movement**, **privacy**, **discovery**, and **NPC willingness**.
       effects: [ <effects...> ]
 
 ```
-### Runtime State (excerpt)
+### 14.4. Runtime State (excerpt)
 ```yaml
 state.location:
   zone: "<zone_id>"
   id: "<location_id>"
   privacy: "<enum>"          # carried into consent checks
 ```
-### Discovery & Privacy
+### 14.5. Discovery & Privacy
 
 - **Discovery**: locations are hidden until flagged; `hidden_until_discovered: true` keeps them invisible in UI until unlocked.
 - **Privacy levels:**
@@ -1144,7 +1320,7 @@ state.location:
   - high → private rooms, intimacy is allowed
 - Privacy influences which **gates** can pass (e.g., `accept_kiss` in medium+, `accept_sex` only in high).
 
-### Example
+### 14.6. Example
 ```yaml
 zones:
   - id: "campus"
@@ -1183,7 +1359,7 @@ zones:
 
 ```
 
-### Authoring Guidelines
+### 14.7. Authoring Guidelines
 - Always give each zone at least one **safe fallback location** (prevents dead-ends).
 - Tag high-privacy locations carefully; they gate NSFW actions.
 - Use unlock_methods for keys/invitations instead of flags where possible (keeps fiction grounded).
@@ -1192,9 +1368,9 @@ zones:
 
 ---
 
-## Movement Rules
+## 15. Movement Rules
 
-### Definition
+### 15.1. Definition
 The **movement system** governs how the player (and companions) travel between locations and zones. 
 Movement consumes **time** and may cost **energy**, requires **access conditions** to be met, 
 and checks **NPC consent** when traveling with companions.
@@ -1227,7 +1403,7 @@ movement:
     check_npc_consent: true       # Default true. Validate gates before moving with NPCs.
 
 ```
-### Runtime Example
+### 15.2. Runtime Example
 ```yaml
 state:
   location: { zone: "campus", id: "library", privacy: "low" }
@@ -1240,7 +1416,7 @@ If player moves from `library` → `dorm_room`:
 - `energy ≥ min_energy (5)` → allowed.
 - If `emma accompanies`, engine checks her `movement.willing_locations` and consent gates.
 
-### Example Config
+### 15.3. Example Config
 
 ```yaml
 movement:
@@ -1260,7 +1436,7 @@ movement:
 
 ```
 
-### Companion Consent Rules
+### 15.4. Companion Consent Rules
 
 Defined per character in `characters` node:
 ```yaml
@@ -1284,7 +1460,7 @@ movement:
 
 ```
 
-### Authoring Guidelines
+### 15.5. Authoring Guidelines
 
 - **Always include fallback travel routes** to avoid dead-ends.
 - Balance **time cost**: keep local moves cheap, zone travel meaningful.
@@ -1294,9 +1470,9 @@ movement:
 
 ---
 
-## Time & Calendar
+## 16. Time & Calendar
 
-### Definition
+### 16.1. Definition
 
 The **time system** governs pacing, scheduling, and event triggers. It supports three modes:
 - **Slots** — day divided into named parts (morning, afternoon, evening, night).
@@ -1306,7 +1482,7 @@ The **time system** governs pacing, scheduling, and event triggers. It supports 
 Time advances through **actions**, **movement**, **effects**, and **sleep**,
 and is referenced by **events**, **schedules**, and **arcs**.
 
-### Time Config Template
+### 16.2. Time Config Template
 ```yaml
 time:
   mode: "<enum>"                  # REQUIRED. "slots" | "clock" | "hybrid"
@@ -1340,7 +1516,7 @@ time:
 
 ```
 
-### Runtime State (excerpt)
+### 16.3. Runtime State (excerpt)
 ```yaml
 state.time:
   day: 3                 # narrative day counter
@@ -1350,14 +1526,14 @@ state.time:
 
 ```
 
-### Time Effects
+### 16.4. Time Effects
 ```yaml
 - type: advance_time
   minutes: 30
 ```
 Engine applies minutes, updates slot/weekday automatically. If day rolls over, slot and calendar fields update.
 
-### Examples
+### 16.5. Examples
 
 #### Simple slots model
 ```yaml
@@ -1395,7 +1571,7 @@ time:
 
 ```
 
-### Authoring Guidelines
+### 16.6. Authoring Guidelines
 
 - Use **hybrid mode** by default: slot-friendly authoring + precise event triggers.
 - Keep slot names short and consistent (`morning`, not `early_morning`).
@@ -1405,9 +1581,9 @@ time:
 
 ---
 
-## Nodes
+## 17. Nodes
 
-### Definition
+### 17.1. Definition
 
 A **node** is the authored backbone of a PlotPlay story.
 Each node represents a discrete story unit — a scene, a hub, an encounter, or an ending. 
@@ -1416,14 +1592,14 @@ and control how the story progresses via **transitions**.
 
 Nodes are where most author effort goes: they set context for the Writer, define conditions and effects, and connect to other nodes
 
-### Node Types
+### 17.2. Node Types
 
 - **scene** — A focused moment with authored beats and freeform AI prose.
 - **hub** — A menu-like node for navigation or repeated interactions.
 - **encounter** — Short, often event-driven vignette; usually returns to a hub.
 - **ending** — Terminal node; resolves the story and stops play.
 
-### Node Template
+### 17.3. Node Template
 
 ```yaml
 # Node definition lives under: nodes: [ ... ]
@@ -1488,12 +1664,12 @@ Nodes are where most author effort goes: they set context for the Writer, define
 
 ```
 
-### Runtime State (excerpt)
+### 17.4. Runtime State (excerpt)
 ```yaml
 state.current_node: "<node_id>"
 ```
 
-### Examples
+### 17.5. Examples
 
 #### Scene 
 ```yaml
@@ -1540,7 +1716,7 @@ state.current_node: "<node_id>"
 
 ```
 
-### Authoring Guidelines
+### 17.6. Authoring Guidelines
 
 - Always provide at least one **fallback transition** (`when: always`) to prevent dead-ends.
 - Keep **beats** concise — bullets of intent, not prose.
@@ -1551,9 +1727,9 @@ state.current_node: "<node_id>"
 
 ---
 
-## Events
+## 18. Events
 
-### Definition
+### 18.1. Definition
 
 An **event** is authored content that can **interrupt**, **inject**, or **overlay** narrative 
 outside the main node flow. Events add pacing, variety, and reactivity. 
@@ -1563,7 +1739,7 @@ Events differ from nodes:
 - **Nodes** are the backbone of the story (explicit story beats).
 - **Events** are side-triggers, often opportunistic or reactive.
 
-### Event Template
+### 18.2. Event Template
 
 ```yaml
 # Event definition lives under: events: [ ... ]
@@ -1600,7 +1776,7 @@ Events differ from nodes:
 
 ```
 
-### Runtime Behavior
+### 18.3. Runtime Behavior
 
 - Engine evaluates all events **each turn** after node resolution, before the next node selection.
 - Eligible events are collected into a pool; if multiple random events qualify, weighted RNG selects.
@@ -1609,7 +1785,7 @@ Events differ from nodes:
   - **Interrupt** and redirect to a dedicated event node,
   - **Apply effects silently** (background change).
 
-### Runtime State (excerpt)
+### 18.4. Runtime State (excerpt)
 
 ```yaml
 state.events:
@@ -1618,7 +1794,7 @@ state.events:
     "emma_text_day1": 1440          # minutes until eligible again
 ```
 
-### Examples
+### 18.5. Examples
 
 #### Scheduled event
 ```yaml
@@ -1663,7 +1839,7 @@ state.events:
 
 ```
 
-### Authoring Guidelines
+### 18.6. Authoring Guidelines
 
 - Always define **cooldowns** for random events to prevent spam.
 - Use **location_scope** to tie events naturally to a setting.
@@ -1674,9 +1850,9 @@ state.events:
 
 ---
 
-## Arcs & Milestones
+## 19. Arcs & Milestones
 
-### Definition
+### 19.1. Definition
 
 An **arc** is a long-term progression track that represents a character route, corruption path, relationship stage,
 or overarching plotline. Each arc consists of ordered **milestones** (stages).
@@ -1686,7 +1862,7 @@ or overarching plotline. Each arc consists of ordered **milestones** (stages).
 
 Arcs ensure that stories have clear progression, and that endings are unlocked in a controlled, authored way.
 
-### Arc Template
+### 19.2. Arc Template
 
 ```yaml
 # Arc definition lives under: arcs: [ ... ]
@@ -1721,7 +1897,7 @@ Arcs ensure that stories have clear progression, and that endings are unlocked i
         endings: ["<ending_id>", ...]
 ```
 
-### Runtime State (excerpt)
+### 19.3. Runtime State (excerpt)
 ```yaml
 state.arcs:
   emma_corruption:
@@ -1729,7 +1905,7 @@ state.arcs:
     history: ["innocent","curious"]
 ```
 
-### Examples
+### 19.4. Examples
 
 #### Romance arc
 ```yaml
@@ -1759,7 +1935,7 @@ state.arcs:
         - { type: unlock_ending, ending: "emma_best" }
 ```
 
-### Corruption arc
+### 19.5. Corruption arc
 
 ```yaml
 - id: "emma_corruption"
@@ -1788,7 +1964,7 @@ state.arcs:
         - { type: unlock_ending, ending: "emma_corrupted" }
 
 ```
-### Authoring Guidelines
+### 19.6. Authoring Guidelines
 - Always order stages so they evaluate from lowest to highest.
 - Keep advance_when expressions simple (use flags/meters).
 - Use effects_on_enter for immediate narrative unlocks.
@@ -1798,9 +1974,9 @@ state.arcs:
 
 ---
 
-## AI Contracts (Writer & Checker)
+## 20. AI Contracts (Writer & Checker)
 
-### Definition
+### 20.1. Definition
 
 The game engine uses a **two-model architecture** every turn:
  - **Writer**: expands authored beats, generates prose & dialogue in style/POV, and respects state/gates.
@@ -1808,7 +1984,7 @@ The game engine uses a **two-model architecture** every turn:
 
 Both run each turn; the engine merges outputs into the game state.
 
-### Turn Context Envelope
+### 20.2. Turn Context Envelope
 
 Every turn, the engine builds a **context envelope** that goes to both models.
 ```yaml
@@ -1833,7 +2009,7 @@ turn:
   ui:
     choices: [{ id: "order_drink", prompt: "Order a drink" }]
 ```
-### Writer Contract
+### 20.3. Writer Contract
 
 - **Input**: node metadata, beats, character cards, last dialogue, UI choices, player action, events.
 - **Output**: **plain text prose** (≤ target paragraphs).
@@ -1851,7 +2027,7 @@ Heat spills from the tavern. Alex smiles from behind the bar, polishing a glass.
 “Company’s free,” she teases, “but the drink will cost you.”
 
 ```
-### Checker Contract
+### 20.4. Checker Contract
 
 - **Input**: full envelope + Writer text + player input.
 - **Output**: strict JSON with deltas.
@@ -1880,7 +2056,7 @@ Heat spills from the tavern. Alex smiles from behind the bar, polishing a glass.
 - Refuse disallowed acts (set `safety.ok=false`, log violation).
 - No extra keys, no comments.
 
-### Prompt templates
+### 20.5. Prompt templates
 
 #### Writer 
 ```
@@ -1910,7 +2086,7 @@ card:
   gates: { allow: ["accept_flirting"], deny: ["accept_kiss"] }
   refusals: { low_trust: "Not yet.", wrong_place: "Not here." }
 ```
-### Safety & Consent
+### 20.6. Safety & Consent
 - All characters must be 18+.
 - Non-con and minors are blocked hard.
 - Intimate acts require:
@@ -1919,17 +2095,17 @@ card:
   - Meter thresholds satisfied.
 - Violations cause Writer to use **refusal text** and Checker to flag `safety.ok=false`.
 
-### Memory
+### 20.7. Memory
 - `memory.append` holds compact factual reminders (e.g., “Alex teased you at the tavern”).
 - Engine keeps rolling window (last 6–10).
 - Avoid explicit sex details unless milestone/flag.
 
-### Error Recovery
+### 20.8. Error Recovery
  - Malformed JSON → cleanup pass.
  - Still bad → retry with “Return JSON only”
  - On double failure → skip deltas, log error, continue.
 
-### Cost Profiles
+### 20.9. Cost Profiles
  - **cheap**: small, fast models.
  - **luxe**: larger models, richer prose.
  - **custom**: override in game.yaml.
