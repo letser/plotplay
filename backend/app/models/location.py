@@ -8,7 +8,7 @@ from enum import StrEnum
 from pydantic import BaseModel, Field
 
 
-class LocationPrivacy(str, StrEnum):
+class LocationPrivacy(StrEnum):
     """Location privacy levels."""
     LOW = "low"
     MEDIUM = "medium"

@@ -14,13 +14,16 @@ This document outlines the step-by-step plan to refactor the PlotPlay engine and
 - [x] **1B: Refactor the Game Loader**
   - Update `GameLoader` to correctly read `game.yaml` and populate the new `GameDefinition` model.
 
-- [ ] **1C: Convert Example Game (`coffeeshop_date`)**
-  - Update all YAML files for the `coffeeshop_date` game to fully match the new specification and Pydantic models.
+- [x] **1C: Convert Example Games**
+  - Update all YAML files for both `coffeeshop_date` and `college_romance` to fully match the new specification and Pydantic models.
 
 - [ ] **1D: Write Unit Tests**
-  - Write `pytest` tests for the `GameLoader` and models to ensure the `coffeeshop_date` game can be loaded successfully and validated.
+  - Write `pytest` tests for the `GameLoader` and models to ensure both example games can be loaded successfully and validated.
 
-- [ ] **COMMIT POINT #1:** The data layer is refactored, the first example game is converted, and everything is validated by unit tests.
+- [ ] **1E: Implement Comprehensive Game Validation**
+  - Create a new `GameValidator` class to perform an integrity check on the fully loaded `GameDefinition` object, cross-referencing all IDs (nodes, characters, items, etc.).
+
+- [ ] **COMMIT POINT #1:** The data layer is refactored, example games are converted, and everything is validated by unit tests and the new integrity check.
 
 ---
 
@@ -47,10 +50,7 @@ This document outlines the step-by-step plan to refactor the PlotPlay engine and
   - Build the `ConditionEvaluator` for the DSL.
   - Integrate systems for handling events and arc progression into the `GameEngine`.
 
-- [ ] **3B: Convert `college_romance` Game**
-  - Refactor the more complex `college_romance` game to use all advanced features (conditional choices, events, arcs).
-
-- [ ] **3C: Write End-to-End Tests**
+- [ ] **3B: Write End-to-End Tests**
   - Write tests to ensure the `college_romance` game plays as expected, with all dynamic systems functioning correctly.
 
 - [ ] **COMMIT POINT #3:** The backend is feature-complete according to the specification.

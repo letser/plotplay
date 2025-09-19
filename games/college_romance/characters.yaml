@@ -8,8 +8,6 @@ characters:
     age: 19
     gender: "male"
     pronouns: ["you"]
-    # Player-specific stats like energy, money, traits, and inventory
-    # are now managed by the StateManager, not defined here.
 
   - id: "emma"
     name: "Emma Chen"
@@ -37,13 +35,7 @@ characters:
         hair: { color: "black", length: "shoulder", style: "ponytail" }
         eyes: { color: "dark brown" }
         style: ["modest", "neat", "pastel palette"]
-      contexts:
-        - id: "study_mode"
-          when: "time.slot in ['noon','afternoon'] and location.id == 'library'"
-          description: "Glasses on, oversized cardigan."
     wardrobe:
-      rules:
-        layer_order: ["outerwear","top","bottom","feet","underwear_top","underwear_bottom","accessories"]
       outfits:
         - id: "modest_campus"
           name: "Campus Pastels"
@@ -55,7 +47,7 @@ characters:
             feet: { item: "sneakers" }
             underwear_top: { item: "bra", style: "t-shirt" }
             underwear_bottom: { item: "panties", style: "bikini" }
-            accessories: { item: "glasses, backpack" } # Simplified accessories
+            accessories: { item: "glasses and backpack" }
         - id: "bold_weekend"
           name: "Weekend Bold"
           unlock_when: "meters.emma.corruption >= 40 or meters.emma.boldness >= 60"
@@ -66,18 +58,34 @@ characters:
             feet: { item: "ankle boots" }
             underwear_top: { item: "push-up bra", style: "lace" }
             underwear_bottom: { item: "thong", style: "g-string" }
-            accessories: { item: "choker, lip gloss" }
+            accessories: { item: "choker and lip gloss" }
     behaviors:
-      limits:
-        hard_no: ["non-consensual acts", "minors", "public explicit with privacy < 'high'"]
-        soft_yes: ["light teasing", "kissing", "making out", "private nudity after trust"]
       gates:
-        - { id: "accept_compliment", when: "always" }
-        - { id: "accept_flirting", when_any: ["meters.emma.trust >= 25", "meters.emma.corruption >= 30"] }
-        - { id: "accept_date", when_any: ["meters.emma.attraction >= 35 and meters.emma.trust >= 30", "meters.emma.corruption >= 35 and meters.emma.attraction >= 25"] }
-        - { id: "accept_kiss", when_any: ["meters.emma.attraction >= 55 and meters.emma.trust >= 45", "meters.emma.corruption >= 45 and meters.emma.arousal >= 35"] }
-        - { id: "accept_oral", when_all: ["meters.emma.arousal >= 70", "(meters.emma.trust >= 70) or (meters.emma.corruption >= 60)", "location.privacy == 'high'"] }
-        - { id: "accept_sex", when_all: ["meters.emma.arousal >= 80", "(meters.emma.trust >= 80 and meters.emma.attraction >= 80) or (meters.emma.corruption >= 70)", "location.privacy == 'high'", "flags.protection_available == true or meters.emma.corruption >= 80"] }
+        - id: "accept_compliment"
+          when: "always"
+        - id: "accept_flirting"
+          when_any:
+            - "meters.emma.trust >= 25"
+            - "meters.emma.corruption >= 30"
+        - id: "accept_date"
+          when_any:
+            - "meters.emma.attraction >= 35 and meters.emma.trust >= 30"
+            - "meters.emma.corruption >= 35 and meters.emma.attraction >= 25"
+        - id: "accept_kiss"
+          when_any:
+            - "meters.emma.attraction >= 55 and meters.emma.trust >= 45"
+            - "meters.emma.corruption >= 45 and meters.emma.arousal >= 35"
+        - id: "accept_oral"
+          when_all:
+            - "meters.emma.arousal >= 70"
+            - "(meters.emma.trust >= 70) or (meters.emma.corruption >= 60)"
+            - "location.privacy == 'high'"
+        - id: "accept_sex"
+          when_all:
+            - "meters.emma.arousal >= 80"
+            - "(meters.emma.trust >= 80 and meters.emma.attraction >= 80) or (meters.emma.corruption >= 70)"
+            - "location.privacy == 'high'"
+            - "flags.protection_available == true or meters.emma.corruption >= 80"
       refusals:
         generic: "She pulls back, cheeks warm. 'Not yet.'"
         low_trust: "She shakes her head. 'Slow down… please.'"
@@ -89,14 +97,14 @@ characters:
         aroused: ["please", "want", "need"]
     schedule:
       weekday:
-        morning:   { location: "cafeteria", activity: "breakfast", availability: "high" }
-        noon:      { location: "lecture_hall", activity: "class",     availability: "low" }
-        afternoon: { location: "library",     activity: "study",     availability: "medium" }
-        night:     { location: "emma_room",   activity: "relax",    availability: "high" }
-        late_night:{ location: "emma_room",   activity: "sleep",    availability: "none" }
+        morning:    { location: "cafeteria", activity: "breakfast", availability: "high" }
+        noon:       { location: "lecture_hall", activity: "class",     availability: "low" }
+        afternoon:  { location: "library",     activity: "study",     availability: "medium" }
+        night:      { location: "emma_room",   activity: "relax",    availability: "high" }
+        late_night: { location: "emma_room",   activity: "sleep",    availability: "none" }
       weekend:
-        morning:   { location: "emma_room",   activity: "sleep in", availability: "low" }
-        night:     { location: "campus_quad", activity: "walk",      availability: "medium" }
+        morning:    { location: "emma_room",   activity: "sleep in", availability: "low" }
+        night:      { location: "campus_quad", activity: "walk",      availability: "medium" }
 
   - id: "liam"
     name: "Liam Park"
