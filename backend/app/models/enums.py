@@ -3,33 +3,33 @@ PlotPlay v3 Game Models - Complete game definition structures.
 
 ============== Core Enums ==============
 """
-from enum import Enum
+from enum import StrEnum
 
-class POV(str, Enum):
+class POV(StrEnum):
     FIRST = "first"
     SECOND = "second"
     THIRD = "third"
 
 
-class Tense(str, Enum):
+class Tense(StrEnum):
     PAST = "past"
     PRESENT = "present"
 
 
-class TimeMode(str, Enum):
+class TimeMode(StrEnum):
     SLOTS = "slots"
     CLOCK = "clock"
     HYBRID = "hybrid"
 
 
-class NodeType(str, Enum):
+class NodeType(StrEnum):
     SCENE = "scene"
     HUB = "hub"
     ENCOUNTER = "encounter"
     ENDING = "ending"
 
 
-class ContentRating(str, Enum):
+class ContentRating(StrEnum):
     ALL_AGES = "all_ages"
     TEEN = "teen"
     MATURE = "mature"

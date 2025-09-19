@@ -3,7 +3,8 @@ PlotPlay v3 Game Models - Complete game definition structures.
 
  ============== Narration & AI ==============
 """
-from pydantic import BaseModel, PositiveInt
+from typing import Literal
+from pydantic import BaseModel
 
 from app.models.enums import POV, Tense
 
@@ -14,3 +15,9 @@ class NarrationConfig(BaseModel):
     paragraphs: str = "2-3"
     token_budget: int = 350
     checker_budget: int = 200
+
+
+class ModelProfiles(BaseModel):
+    """Model cost profiles."""
+    writer: Literal["cheap", "luxe", "custom", "default"] = "default"
+    checker:Literal["cheap", "luxe", "custom", "default"] = "default"

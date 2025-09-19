@@ -4,23 +4,31 @@ PlotPlay v3 Game Models - Complete game definition structures.
 ============== Arc System ==============
 """
 
-from typing import Dict, List, Optional, Any
 from pydantic import BaseModel, Field
+from app.models.effects import AnyEffect
 
 
-class Milestone(BaseModel):
-    """Arc milestone/stage."""
+class Stage(BaseModel):
+    """Arc stage/milestone."""
     id: str
     name: str
-    enter_if: Optional[List[str]] = None
-    complete_if: Optional[List[str]] = None
-    reward: Optional[List[Dict[str, Any]]] = None
-    ending: Optional[Dict[str, Any]] = None
+    description: str | None = None
+    advance_when: str
+    once: bool = True
+
+    effects_on_enter: list[AnyEffect] = Field(default_factory=list)
+    effects_on_exit: list[AnyEffect] = Field(default_factory=list)
+    effects_on_advance: list[AnyEffect] = Field(default_factory=list)
+
+    unlocks: dict[str, list[str]] | None = None
 
 
 class Arc(BaseModel):
     """Story arc definition."""
     id: str
     name: str
-    description: Optional[str] = None
-    milestones: List[Milestone] = Field(default_factory=list)
+    description: str | None = None
+    character: str | None = None
+    category: str | None = None
+    repeatable: bool = False
+    stages: list[Stage] = Field(default_factory=list)

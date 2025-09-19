@@ -4,30 +4,31 @@ PlotPlay v3 Game Models - Complete game definition structures.
 ============== Character System ==============
 """
 
-from typing import Dict, List, Optional, Any, Union, Literal
+from typing import Any, Literal
 from pydantic import BaseModel, Field, field_validator
 from pydantic_core.core_schema import ValidationInfo
 
-from app.models.meters import Meter
+from .meters import Meter
+
 
 class Personality(BaseModel):
     """Character personality traits."""
-    core_traits: List[str] = Field(default_factory=list)
-    values: List[str] = Field(default_factory=list)
-    fears: List[str] = Field(default_factory=list)
-    desires: List[str] = Field(default_factory=list)
-    quirks: List[str] = Field(default_factory=list)
+    core_traits: list[str] = Field(default_factory=list)
+    values: list[str] = Field(default_factory=list)
+    fears: list[str] = Field(default_factory=list)
+    desires: list[str] = Field(default_factory=list)
+    quirks: list[str] = Field(default_factory=list)
 
 
 class AppearanceBase(BaseModel):
     """Base appearance attributes."""
-    height: Optional[str] = None
-    build: Optional[str] = None
-    hair: Optional[Dict[str, str]] = None
-    eyes: Optional[Dict[str, str]] = None
-    skin: Optional[Dict[str, str]] = None
-    style: Optional[List[str]] = None
-    distinguishing_features: Optional[List[str]] = None
+    height: str | None = None
+    build: str | None = None
+    hair: dict[str, str] | None = None
+    eyes: dict[str, str] | None = None
+    skin: dict[str, str] | None = None
+    style: list[str] | None = None
+    distinguishing_features: list[str] | None = None
 
 
 class AppearanceContext(BaseModel):
@@ -39,69 +40,68 @@ class AppearanceContext(BaseModel):
 
 class Appearance(BaseModel):
     """Complete appearance system."""
-    base: Optional[AppearanceBase] = None
-    contexts: List[AppearanceContext] = Field(default_factory=list)
-    body_states: Optional[List[Dict[str, Any]]] = None
+    base: AppearanceBase | None = None
+    contexts: list[AppearanceContext] = Field(default_factory=list)
+    body_states: list[dict[str, Any]] | None = None
 
 
 class ClothingLayer(BaseModel):
     """Single clothing layer."""
     item: str
-    color: Optional[str] = None
-    style: Optional[str] = None
+    color: str | None = None
+    style: str | None = None
 
 
 class Outfit(BaseModel):
     """Character outfit definition."""
     id: str
     name: str
-    tags: List[str] = Field(default_factory=list)
-    layers: Dict[str, Union[ClothingLayer, Dict[str, Any]]]
-    unlock_when: Optional[str] = None
+    tags: list[str] = Field(default_factory=list)
+    layers: dict[str, ClothingLayer | dict[str, Any]]
+    unlock_when: str | None = None
 
 
 class WardrobeRules(BaseModel):
     """Clothing system rules."""
-    layer_order: List[str] = Field(default_factory=lambda: [
+    layer_order: list[str] = Field(default_factory=lambda: [
         "outerwear", "dress", "top", "bottom", "underwear_top", "underwear_bottom", "feet", "accessories"
     ])
 
 
 class Wardrobe(BaseModel):
     """Character wardrobe system."""
-    rules: Optional[WardrobeRules] = Field(default_factory=WardrobeRules)
-    outfits: List[Outfit] = Field(default_factory=list)
+    rules: WardrobeRules | None = Field(default_factory=WardrobeRules)
+    outfits: list[Outfit] = Field(default_factory=list)
 
 
 class BehaviorGate(BaseModel):
     """Consent/behavior gate."""
     id: str
-    when: Optional[str] = None
-    when_any: Optional[List[str]] = None
-    when_all: Optional[List[str]] = None
-    conditions: Optional[str] = None  # Legacy support
+    when: str | None = None
+    when_any: list[str] | None = None
+    when_all: list[str] | None = None
 
 
 class BehaviorRefusals(BaseModel):
     """Refusal text templates."""
-    generic: Optional[str] = None
-    low_trust: Optional[str] = None
-    wrong_place: Optional[str] = None
-    too_forward: Optional[str] = None
+    generic: str | None = None
+    low_trust: str | None = None
+    wrong_place: str | None = None
+    too_forward: str | None = None
 
 
 class Behaviors(BaseModel):
     """Character behavior system."""
-    limits: Optional[Dict[str, List[str]]] = None
-    gates: List[BehaviorGate] = Field(default_factory=list)
-    refusals: Optional[BehaviorRefusals] = None
+    limits: dict[str, list[str]] | None = None
+    gates: list[BehaviorGate] = Field(default_factory=list)
+    refusals: BehaviorRefusals | None = None
 
 
 class DialogueProfile(BaseModel):
     """Character dialogue configuration."""
-    base_style: Optional[str] = None
-    vocab: Dict[str, List[str]] = Field(default_factory=dict)
-    styles: Dict[str, str] = Field(default_factory=dict)
+    base_style: str | None = None
+    vocab: dict[str, list[str]] = Field(default_factory=dict)
+    styles: dict[str, str] = Field(default_factory=dict)
 
 
 class ScheduleSlot(BaseModel):
@@ -113,8 +113,8 @@ class ScheduleSlot(BaseModel):
 
 class Schedule(BaseModel):
     """Character schedule."""
-    weekday: Optional[Dict[str, ScheduleSlot]] = None
-    weekend: Optional[Dict[str, ScheduleSlot]] = None
+    weekday: dict[str, ScheduleSlot] | None = None
+    weekend: dict[str, ScheduleSlot] | None = None
 
 
 class Character(BaseModel):
@@ -123,31 +123,30 @@ class Character(BaseModel):
     name: str
 
     # Safety fields - REQUIRED for NPCs
-    age: Optional[int] = None  # Optional for player character
+    age: int | None = None  # Optional for player character
     gender: str
-    pronouns: Optional[List[str]] = None
-    role: Optional[str] = None
+    pronouns: list[str] | None = None
+    role: str | None = None
 
     # Meters (overrides template)
-    meters: Optional[Dict[str, Union[Meter, Dict[str, Any]]]] = None
+    meters: dict[str, Meter | dict[str, Any]] | None = None
 
     # Personality & Background
-    personality: Optional[Union[Personality, Dict[str, Any]]] = None
-    background: Optional[str] = None
+    personality: Personality | dict[str, Any] | None = None
+    background: str | None = None
 
     # Appearance
-    appearance: Optional[Union[Appearance, Dict[str, Any]]] = None
+    appearance: Appearance | dict[str, Any] | None = None
 
     # Wardrobe
-    wardrobe: Optional[Union[Wardrobe, Dict[str, Any]]] = None
+    wardrobe: Wardrobe | dict[str, Any] | None = None
 
     # Behaviors
-    behaviors: Optional[Union[Behaviors, List[Dict], Dict[str, Any]]] = None
-    dialogue: Optional[Union[DialogueProfile, Dict[str, Any]]] = None
-    dialogue_style: Optional[Dict[str, Any]] = None  # Legacy support
+    behaviors: Behaviors | list[dict] | dict[str, Any] | None = None
+    dialogue: DialogueProfile | dict[str, Any] | None = None
 
     # Schedule
-    schedule: Optional[Union[Schedule, Dict[str, Any]]] = None
+    schedule: Schedule | dict[str, Any] | None = None
 
     @field_validator('age')
     @classmethod

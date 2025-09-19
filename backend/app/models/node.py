@@ -4,66 +4,49 @@ PlotPlay v3 Game Models - Complete game definition structures.
 ============== Node System ==============
 """
 
-from typing import Dict, List, Optional, Any, Union
+from typing import Any
 from pydantic import BaseModel, Field, model_validator
 
-from app.models.effects import Effect
+from app.models.effects import AnyEffect
 from app.models.enums import NodeType
+from app.models.narration import NarrationConfig
+
 
 class Choice(BaseModel):
     """Player choice in a node."""
-    id: Optional[str] = None
+    id: str | None = None
     prompt: str
-    text: Optional[str] = None  # Legacy alias for prompt
-    conditions: Optional[str] = None
-    effects: List[Union[Effect, Dict[str, Any]]] = Field(default_factory=list)
-    goto: Optional[str] = None
-    to: Optional[str] = None  # Legacy alias for goto
+    conditions: str | None = None
+    effects: list[AnyEffect] = Field(default_factory=list)
+    goto: str | None = None
 
 
 class Transition(BaseModel):
     """Node transition rule."""
     when: str = "always"
     to: str
-    reason: Optional[str] = None
-    goto: Optional[str] = None  # Legacy support
+    reason: str | None = None
 
 
 class Node(BaseModel):
     """Story node definition."""
     id: str
     type: NodeType
-    title: Optional[str] = None
-
-    # Location/Description
-    location: Optional[str] = None
-    description: Optional[str] = None
-
-    # Conditions
-    preconditions: Optional[str] = None
-
-    # Content
-    beats: List[str] = Field(default_factory=list)
-    narrative: Optional[str] = None
-    content: Optional[str] = None  # Legacy support
-
-    # Choices
-    choices: List[Choice] = Field(default_factory=list)
-    dynamic_choices: List[Choice] = Field(default_factory=list)
-
-    # Transitions
-    transitions: List[Transition] = Field(default_factory=list)
-
-    # Effects
-    entry_effects: List[Dict[str, Any]] = Field(default_factory=list)
-    effects: Optional[Dict[str, Any]] = None  # Legacy support
-
-    # NPCs
-    npc_states: Optional[Dict[str, Any]] = None
+    title: str
+    preconditions: str | None = None
+    once: bool | None = None
+    narration_override: NarrationConfig | None = None
+    beats: list[str] = Field(default_factory=list)
+    entry_effects: list[AnyEffect] = Field(default_factory=list)
+    choices: list[Choice] = Field(default_factory=list)
+    dynamic_choices: list[Choice] = Field(default_factory=list)
+    action_filters: dict[str, Any] | None = None
+    transitions: list[Transition] = Field(default_factory=list)
 
     # Ending specific
-    ending_id: Optional[str] = None
-    credits: Optional[Dict[str, Any]] = None
+    ending_id: str | None = None
+    ending_meta: dict[str, str] | None = None
+    credits: dict[str, Any] | None = None
 
     @model_validator(mode='after')
     def validate_ending(self):
@@ -71,4 +54,3 @@ class Node(BaseModel):
         if self.type == NodeType.ENDING and not self.ending_id:
             raise ValueError(f"Ending node {self.id} must have ending_id")
         return self
-

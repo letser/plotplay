@@ -5,11 +5,10 @@ PlotPlay v3 Game Models - Complete game definition structures.
 """
 
 from enum import StrEnum
-from typing import Dict, List, Optional, Any, Union
 from pydantic import BaseModel, Field
 
 
-class LocationPrivacy(StrEnum):
+class LocationPrivacy(str, StrEnum):
     """Location privacy levels."""
     LOW = "low"
     MEDIUM = "medium"
@@ -18,24 +17,22 @@ class LocationPrivacy(StrEnum):
 class LocationConnection(BaseModel):
     """Conditional connection to one or multiple locations."""
     to: str | list[str]
-    type: str | None = "door"
+    type: str = "door"
     discovered: bool | None = True
     locked: bool | None = False
     unlocked_when: str | None = None
-
 
 class Location(BaseModel):
     """Location definition."""
     id: str
     name: str
-    type: str | None = "public"
+    type: str = "public"
     privacy: LocationPrivacy = LocationPrivacy.LOW
     description: str | dict[str, str] | None = None
     discovered: bool = True
-    connections: LocationConnection | list[LocationConnection] | None = Field(default_factory=list)
-    features: list[str] | None = Field(default_factory=list)
+    connections: list[LocationConnection] = Field(default_factory=list)
+    features: list[str] = Field(default_factory=list)
     available_actions: list[str] | None = None
-
 
 class Zone(BaseModel):
     """World zone containing locations."""
@@ -43,5 +40,5 @@ class Zone(BaseModel):
     name: str
     discovered: bool = True
     accessible: bool = True
-    locations: List[Location] = Field(default_factory=list)
+    locations: list[Location] = Field(default_factory=list)
 

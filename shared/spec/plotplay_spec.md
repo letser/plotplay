@@ -140,13 +140,13 @@ world:
   # OPTIONAL. High-level world notes; often you’ll define zones/locations explicitly.
   # This is an author-facing context (ignored by engine).
 
-# Optional defaults and engine hints
-defaults:
-  narration:
-    pov: "<first|second|third>"
-    tense: "<present|past>"
-    paragraphs: "1-2"
-  rng_seed: "<int|auto>"         # OPTIONAL. For deterministic golden tests.
+# Narration style and engine hints
+narration:
+  pov: "<first|second|third>"
+  tense: "<present|past>"
+  paragraphs: "1-2"
+
+rng_seed: "<int|auto>"         # OPTIONAL. For deterministic golden tests.
 
 # Starting point (required so the game can boot)
 start:
