@@ -1,0 +1,29 @@
+# ===============================
+# Locations - Coffee Shop Date (v3 Spec)
+# ===============================
+
+zones:
+  - id: "downtown"
+    name: "Downtown"
+    discovered: true
+    accessible: true
+    locations:
+      - id: "coffee_shop"
+        name: "Corner Coffee Shop"
+        type: "public"
+        privacy: "low"
+        discovered: true
+        features: ["counter", "tables", "window_seats"]
+        connections:
+          - to: "outside"
+            type: "door"
+
+      - id: "outside"
+        name: "Outside the Coffee Shop"
+        type: "public"
+        privacy: "low"
+        discovered: true
+        features: ["sidewalk", "bench"]
+        connections:
+          - to: "coffee_shop"
+            type: "door"

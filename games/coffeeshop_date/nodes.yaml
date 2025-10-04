@@ -1,0 +1,104 @@
+# games/coffeeshop_date/nodes.yaml
+nodes:
+  - id: "outside_cafe"
+    type: "hub"
+    title: "Outside the Coffee Shop"
+    beats:
+      - "You stand outside the 'Corner Coffee Shop'. Through the window, you can just make out your date, Alex, already waiting inside."
+      - "By the door, there's a small complimentary jar of breath mints."
+    choices:
+      - id: "take_mint_and_enter"
+        prompt: "Take a mint and head inside"
+        effects:
+          - { type: "inventory_add", owner: "player", item: "breath_mint", count: 1 }
+        goto: "meet_alex"
+      - id: "just_enter"
+        prompt: "Just head straight inside"
+        goto: "meet_alex"
+
+  - id: "meet_alex"
+    type: "scene"
+    title: "Meeting Alex"
+    present_characters: ["alex"]
+    entry_effects:
+      - { type: "move_to", location: "coffee_shop" }
+    beats:
+      - "You walk over to the table. Alex looks up and offers a nervous smile."
+    choices:
+      - id: "confident_greeting"
+        prompt: "Greet her confidently"
+        effects:
+          - { type: "meter_change", target: "alex", meter: "interest", op: "add", value: 10 }
+          - { type: "meter_change", target: "player", meter: "confidence", op: "add", value: 10 }
+        goto: "conversation_1"
+      - id: "nervous_greeting"
+        prompt: "Greet her nervously"
+        effects:
+          - { type: "meter_change", target: "alex", meter: "comfort", op: "add", value: 10 }
+          - { type: "meter_change", target: "player", meter: "confidence", op: "subtract", value: 5 }
+        goto: "conversation_1"
+
+  - id: "conversation_1"
+    type: "scene"
+    title: "Getting to Know Each Other"
+    present_characters: ["alex"]
+    beats:
+      - "You both sit down with your drinks. Time to break the ice."
+      - "Alex seems a bit reserved, but ready to chat."
+    choices:
+      - id: "ask_about_work"
+        prompt: "Ask about her work"
+        effects:
+          - { type: "meter_change", target: "alex", meter: "comfort", op: "add", value: 10 }
+      - id: "tell_joke"
+        prompt: "Tell a funny story"
+        effects:
+          - { type: "meter_change", target: "alex", meter: "interest", op: "add", value: 15 }
+          - { type: "flag_set", key: "told_joke", value: true }
+      - id: "compliment_appearance"
+        prompt: "Compliment her appearance"
+        conditions: "gates.alex.accept_compliment"
+        effects:
+          - { type: "meter_change", target: "alex", meter: "interest", op: "add", value: 10 }
+          - { type: "apply_modifier", character: "alex", modifier_id: "flattered" }
+    transitions:
+      - { when: "always", to: "date_ending" }
+
+  - id: "date_ending"
+    type: "scene"
+    title: "End of the Date"
+    present_characters: ["alex"]
+    beats:
+      - "The date is winding down. You walk outside together."
+    transitions:
+      - { when: "gates.alex.accept_kiss", to: "ending_kiss" }
+      - { when: "gates.alex.share_number", to: "ending_number" }
+      - { when: "always", to: "ending_awkward" }
+
+  - id: "ending_kiss"
+    type: "ending"
+    title: "Perfect First Date"
+    present_characters: ["alex"]
+    ending_id: "kiss"
+    beats:
+      - "As you stand outside, Alex moves closer. She kisses you softly. 'I had a wonderful time.'"
+    effects:
+      - { type: "flag_set", key: "got_number", value: true }
+
+  - id: "ending_number"
+    type: "ending"
+    title: "Good First Date"
+    present_characters: ["alex"]
+    ending_id: "number"
+    beats:
+      - "Alex smiles warmly. 'I had a nice time. Here's my number.'"
+    effects:
+      - { type: "flag_set", key: "got_number", value: true }
+
+  - id: "ending_awkward"
+    type: "ending"
+    title: "Awkward Ending"
+    present_characters: ["alex"]
+    ending_id: "awkward"
+    beats:
+      - "Alex checks her phone. 'I should go. Thanks for the coffee.' She leaves quickly."

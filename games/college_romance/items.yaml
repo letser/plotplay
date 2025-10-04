@@ -1,6 +1,5 @@
 # ===============================
-# Items (items.yaml)
-# College Romance — Emma Route
+# Items - College Romance (v3 Spec)
 # ===============================
 
 items:
@@ -21,7 +20,7 @@ items:
     stackable: true
     consumable: true
     effects_on_use:
-      - { type: flag_set, key: "protection_available", value: true }
+      - { type: "flag_set", key: "protection_available", value: true }
 
   - id: "flowers"
     name: "Bouquet of Flowers"
@@ -31,8 +30,8 @@ items:
     stackable: false
     consumable: true
     gift_effects:
-      - { type: meter_change, target: "emma", meter: "attraction", op: "add", value: 10 }
-      - { type: meter_change, target: "zoe",  meter: "attraction", op: "add", value: 10 }
+      - { type: "meter_change", target: "emma", meter: "attraction", op: "add", value: 10 }
+      - { type: "meter_change", target: "zoe",  meter: "attraction", op: "add", value: 10 }
 
   - id: "textbook"
     name: "Advanced Textbook"
@@ -42,7 +41,7 @@ items:
     stackable: true
     consumable: true
     effects_on_use:
-      - { type: meter_change, target: "player", meter: "mind", op: "add", value: 5 }
+      - { type: "meter_change", target: "player", meter: "mind", op: "add", value: 5 }
 
   - id: "protein_bar"
     name: "Protein Bar"
@@ -51,8 +50,8 @@ items:
     value: 5
     consumable: true
     effects_on_use:
-      - { type: meter_change, target: "player", meter: "energy", op: "add", value: 10 }
-      - { type: meter_change, target: "player", meter: "hygiene", op: "subtract", value: 5 }
+      - { type: "meter_change", target: "player", meter: "energy", op: "add", value: 10 }
+      - { type: "meter_change", target: "player", meter: "hygiene", op: "subtract", value: 5 }
 
   - id: "stylish_outfit"
     name: "Stylish Outfit"
@@ -60,9 +59,9 @@ items:
     description: "Trendy outfit that boosts looks when worn."
     value: 50
     tags: ["clothing"]
-    equip_slot: "outfit"
-    equip_effects:
-      - { type: meter_change, target: "player", meter: "looks", op: "add", value: 10 }
+    slots: ["outfit"]
+    stat_mods:
+      looks: 10
 
   - id: "emma_panties"
     name: "Emma’s Panties"

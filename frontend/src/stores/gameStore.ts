@@ -1,3 +1,4 @@
+// frontend/src/stores/gameStore.ts
 import { create } from 'zustand';
 import { gameApi, GameInfo, GameResponse, GameChoice, GameState } from '../services/gameApi';
 
@@ -9,14 +10,14 @@ interface GameStore {
     narrative: string[];
     choices: GameChoice[];
     gameState: GameState | null;
-    appearances: Record<string, any>;
     loading: boolean;
     error: string | null;
+    turnCounter: number; // New state to track turns
 
     // Actions
     loadGames: () => Promise<void>;
     startGame: (gameId: string) => Promise<void>;
-    sendAction: (actionType: string, actionText: string, target?: string | null, choiceId?: string | null) => Promise<void>;
+    sendAction: (actionType: string, actionText: string | null, target?: string | null, choiceId?: string | null, itemId?: string | null) => Promise<void>;
     resetGame: () => void;
 }
 
@@ -28,9 +29,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
     narrative: [],
     choices: [],
     gameState: null,
-    appearances: {},
     loading: false,
     error: null,
+    turnCounter: 0, // Initialize counter
 
     // Load available games
     loadGames: async () => {
@@ -55,8 +56,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
                 narrative: [response.narrative],
                 choices: response.choices,
                 gameState: response.state_summary,
-                appearances: response.appearances || {},
                 loading: false,
+                turnCounter: 1, // Set to 1 on game start
             });
         } catch (error) {
             set({ error: 'Failed to start game', loading: false });
@@ -66,9 +67,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     // Send player action
     sendAction: async (
         actionType: string,
-        actionText: string,
+        actionText: string | null,
         target?: string | null,
-        choiceId?: string | null
+        choiceId?: string | null,
+        itemId?: string | null
     ) => {
         const sessionId = get().sessionId;
         if (!sessionId) return;
@@ -80,14 +82,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
                 actionType,
                 actionText,
                 target,
-                choiceId
+                choiceId,
+                itemId
             );
             set((state) => ({
                 narrative: [...state.narrative, response.narrative],
                 choices: response.choices,
                 gameState: response.state_summary,
-                appearances: response.appearances || {},
                 loading: false,
+                turnCounter: state.turnCounter + 1, // Increment on each successful action
             }));
         } catch (error) {
             set({ error: 'Failed to send action', loading: false });
@@ -102,10 +105,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
             narrative: [],
             choices: [],
             gameState: null,
-            appearances: {},
+            turnCounter: 0, // Reset counter
         });
     },
 }));
-
-// 1. backend/app/core/game_engine.py - *generate*error_response is missing
-//2. frontend/src/stores/gameStore.ts in proposed changes call of gameApi.sendAction indicates an incorrect number of parameters

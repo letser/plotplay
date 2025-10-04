@@ -1,0 +1,29 @@
+flags:
+  emma_met:
+    type: "bool"
+    default: false
+    visible: true
+    label: "Met Emma"
+    description: "Set true after the first introduction scene."
+
+  first_kiss:
+    type: "bool"
+    default: false
+    description: "Marks the first successful kiss with Emma."
+
+  route_locked:
+    type: "bool"
+    default: false
+    description: "Prevents switching arcs once a route is committed."
+
+  study_reputation:
+    type: "string"
+    default: "neutral"
+    visible: true
+    label: "Reputation"
+    description: "Lightweight reputation tag shown in some dialogue branches."
+
+    emma_invited_you_over:
+      type: "bool"
+      default: false
+      description: "Set to true when Emma invites the player to her room."

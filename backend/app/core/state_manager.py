@@ -1,214 +1,145 @@
-from dataclasses import dataclass, field
-from typing import Dict, Any, Optional, List
+# backend/app/core/state_manager.py
+"""PlotPlay v3 State Manager - Runtime state tracking."""
 
-from app.core.game_definition import GameDefinition
+from dataclasses import dataclass, field
+from datetime import datetime, UTC
+from typing import Any
+
+from app.models.game import GameDefinition
+from app.models.effects import AnyEffect
 
 
 @dataclass
 class GameState:
-    """Complete game state at a point in time"""
-    # Core state
+    """Complete v3 game state at a point in time."""
+    # Time & Location
     day: int = 1
-    time_slot: str = "morning"
+    time_slot: str | None = None
+    time_hhmm: str | None = None
+    weekday: str | None = None
     location_current: str = "start"
-    location_previous: Optional[str] = None
+    location_previous: str | None = None
+    zone_current: str | None = None
 
     # Characters
-    present_chars: List[str] = field(default_factory=list)
+    present_chars: list[str] = field(default_factory=list)
 
-    # Dynamic meters (per character)
-    meters: Dict[str, Dict[str, float]] = field(default_factory=dict)
+    # Meters and Inventory
+    meters: dict[str, dict[str, float]] = field(default_factory=dict)
+    inventory: dict[str, dict[str, int]] = field(default_factory=dict)
 
-    # Inventory
-    inventory: Dict[str, int] = field(default_factory=dict)
-    money: float = 100
+    # Flags and Progress
+    flags: dict[str, bool | int | str] = field(default_factory=dict)
+    active_arcs: dict[str, str] = field(default_factory=dict)
+    completed_milestones: list[str] = field(default_factory=list)
+    visited_nodes: list[str] = field(default_factory=list)
+    discovered_locations: list[str] = field(default_factory=list)
 
-    # Flags and variables
-    flags: Dict[str, Any] = field(default_factory=dict)
-    milestones: List[str] = field(default_factory=list)
+    # Unlock Tracking
+    unlocked_outfits: dict[str, list[str]] = field(default_factory=dict)
+    unlocked_actions: list[str] = field(default_factory=list)
+    unlocked_endings: list[str] = field(default_factory=list) # Renamed from endings_reached
 
-    # Character appearance states
-    clothing_states: Dict[str, Dict] = field(default_factory=dict)
+    # Dynamic Character States
+    clothing_states: dict[str, dict] = field(default_factory=dict)
+    modifiers: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
 
-    # Internal tracking
-    cooldowns: Dict[str, int] = field(default_factory=dict)
+    # Engine Tracking
+    cooldowns: dict[str, int] = field(default_factory=dict)
     actions_this_slot: int = 0
-    last_event: Optional[str] = None
     current_node: str = "start"
-    narrative_history: List[str] = field(default_factory=list)
+    narrative_history: list[str] = field(default_factory=list)
+    turn_count: int = 0
 
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary for serialization"""
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for serialization."""
         return {
-            'day': self.day,
-            'time_slot': self.time_slot,
-            'location_current': self.location_current,
-            'location_previous': self.location_previous,
-            'present_chars': self.present_chars,
-            'meters': self.meters,
-            'inventory': self.inventory,
-            'money': self.money,
-            'flags': self.flags,
-            'milestones': self.milestones,
-            'clothing_states': self.clothing_states,
-            'cooldowns': self.cooldowns,
-            'actions_this_slot': self.actions_this_slot,
-            'last_event': self.last_event,
-            'current_node': self.current_node,
-            'narrative_history': self.narrative_history[-10:]  # Keep last 10
+            key: value for key, value in self.__dict__.items()
+            if not key.startswith("_")
         }
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'GameState':
-        """Create from a dictionary"""
-        return cls(**data)
 
 
 class StateManager:
-    """Manages game state and transitions"""
+    """Manages game state initialization and high-level modifications."""
 
     def __init__(self, game_def: GameDefinition):
         self.game_def = game_def
         self.state: GameState = self._initialize_state()
 
     def _initialize_state(self) -> GameState:
-        """Create the initial game state from definition"""
+        """Create the initial game state from the GameDefinition."""
         state = GameState()
 
-        # Set starting values from config
-        settings = self.game_def.config.get('game', {}).get('settings', {})
-        state.location_current = settings.get('starting_location', 'start')
-        state.time_slot = settings.get('starting_time', 'morning')
-        state.day = settings.get('starting_day', 1)
+        # 1. Initialize Time and Location from the manifest
+        time_start = self.game_def.time.start
+        state.day = time_start.day
+        state.time_slot = time_start.slot
+        if self.game_def.time.mode in ("hybrid", "clock"):
+            state.time_hhmm = time_start.time
 
-        # Initialize character meters
+        state.current_node = self.game_def.start.node
+        state.location_current = self.game_def.start.location['id']
+        state.zone_current = self.game_def.start.location['zone']
+
+        # 2. Initialize Meters for player and NPCs
+        if self.game_def.meters:
+            if "player" in self.game_def.meters:
+                state.meters["player"] = {mid: mdef.default for mid, mdef in self.game_def.meters["player"].items()}
+
+            for char in self.game_def.characters:
+                if char.id != "player":
+                    state.meters[char.id] = {}
+                    if "character_template" in self.game_def.meters:
+                        for mid, mdef in self.game_def.meters["character_template"].items():
+                            state.meters[char.id][mid] = mdef.default
+                    if char.meters:
+                        for mid, mdef in char.meters.items():
+                            state.meters[char.id][mid] = mdef.default
+
+        # 3. Initialize Inventories
         for char in self.game_def.characters:
-            char_id = char['id']
-            state.meters[char_id] = {
-                'trust': 0,
-                'attraction': 0,
-                'arousal': 0,
-                'energy': 100
-            }
+            # Get inventory from character definition, defaulting to an empty dict
+            starting_inventory = char.inventory if char.inventory else {}
+            state.inventory[char.id] = starting_inventory.copy()
 
-            # Initialize clothing state
-            if 'wardrobe' in char:
-                default_outfit = char['wardrobe']['outfits'][0] if char['wardrobe']['outfits'] else None
-                if default_outfit:
-                    state.clothing_states[char_id] = {
-                        'current_outfit': default_outfit['id'],
-                        'layers': default_outfit.get('layers', {}),
-                        'removed': [],
-                        'displaced': []
-                    }
+        # 4. Initialize Discovered Locations
+        for zone in self.game_def.zones:
+            if zone.discovered:
+                for loc in zone.locations:
+                    if loc.discovered:
+                        state.discovered_locations.append(loc.id)
 
-        #Add NPCs from the starting node
-        for node in self.game_def.nodes:
-            if node['id'] == 'start':
-                if 'npc_states' in node:
-                    state.present_chars = list(node['npc_states'].keys())
-                break
+        # 5. Initialize Clothing States
+        for char in self.game_def.characters:
+            if char.wardrobe and char.wardrobe.outfits:
+                default_outfit = next((o for o in char.wardrobe.outfits if "default" in o.tags), char.wardrobe.outfits[0])
+                state.clothing_states[char.id] = {
+                    'current_outfit': default_outfit.id,
+                    'layers': {layer_name: "intact" for layer_name in default_outfit.layers.keys()}
+                }
+        # 6. Initialize Flags (Global and Character-Scoped)
+        if self.game_def.flags:
+            state.flags = {key: flag.default for key, flag in self.game_def.flags.items()}
+
+        for char in self.game_def.characters:
+            if char.flags:
+                for key, flag in char.flags.items():
+                    # Prefix with character ID to avoid collisions
+                    state.flags[f"{char.id}.{key}"] = flag.default
+
+
+        # 7. Set Timestamps
+        state.created_at = datetime.now(UTC)
+        state.updated_at = datetime.now(UTC)
 
         return state
 
-    def apply_effects(self, effects: List[Dict[str, Any]]) -> None:
-        """Apply a list of effects to the current state"""
+    def apply_effects(self, effects: list[AnyEffect]) -> None:
+        """Apply a list of effects to the current state."""
+        # This will be implemented in more detail in the GameEngine.
         for effect in effects:
-            self.apply_single_effect(effect)
-
-    def apply_single_effect(self, effect: Dict[str, Any]) -> None:
-        """Apply a single effect to a state"""
-        effect_type = effect.get('type')
-
-        if effect_type == 'inc':
-            # Increment a value
-            path = effect['path']
-            value = effect['value']
-            cap = effect.get('cap', [float('-inf'), float('inf')])
-
-            current = self.get_path_value(path)
-            new_value = max(cap[0], min(cap[1], current + value))
-            self.set_path_value(path, new_value)
-
-        elif effect_type == 'set':
-            # Set a value
-            self.set_path_value(effect['path'], effect['value'])
-
-        elif effect_type == 'advance_time':
-            # Move time forward
-            slots = effect.get('slots', 1)
-            time_slots = self.game_def.config['game']['settings']['time_system']['slots']
-            current_idx = time_slots.index(self.state.time_slot)
-
-            for _ in range(slots):
-                current_idx += 1
-                if current_idx >= len(time_slots):
-                    current_idx = 0
-                    self.state.day += 1
-
-            self.state.time_slot = time_slots[current_idx]
-            self.state.actions_this_slot = 0
-
-        elif effect_type == 'move_to':
-            # Change location
-            self.state.location_previous = self.state.location_current
-            self.state.location_current = effect['location']
-
-            # Move characters with player if specified
-            if 'with_chars' in effect:
-                self.state.present_chars = effect['with_chars']
-
-        elif effect_type == 'inventory_add':
-            # Add to inventory
-            item = effect['item']
-            count = effect.get('count', 1)
-            self.state.inventory[item] = self.state.inventory.get(item, 0) + count
-
-        elif effect_type == 'inventory_remove':
-            # Remove from inventory
-            item = effect['item']
-            count = effect.get('count', 1)
-            if item in self.state.inventory:
-                self.state.inventory[item] = max(0, self.state.inventory[item] - count)
-                if self.state.inventory[item] == 0:
-                    del self.state.inventory[item]
-
-    def get_path_value(self, path: str) -> Any:
-        """Get value from state using dot notation path"""
-        parts = path.split('.')
-        current = self.state
-
-        for part in parts:
-            if hasattr(current, part):
-                current = getattr(current, part)
-            elif isinstance(current, dict):
-                current = current.get(part, 0)
-            else:
-                return 0
-
-        return current
-
-    def set_path_value(self, path: str, value: Any) -> None:
-        """Set value in state using the dot notation path"""
-        parts = path.split('.')
-
-        # Handle special cases
-        if parts[0] == 'meters' and len(parts) == 3:
-            char_id = parts[1]
-            meter = parts[2]
-            if char_id not in self.state.meters:
-                self.state.meters[char_id] = {}
-            self.state.meters[char_id][meter] = value
-
-        elif parts[0] == 'flags':
-            flag_name = '.'.join(parts[1:])
-            self.state.flags[flag_name] = value
-
-        elif parts[0] == 'inventory':
-            item = parts[1]
-            self.state.inventory[item] = value
-
-        else:
-            # Direct attribute
-            if hasattr(self.state, parts[0]):
-                setattr(self.state, parts[0], value)
+            print(f"Applying effect: {effect.type}")
+            pass

@@ -1,0 +1,95 @@
+"""
+PlotPlay v3 Event Manager
+"""
+import random
+from app.core.conditions import ConditionEvaluator
+from app.core.state_manager import GameState
+from app.models.game import GameDefinition
+from app.models.events import Event
+
+
+class EventManager:
+    """
+    Checks for and triggers events based on the current game state.
+    """
+
+    def __init__(self, game_def: GameDefinition):
+        self.game_def = game_def
+
+    def get_triggered_events(self, state: GameState) -> list[Event]:
+        triggered_events = []
+        random_pool = []
+        evaluator = ConditionEvaluator(state, state.present_chars)
+
+        for event in self.game_def.events:
+            if self._is_event_on_cooldown(event, state):
+                continue
+
+            if not self._is_event_eligible(event, state, evaluator):
+                continue
+
+            # If it's a random event, add it to the pool instead of triggering immediately
+            if event.trigger and event.trigger.random:
+                random_pool.append(event)
+            else:
+                triggered_events.append(event)
+                self._set_cooldown(event, state)
+
+        # Process the random event pool
+        if random_pool:
+            total_weight = sum(e.trigger.random.weight for e in random_pool)
+            if total_weight > 0:
+                roll = random.uniform(0, total_weight)
+                current_weight = 0
+                for event in random_pool:
+                    current_weight += event.trigger.random.weight
+                    if roll <= current_weight:
+                        triggered_events.append(event)
+                        self._set_cooldown(event, state)
+                        break
+
+        return triggered_events
+
+    def _is_event_eligible(self, event: Event, state: GameState, evaluator: ConditionEvaluator) -> bool:
+        if event.scope == "location" and event.location != state.location_current:
+            return False
+
+        if not event.trigger:
+            return False
+
+        # Random events are eligible by default if not on cooldown
+        if event.trigger.random:
+            return True
+
+        if event.trigger.location_enter and event.location == state.location_current:
+            return True
+
+        if event.trigger.conditional:
+            for condition in event.trigger.conditional:
+                if evaluator.evaluate(condition.get("when")):
+                    return True
+
+        if event.trigger.scheduled:
+            for condition in event.trigger.scheduled:
+                if evaluator.evaluate(condition.get("when")):
+                    return True
+
+        return False
+
+    def _is_event_on_cooldown(self, event: Event, state: GameState) -> bool:
+        """Checks if an event is currently on cooldown."""
+        cooldown_info = event.cooldown
+        if not cooldown_info:
+            return False
+
+        if event.id in state.cooldowns and state.cooldowns[event.id] > 0:
+            return True
+
+        return False
+
+    def _set_cooldown(self, event: Event, state: GameState):
+        """Sets the cooldown for an event after it has triggered."""
+        if event.cooldown and "turns" in event.cooldown:
+            state.cooldowns[event.id] = event.cooldown["turns"]
+        elif event.trigger and event.trigger.random and event.trigger.random.cooldown:
+            state.cooldowns[event.id] = event.trigger.random.cooldown

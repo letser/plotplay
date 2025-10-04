@@ -2,7 +2,7 @@ import json
 from typing import Dict, Optional, Any
 import httpx
 from pydantic import BaseModel, field_validator
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class AISettings(BaseSettings):
@@ -25,14 +25,13 @@ class AISettings(BaseSettings):
     checker_top_p: float = 0.95
     checker_max_tokens: int = 300
 
-    class Config:
-        env_file = ".env"
-        extra = "ignore"
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
 
 
 class AIResponse(BaseModel):
     content: str
-    model: str
+    model: str | None = None
     usage: Dict[str, int | Dict | None] | None = None
     raw_response: Dict | None = None
 

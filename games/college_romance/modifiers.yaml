@@ -1,0 +1,12 @@
+modifier_system:
+  library:
+    aroused:
+      id: "aroused"
+      group: "emotional"
+      when: "meters.emma.arousal >= 40"
+      appearance:
+        cheeks: "flushed"
+        eyes: "glossy"
+      behavior:
+        dialogue_style: "breathless"
+      description: "Heightened desire; softens refusals but doesn’t bypass consent."

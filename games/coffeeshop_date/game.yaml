@@ -1,0 +1,59 @@
+# ===============================
+# Game Manifest (game.yaml)
+# Coffee Shop Date - v3 Spec
+# ===============================
+
+meta:
+  id: "coffeeshop_date"
+  title: "Coffee Shop Date - Test Game"
+  version: "1.0.0"
+  spec_version: "3.1"
+  author: "TestDev"
+  content_rating: "teen"
+  tags: ["test", "romance", "linear"]
+
+# --- Starting point of the game ---
+start:
+  node: "outside_cafe"
+  location: { zone: "downtown", id: "outside" }
+
+# --- Default narration style ---
+narration:
+  pov: "second"
+  tense: "present"
+  paragraphs: "1-2"
+
+# --- Meter definitions ---
+meters:
+  player:
+    confidence: { min: 0, max: 100, default: 50, visible: true, icon: "😎" }
+    money: { min: 0, max: 100, default: 20, visible: true, icon: "💵" }
+
+  character_template:
+    comfort: {
+      min: 0, max: 100, default: 20,
+      thresholds: { nervous: [0,30], relaxed: [31,70], comfortable: [71,100] }
+    }
+    interest: {
+      min: 0, max: 100, default: 15,
+      thresholds: { polite: [0,30], interested: [31,70], attracted: [71,100] }
+    }
+
+# --- Time system configuration ---
+time:
+  mode: "slots"
+  slots: ["afternoon"]
+  actions_per_slot: 10
+  auto_advance: false
+  start:
+    day: 1
+    slot: "afternoon"
+
+# --- List of included content files ---
+includes:
+  - "characters.yaml"
+  - "flags.yaml"
+  - "modifiers.yaml"
+  - "locations.yaml"
+  - "nodes.yaml"
+  - "items.yaml"

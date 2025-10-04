@@ -1,0 +1,13 @@
+modifier_system:
+  library:
+    flattered:
+      id: "flattered"
+      group: "emotional"
+      # This will now activate when Alex's comfort is between 30 and 60
+      when: "meters.alex.comfort >= 30 and meters.alex.comfort <= 60"
+      duration_default_min: 5
+      appearance:
+        cheeks: "warmly flushed"
+      behavior:
+        dialogue_style: "more open"
+      description: "Feeling positive after a compliment."

@@ -1,417 +1,176 @@
+# backend/app/services/prompt_builder.py
+"""
+Builds prompts for the Writer and Checker AI models based on the game state.
+"""
 import json
-from typing import Dict, Any, List, Optional
-
 from app.core.state_manager import GameState
-from app.core.game_definition import GameDefinition
+from app.models.game import GameDefinition
+from app.models.node import Node
+from app.core.clothing_manager import ClothingManager
+from app.models.character import Character
+from app.core.conditions import ConditionEvaluator
 
 
 class PromptBuilder:
-    """Builds prompts for AI models"""
+    """Builds prompts for AI models."""
 
-    def __init__(self, game_def: GameDefinition, clothing_manager=None):
+    def __init__(self, game_def: GameDefinition, clothing_manager: ClothingManager):
         self.game_def = game_def
         self.clothing_manager = clothing_manager
-
-    def _get_body_state_modifiers(self, char: Dict, meters: Dict) -> Optional[str]:
-        """Get body state modifiers based on meters"""
-        modifiers = []
-
-        if 'appearance' in char and 'body_states' in char['appearance']:
-            for body_state in char['appearance']['body_states']:
-                # Check conditions
-                if self._check_simple_condition(body_state.get('conditions', ''), meters):
-                    if 'modifiers' in body_state:
-                        mod = body_state['modifiers']
-                        if isinstance(mod, dict):
-                            if 'visual' in mod:
-                                modifiers.append(mod['visual'])
-                        else:
-                            modifiers.append(str(mod))
-
-        return ", ".join(modifiers) if modifiers else None
-
-    def _check_simple_condition(self, condition: str, meters: Dict) -> bool:
-        """Simple condition checker for body states"""
-        if not condition:
-            return False
-
-        # Parse simple conditions like "state.meters.alex.arousal >= 60"
-        import re
-        match = re.match(r'state\.meters\.\w+\.(\w+)\s*([><=]+)\s*(\d+)', condition)
-        if match:
-            meter, op, value = match.groups()
-            meter_value = meters.get(meter, 0)
-            value = float(value)
-
-            if op == '>=':
-                return meter_value >= value
-            elif op == '>':
-                return meter_value > value
-            elif op == '<=':
-                return meter_value <= value
-            elif op == '<':
-                return meter_value < value
-            elif op == '==':
-                return meter_value == value
-
-        return False
-
-    def _get_character_name(self, char_id: str) -> Optional[str]:
-        """Get a character name from ID"""
-        char = self._get_character(char_id)
-        if char:
-            return char.get('name', char_id)
-        return char_id
+        self.characters_map: dict[str, Character] = {char.id: char for char in self.game_def.characters}
 
     def build_writer_prompt(
-                self,
-                state: GameState,
-                player_action: str,
-                node: Dict[str, Any],
-                recent_history: List[str]
-        ) -> str:
-            """Build prompt for narrative generation with clothing awareness"""
+        self,
+        state: GameState,
+        player_action: str,
+        node: Node,
+        recent_history: list[str]
+    ) -> str:
+        """Builds the main prompt for the narrative Writer AI."""
 
-            # Get world context
-            world_setting = self.game_def.world.get('world', {}).get('setting', '')
-            tone = self.game_def.world.get('world', {}).get('tone', '')
+        narration_rules = self.game_def.narration
+        system_prompt = f"""
+        You are a master storyteller for an immersive, adult-themed interactive fiction game.
+        Your response must be from a {narration_rules.pov} perspective in the {narration_rules.tense}.
+        Your narrative should be between {narration_rules.paragraphs} paragraphs.
+        Adhere strictly to character consent rules. If an action is blocked, use the character's refusal lines.
+        Never speak for the player or describe their internal thoughts.
+        """
 
-            # Build character states
-            char_states = self._build_character_states(state)
+        world_setting = self.game_def.world.get("setting", "A generic setting.") if self.game_def.world else ""
+        tone = self.game_def.world.get("tone", "A neutral tone.") if self.game_def.world else ""
+        location = next((loc for zone in self.game_def.zones for loc in zone.locations if loc.id == state.location_current), None)
+        location_desc = location.description if location and isinstance(location.description, str) else "An undescribed room."
 
-            # Get location description
-            location = self._get_location(state.location_current)
-            location_desc = location.get('description', {}).get('default', '') if location else ''
+        character_cards = self._build_character_cards(state)
 
-            # Build appearance descriptions with clothing
-            appearances = self._build_appearance_descriptions(state)
+        # Format the beats for inclusion in the prompt
+        beats_instructions = "\n".join(f"- {beat}" for beat in node.beats) if node.beats else "No specific instructions for this scene."
 
-            # Get clothing-specific instructions
-            clothing_instructions = self._get_clothing_instructions(state)
+        recent_context = "\n".join(recent_history[-3:]) if recent_history else "The story is just beginning."
 
-            # Recent context
-            recent_context = "\n".join(recent_history[-3:]) if recent_history else "Story beginning"
+        prompt = f"""
+        {system_prompt.strip()}
 
-            # Check if NSFW content is allowed
-            nsfw_level = self.game_def.config.get('game', {}).get('nsfw_level', 'none')
-            nsfw_instructions = self._get_nsfw_instructions(nsfw_level, node)
+        **Tone:** {tone}
+        **World Setting:** {world_setting}
+        
+        **Current Scene:** {node.title}
+        **Location:** {location.name if location else state.location_current} - {location_desc}
+        **Time:** Day {state.day}, {state.time_slot}
 
-            prompt = f"""You are the narrator for an interactive fiction game.
+        **Scene Instructions (Beats):**
+        {beats_instructions}
 
-    WORLD SETTING: {world_setting}
-    TONE: {tone}
-    CURRENT LOCATION: {state.location_current} - {location_desc}
-    TIME: Day {state.day}, {state.time_slot}
+        **Characters Present:**
+        {character_cards if character_cards else "No one else is here."}
 
-    CHARACTERS PRESENT:
-    {chr(10).join(appearances) if appearances else "No other characters present"}
+        **Story So Far:**
+        ...{recent_context}
 
-    CHARACTER STATES:
-    {char_states}
+        **Player's Action:** {player_action}
 
-    {clothing_instructions}
-
-    RECENT CONTEXT:
-    {recent_context}
-
-    PLAYER ACTION: "{player_action}"
-
-    INSTRUCTIONS:
-    - Write 2-3 paragraphs continuing the scene
-    - Include sensory details and environmental atmosphere
-    - Show character reactions based on their personality and current state
-    - When describing clothing changes, be specific about what items are affected
-    - Maintain continuity with current clothing states
-    {nsfw_instructions}
-    - End with a clear moment for the next player choice
-    - DO NOT write player dialogue or actions beyond what was specified
-
-    Continue the scene:"""
-
-            return prompt
+        Continue the narrative.
+        """
+        return "\n".join(line.strip() for line in prompt.split('\n'))
 
     def build_checker_prompt(
-                self,
-                narrative: str,
-                player_action: str,
-                state: GameState,
-                node: Dict[str, Any]
-        ) -> str:
-            """Build prompt for state extraction including clothing"""
+            self,
+            narrative: str,
+            player_action: str,
+            state: GameState,
+    ) -> str:
+        """Builds the prompt for the state-extracting Checker AI."""
 
-            current_meters = {
-                char_id: meters
-                for char_id, meters in state.meters.items()
-                if char_id in state.present_chars
-            }
+        present_chars = [self.characters_map[cid] for cid in state.present_chars if cid in self.characters_map]
 
-            # Get current clothing states for context
-            clothing_context = {}
-            if self.clothing_manager:
-                for char_id in state.present_chars:
-                    clothing_context[char_id] = self.clothing_manager.get_clothing_context(char_id)
+        # Create a more precise list of valid meters for the current characters
+        valid_meters = {"player": list(self.game_def.meters.get("player", {}).keys())}
+        for char in present_chars:
+            template_meters = list(self.game_def.meters.get("character_template", {}).keys())
+            char_specific_meters = list(char.meters.keys()) if char.meters else []
+            valid_meters[char.id] = list(set(template_meters + char_specific_meters))
 
-            prompt = f"""Analyze this game narrative for state changes.
+        valid_flags = list(self.game_def.flags.keys()) if self.game_def.flags else []
+        valid_items = [item.id for item in self.game_def.items]
 
-    PLAYER ACTION: "{player_action}"
+        prompt = f"""
+        You are a strict data extraction engine for a game. Your task is to analyze a narrative text and identify concrete state changes that occurred *in the present moment* of the story.
 
-    NARRATIVE OUTPUT:
-    "{narrative}"
+        **CRITICAL INSTRUCTIONS:**
+        1.  **Analyze Actions, Not Dialogue:** Only extract state changes from direct actions performed by characters.
+        2.  **IGNORE STORIES AND MEMORIES:** Do NOT extract state changes from stories, memories, hypothetical events, or dialogue where characters talk about past or future events. For example, if a character says "I gave someone $20", do NOT deduct money.
+        3.  **BE PRECISE:** Only report changes that are explicitly stated or strongly implied by a character's direct, present actions. If you are not certain, do not report a change.
+        4.  **Use Valid IDs Only:** You must only use the IDs provided in the "Valid Game Entities" section.
 
-    CURRENT CHARACTER METERS:
-    {json.dumps(current_meters, indent=2)}
+        **Player's Action:** "{player_action}"
+        **Narrative to Analyze:** "{narrative}"
 
-    CURRENT CLOTHING STATES:
-    {json.dumps(clothing_context, indent=2)}
+        **Current State Context:**
+        - Meters: {json.dumps(state.meters)}
+        - Flags: {json.dumps(state.flags)}
 
-    CURRENT FLAGS:
-    {json.dumps(state.flags, indent=2)}
+        **Valid Game Entities (Use ONLY these IDs):**
+        - Valid Meters: {json.dumps(valid_meters)}
+        - Valid Flags: {json.dumps(valid_flags)}
+        - Valid Items: {json.dumps(valid_items)}
 
-    Extract the following information and return as JSON:
+        **JSON Extraction Schema:**
+        {{
+          "meter_changes": {{ "character_id": {{ "meter_name": +/-change_value }} }},
+          "flag_changes": {{ "flag_name": new_value }},
+          "inventory_changes": {{ "owner_id": {{ "item_id": +/-change_value }} }},
+          "clothing_changes": {{ "character_id": {{ "removed": ["layer_name"], "displaced": ["layer_name"] }} }}
+        }}
 
-    1. meter_changes: Changes to character meters based on the narrative
-       Format: {{"character_id": {{"meter": change_amount}}}}
-       Example: {{"emma": {{"trust": 5, "attraction": -3}}}}
+        Respond ONLY with a single, valid JSON object.
+        """
+        return "\n".join(line.strip() for line in prompt.split('\n'))
 
-    2. flag_changes: New flags to set based on events
-       Format: {{"flag_name": value}}
-       Example: {{"first_kiss": true, "emma_angry": true}}
-
-    3. clothing_changes: Any clothing state changes described in the narrative
-       For each character, identify:
-       - removed: Items completely taken off (jacket, shirt, pants, etc.)
-       - displaced: Items moved/disheveled but not removed (pushed up, pulled aside, loosened)
-       - added: Items put back on or newly worn
-
-       Format: {{"character_id": {{"removed": ["layer"], "displaced": ["layer"], "added": ["layer"]}}}}
-       Layer names: outer, top, bottom, dress, underwear_top, underwear_bottom, feet
-
-       Example: {{"alex": {{"removed": ["feet", "outer"], "displaced": ["top"], "added": []}}}}
-
-       Important: Only report clothing changes that are explicitly described or clearly implied in the narrative.
-
-    4. location_change: If the location changed
-       Format: {{"new_location": "location_id"}} or null
-
-    5. player_intent: Categorize the player's action
-       Options: "flirt", "intimate", "aggressive", "investigate", "help", "casual", "neutral"
-
-    6. content_flags: Content warnings in the narrative
-       Format: ["violence", "intimacy", "profanity"] or []
-
-    7. emotional_tone: Overall emotional result
-       Options: "positive", "negative", "tense", "romantic", "passionate", "neutral"
-
-    8. intimacy_escalation: Did physical intimacy increase?
-       Format: boolean (true/false)
-
-    Return ONLY valid JSON:"""
-
-            return prompt
-
-    def _build_appearance_descriptions(self, state: GameState) -> List[str]:
-        """Build character appearance descriptions with clothing"""
-        descriptions = []
+    def _build_character_cards(self, state: GameState) -> str:
+        """Constructs the 'character card' summaries for the prompt."""
+        cards = []
+        evaluator = ConditionEvaluator(state, state.present_chars)
 
         for char_id in state.present_chars:
-            char = self._get_character(char_id)
-            if not char:
-                continue
+            char_def = self.characters_map.get(char_id)
+            if not char_def: continue
 
-            appearance = char.get('appearance', {}).get('base', {})
+            # --- Dynamic Meters ---
+            char_meters = state.meters.get(char_id, {})
+            meter_str = ", ".join(f"{name.capitalize()}({int(value)})" for name, value in char_meters.items())
 
-            # Get clothing description
-            if self.clothing_manager:
-                clothing_desc = self.clothing_manager.get_character_appearance(char_id)
-                intimacy = self.clothing_manager.get_intimacy_level(char_id)
-            else:
-                clothing_desc = "dressed normally"
-                intimacy = "none"
+            # --- Active Modifiers ---
+            active_modifiers = state.modifiers.get(char_id, [])
+            modifier_str = f"Active Modifiers: {', '.join(mod['id'] for mod in active_modifiers) or 'None'}"
 
-            # Build full description
-            desc_parts = [f"{char['name']}:"]
+            # --- Resolve Consent Gates ---
+            allowed_behaviors = []
+            if char_def.behaviors and char_def.behaviors.gates:
+                for gate in char_def.behaviors.gates:
+                    # Combine the different condition types into one evaluatable string
+                    condition = gate.when
+                    if gate.when_any:
+                        condition = " or ".join(f"({c})" for c in gate.when_any)
+                    elif gate.when_all:
+                        condition = " and ".join(f"({c})" for c in gate.when_all)
 
-            # Physical appearance
-            if appearance.get('height'):
-                desc_parts.append(appearance['height'])
-            if appearance.get('build'):
-                desc_parts.append(appearance['build'])
-            if appearance.get('hair'):
-                desc_parts.append(appearance['hair'])
+                    if evaluator.evaluate(condition):
+                        allowed_behaviors.append(gate.id)
 
-            # Check for body state modifiers (arousal, exhaustion, etc.)
-            body_state = self._get_body_state_modifiers(char, state.meters.get(char_id, {}))
-            if body_state:
-                desc_parts.append(f"({body_state})")
+            behavior_str = f"Will Accept: {', '.join(allowed_behaviors) or 'basic interactions'}"
+            refusal_str = f"Refusal Line (if pushed): \"{char_def.behaviors.refusals.generic if char_def.behaviors and char_def.behaviors.refusals else 'I am not comfortable with that.'}\""
 
-            # Clothing
-            desc_parts.append(f"Currently wearing: {clothing_desc}")
-
-            # Add intimacy context if relevant
-            if intimacy != "none":
-                desc_parts.append(f"[Intimacy level: {intimacy}]")
-
-            descriptions.append(" ".join(desc_parts))
-
-        return descriptions
-
-    def _get_clothing_instructions(self, state: GameState) -> str:
-        """Get specific instructions about clothing continuity"""
-        if not self.clothing_manager:
-            return ""
-
-        instructions = []
-        for char_id in state.present_chars:
-            context = self.clothing_manager.get_clothing_context(char_id)
-            if context['removed']:
-                instructions.append(
-                    f"{self._get_character_name(char_id)} has already removed: {', '.join(context['removed'])}")
-            if context['displaced']:
-                instructions.append(
-                    f"{self._get_character_name(char_id)} has displaced: {', '.join(context['displaced'])}")
-
-        if instructions:
-            return "CLOTHING CONTINUITY:\n" + "\n".join(instructions)
-        return ""
-
-
-    def _build_character_states(self, state: GameState) -> str:
-        """Build character state descriptions"""
-        states = []
-
-        for char_id in state.present_chars:
-            char = self._get_character(char_id)
-            if not char:
-                continue
-
-            meters = state.meters.get(char_id, {})
-
-            # Determine mood based on meters
-            mood = self._determine_mood(char, meters)
-
-            # Determine available behaviors
-            behaviors = self._get_available_behaviors(char, state)
-
-            state_desc = f"""{char['name']}:
-- Mood: {mood}
-- Trust: {meters.get('trust', 0)}/100 ({self._describe_level(meters.get('trust', 0))})
-- Attraction: {meters.get('attraction', 0)}/100 ({self._describe_level(meters.get('attraction', 0))})
-- Arousal: {meters.get('arousal', 0)}/100 ({self._describe_level(meters.get('arousal', 0))})
-- Energy: {meters.get('energy', 100)}/100
-- Will accept: {', '.join(behaviors) if behaviors else 'casual interaction only'}"""
-
-            states.append(state_desc)
-
-        return "\n\n".join(states) if states else "No characters to track"
-
-    def _describe_visible_clothing(self, clothing_state: Dict) -> str:
-        """Describe what clothing is currently visible"""
-        layers = clothing_state.get('layers', {})
-        removed = clothing_state.get('removed', [])
-        displaced = clothing_state.get('displaced', [])
-
-        visible = []
-        for layer_name, item in layers.items():
-            if layer_name not in removed:
-                if layer_name in displaced:
-                    visible.append(f"{item} (disheveled)")
-                else:
-                    visible.append(str(item))
-
-        return ", ".join(visible) if visible else "nothing"
-
-    def _determine_mood(self, char: Dict, meters: Dict) -> str:
-        """Determine character mood from meters"""
-        arousal = meters.get('arousal', 0)
-        attraction = meters.get('attraction', 0)
-        trust = meters.get('trust', 0)
-        energy = meters.get('energy', 100)
-
-        if energy < 20:
-            return "exhausted"
-        elif arousal >= 70:
-            return "passionate"
-        elif arousal >= 40 and attraction >= 50:
-            return "flirty"
-        elif attraction >= 60:
-            return "affectionate"
-        elif trust < 20:
-            return "guarded"
-        elif trust >= 60:
-            return "comfortable"
-        else:
-            return "neutral"
-
-    def _get_available_behaviors(self, char: Dict, state: GameState) -> List[str]:
-        """Get list of behaviors character will accept"""
-        behaviors = []
-        char_id = char['id']
-        meters = state.meters.get(char_id, {})
-
-        # Check each behavior condition
-        char_behaviors = char.get('behaviors', [])
-        for behavior in char_behaviors:
-            if self._check_behavior_condition(behavior.get('conditions'), state, char_id):
-                behaviors.append(behavior['id'].replace('_', ' '))
-
-        return behaviors
-
-    def _check_behavior_condition(self, conditions: Any, state: GameState, char_id: str) -> bool:
-        """Check if behavior conditions are met"""
-        if conditions == "always" or conditions is None:
-            return True
-
-        # Simple implementation - expand as needed
-        if isinstance(conditions, dict):
-            if 'all' in conditions:
-                # Would need a proper condition evaluator here
-                return True
-
-        return False
-
-    def _describe_level(self, value: float) -> str:
-        """Describe a meter level"""
-        if value >= 80:
-            return "very high"
-        elif value >= 60:
-            return "high"
-        elif value >= 40:
-            return "moderate"
-        elif value >= 20:
-            return "low"
-        else:
-            return "very low"
-
-    def _get_nsfw_instructions(self, nsfw_level: str, node: Dict) -> str:
-        """Get content instructions based on the NSFW level"""
-        base_instruction = "\n- This is adult fiction - include appropriate mature content"
-
-        if nsfw_level == 'explicit' or node.get('nsfw'):
-            return f"""{base_instruction}
-    - Include explicit adult content as appropriate for the scene
-    - Describe physical intimacy and arousal when relevant
-    - Focus on consent and emotional connection
-    - Use mature but literary language
-    - Don't shy away from sexual content when it fits the narrative"""
-        elif nsfw_level == 'suggestive':
-            return f"""{base_instruction}
-    - Keep intimate content suggestive but not graphic
-    - Imply rather than explicitly describe sexual acts
-    - Focus on emotional tension and attraction
-    - Build sensual atmosphere without explicit details"""
-        else:
-            return "\n- Keep content appropriate and non-sexual"
-
-    def _get_character(self, char_id: str) -> Optional[Dict]:
-        """Get character definition by ID"""
-        for char in self.game_def.characters:
-            if char['id'] == char_id:
-                return char
-        return None
-
-    def _get_location(self, location_id: str) -> Optional[Dict]:
-        """Get location definition by ID"""
-        for loc in self.game_def.locations:
-            if loc['id'] == location_id:
-                return loc
-        return None
+            # --- Assemble Card ---
+            card_lines = [
+                f"- **{char_def.name} ({char_def.role or 'character'})**",
+                f"  - Pronouns: {', '.join(char_def.pronouns) if char_def.pronouns else 'not specified'}",
+                f"  - Personality: {', '.join(char_def.personality.core_traits if char_def.personality else [])}",
+                f"  - Current State: {meter_str}",
+                f"  - {modifier_str}",
+                f"  - Behavior: {behavior_str}",
+                f"  - {refusal_str}",
+                f"  - Wearing: {self.clothing_manager.get_character_appearance(char_id)}"
+            ]
+            cards.append("\n".join(card_lines))
+        return "\n".join(cards)

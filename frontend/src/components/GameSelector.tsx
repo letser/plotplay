@@ -9,8 +9,8 @@ export const GameSelector = () => {
         loadGames();
     }, [loadGames]);
 
-    const getIcon = (nsfwLevel: string) => {
-        switch (nsfwLevel) {
+    const getIcon = (contentRating: string) => {
+        switch (contentRating) {
             case 'explicit':
             case 'suggestive':
                 return <Heart className="w-5 h-5 text-pink-500" />;
@@ -34,11 +34,11 @@ export const GameSelector = () => {
                     >
                         <div className="flex items-start justify-between mb-3">
                             <h3 className="text-xl font-semibold">{game.title}</h3>
-                            {getIcon(game.nsfw_level)}
+                            {getIcon(game.content_rating)}
                         </div>
                         <p className="text-gray-400 text-sm mb-2">by {game.author}</p>
                         <p className="text-gray-500 text-xs">
-                            Content: {game.nsfw_level || 'general'}
+                            Content: {game.content_rating || 'general'}
                         </p>
                     </div>
                 ))}

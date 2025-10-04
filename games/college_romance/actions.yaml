@@ -1,0 +1,14 @@
+actions:
+  - id: "deep_talk_emma"
+    prompt: "Ask Emma about her family"
+    category: "conversation"
+    conditions: "npc_present('emma') and meters.emma.trust >= 60"
+    effects:
+      - type: "meter_change"
+        target: "emma"
+        meter: "trust"
+        op: "add"
+        value: 10
+      - type: "flag_set"
+        key: "emma_opened_up"
+        value: true

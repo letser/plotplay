@@ -1,0 +1,20 @@
+# Create a new file: games/coffeeshop_date/flags.yaml
+flags:
+  paid_for_coffee:
+    type: "bool"
+    default: false
+    visible: true
+    label: "Paid for Alex"
+    description: "Set to true if the player pays for both coffees."
+
+  told_joke:
+    type: "bool"
+    default: false
+    description: "Set to true if the player tells a funny story."
+
+  got_number:
+    type: "bool"
+    default: false
+    visible: true
+    label: "Got Alex's Number"
+    description: "Set to true if Alex gives the player her number."
