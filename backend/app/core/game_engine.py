@@ -578,9 +578,10 @@ class GameEngine:
     def _apply_effects(self, effects: list[AnyEffect]):
         evaluator = ConditionEvaluator(self.state_manager.state, self.state_manager.state.present_chars, rng_seed=self._get_turn_seed())
         for effect in effects:
-            if evaluator.evaluate(effect.when):
-                if isinstance(effect, ConditionalEffect): self._apply_conditional_effect(effect)
-                elif isinstance(effect, RandomEffect): self._apply_random_effect(effect)
+            if isinstance(effect, ConditionalEffect):
+                self._apply_conditional_effect(effect)
+            elif evaluator.evaluate(effect.when):
+                if isinstance(effect, RandomEffect): self._apply_random_effect(effect)
                 elif isinstance(effect, MeterChangeEffect): self._apply_meter_change(effect)
                 elif isinstance(effect, FlagSetEffect): self._apply_flag_set(effect)
                 elif isinstance(effect, GotoNodeEffect): self._apply_goto_node(effect)
@@ -606,7 +607,7 @@ class GameEngine:
         if total_weight <= 0:
             return
 
-        roll = random.uniform(0, total_weight)
+        roll = random.Random(self._get_turn_seed()).uniform(0, total_weight)
         current_weight = 0
         for choice in effect.choices:
             current_weight += choice.weight
@@ -699,7 +700,12 @@ class GameEngine:
 
         # --- Apply the change ---
         current_value = target_meters.get(effect.meter, 0)
-        op_map = {"add": lambda a, b: a + b, "subtract": lambda a, b: a - b, "set": lambda a, b: b}
+        op_map = {
+            "add": lambda a, b: a + b,
+            "subtract": lambda a, b: a - b,
+            "multiply": lambda a, b: a * b,
+            "divide": lambda a, b: a / b if b != 0 else a,
+            "set": lambda a, b: b}
 
         if operation := op_map.get(op_to_apply):
             new_value = operation(current_value, value_to_apply)
