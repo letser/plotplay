@@ -3,6 +3,19 @@
 # ===============================
 
 events:
+  - id: "monday_blues"
+    title: "Monday Blues"
+    trigger:
+      conditional:
+        - when: "time.weekday == 'monday' and time.slot == 'morning'"
+    narrative: "It's Monday morning and everyone seems a bit sluggish..."
+    effects:
+      - type: meter_change
+        target: "player"
+        meter: "energy"
+        op: "subtract"
+        value: 10
+
   - id: "emma_text_late"
     title: "Emma’s Late-Night Text"
     category: "relationship"

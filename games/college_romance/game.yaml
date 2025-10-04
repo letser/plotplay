@@ -111,14 +111,16 @@ time:
       late_night: { start: "23:00", end: "05:59" } # Spans across midnight
 
   calendar:
+    enabled: true
     epoch: "2025-09-01"
     week_days: ["monday","tuesday","wednesday","thursday","friday","saturday","sunday"]
-    start_day_index: 0
+    start_day: "monday"
     weeks_enabled: true
   start:
     day: 1
     slot: "morning"
-    time: "08:30" # Add a starting HH:MM time
+    time: "08:30"
+
 # --- Global action policies (UI/Writer guardrails) ---
 action_filters:
   banned_topics: ["minors", "non-consensual acts", "sexualized violence"]

@@ -121,15 +121,17 @@ characters:
         normal: ["maybe", "I guess", "um", "okay"]
         aroused: ["please", "want", "need"]
     schedule:
-      weekday:
-        morning:    { location: "cafeteria", activity: "breakfast", availability: "high" }
-        noon:       { location: "lecture_hall", activity: "class",     availability: "low" }
-        afternoon:  { location: "library",     activity: "study",     availability: "medium" }
-        night:      { location: "emma_room",   activity: "relax",    availability: "high" }
-        late_night: { location: "emma_room",   activity: "sleep",    availability: "none" }
-      weekend:
-        morning:    { location: "emma_room",   activity: "sleep in", availability: "low" }
-        night:      { location: "campus_quad", activity: "walk",      availability: "medium" }
+      # Weekday schedule - at a library
+      - when: "time.weekday in ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'] and time.slot == 'afternoon'"
+        location: "library"
+
+      # Weekend schedule - at cafe
+      - when: "time.weekday in ['saturday', 'sunday'] and time.slot == 'afternoon'"
+        location: "cafe"
+
+      # Friday night - at a party
+      - when: "time.weekday == 'friday' and time.slot == 'night'"
+        location: "student_union"
 
   - id: "liam"
     name: "Liam Park"

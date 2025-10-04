@@ -374,7 +374,6 @@ class GameEngine:
                 if total_minutes_today >= time_config.clock.minutes_per_day:
                     state.day += 1
                     total_minutes_today %= time_config.clock.minutes_per_day
-                    self.logger.info(f"Day advanced to {state.day}.")
 
                 new_hh = total_minutes_today // 60
                 new_mm = total_minutes_today % 60
@@ -424,6 +423,11 @@ class GameEngine:
 
         if state.day > original_day:
             day_advanced = True
+            # Recalculate weekday when day changes
+            self.state_manager.state.weekday = self._calculate_weekday()
+            self.logger.info(
+                f"Day advanced to {self.state_manager.state.day}, weekday is {self.state_manager.state.weekday}")
+
         if state.time_slot != original_slot:
             slot_advanced = True
 
@@ -949,3 +953,24 @@ class GameEngine:
             return self.game_def.meters["character_template"].get(meter_id)
 
         return None
+
+    def _calculate_weekday(self) -> str | None:
+        """Calculate the current weekday based on game day and calendar configuration."""
+        if not self.game_def.time.calendar or not self.game_def.time.calendar.enabled:
+            return None
+
+        calendar = self.game_def.time.calendar
+        week_days = calendar.week_days
+
+        # Find the index of the start day
+        try:
+            start_index = week_days.index(calendar.start_day)
+        except ValueError:
+            self.logger.warning(f"Invalid start_day '{calendar.start_day}' not in week_days")
+            return None
+
+        # Calculate current weekday index
+        # (day - 1) because Day 1 should map to start_day
+        current_index = (self.state_manager.state.day - 1 + start_index) % len(week_days)
+
+        return week_days[current_index]

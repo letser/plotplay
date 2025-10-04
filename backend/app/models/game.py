@@ -4,7 +4,6 @@ PlotPlay v3 Game Models - Complete game definition structures.
 ============== Main Game Definition ==============
 """
 from pydantic import BaseModel, Field
-from typing import Any
 
 from .action import GameAction
 from .arc import Arc
@@ -27,7 +26,6 @@ class MetaConfig(BaseModel):
     id: str
     title: str
     version: str = "1.0.0"
-    spec_version: str = "3.1"
     authors: list[str] = Field(default_factory=list)
     description: str | None = None
     content_warnings: list[str] = Field(default_factory=list)

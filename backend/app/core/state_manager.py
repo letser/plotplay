@@ -79,6 +79,8 @@ class StateManager:
         state.time_slot = time_start.slot
         if self.game_def.time.mode in ("hybrid", "clock"):
             state.time_hhmm = time_start.time
+        if self.game_def.time.calendar and self.game_def.time.calendar.enabled:
+            state.weekday = self._calculate_initial_weekday()
 
         state.current_node = self.game_def.start.node
         state.location_current = self.game_def.start.location['id']
@@ -143,3 +145,12 @@ class StateManager:
         for effect in effects:
             print(f"Applying effect: {effect.type}")
             pass
+
+    def _calculate_initial_weekday(self) -> str | None:
+        """Calculate the weekday for Day 1 based on calendar configuration."""
+        calendar = self.game_def.time.calendar
+        if not calendar or not calendar.enabled:
+            return None
+
+        # Day 1 starts on the configured start_day
+        return calendar.start_day

@@ -37,6 +37,18 @@ nodes:
         prompt: "Look for Emma"
         conditions: "flags.emma_met == true"
         goto: "find_emma_scene"
+      - id: "go_library"
+        prompt: "Go to the library"
+        conditions: "time.weekday in ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']"
+        goto: "library"
+      - id: "go_market"
+        prompt: "Check out the weekend market"
+        conditions: "time.weekday in ['saturday', 'sunday'] and time.slot == 'morning'"
+        goto: "market"
+      - id: "go_party"
+        prompt: "Attend Friday party"
+        conditions: "time.weekday == 'friday' and time.slot in ['evening', 'night']"
+        goto: "party"
     transitions:
       - { when: "always", to: "campus_hub" }
 
