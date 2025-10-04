@@ -7,7 +7,7 @@ from typing import Any
 
 from app.models.game import GameDefinition
 from app.models.effects import AnyEffect
-from models.location import LocationPrivacy
+from app.models.location import LocationPrivacy
 
 
 @dataclass
@@ -20,7 +20,7 @@ class GameState:
     weekday: str | None = None
     location_current: str = "start"
     location_previous: str | None = None
-    location_privacy: LocationPrivacy = "low"
+    location_privacy: LocationPrivacy = LocationPrivacy.LOW
     zone_current: str | None = None
 
     # Characters
