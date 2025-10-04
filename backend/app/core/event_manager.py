@@ -16,10 +16,10 @@ class EventManager:
     def __init__(self, game_def: GameDefinition):
         self.game_def = game_def
 
-    def get_triggered_events(self, state: GameState) -> list[Event]:
+    def get_triggered_events(self, state: GameState, rng_seed: int | None = None) -> list[Event]:
         triggered_events = []
         random_pool = []
-        evaluator = ConditionEvaluator(state, state.present_chars)
+        evaluator = ConditionEvaluator(state, state.present_chars, rng_seed=rng_seed)
 
         for event in self.game_def.events:
             if self._is_event_on_cooldown(event, state):

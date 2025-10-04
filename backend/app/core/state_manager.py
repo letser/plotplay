@@ -7,6 +7,7 @@ from typing import Any
 
 from app.models.game import GameDefinition
 from app.models.effects import AnyEffect
+from models.location import LocationPrivacy
 
 
 @dataclass
@@ -19,6 +20,7 @@ class GameState:
     weekday: str | None = None
     location_current: str = "start"
     location_previous: str | None = None
+    location_privacy: LocationPrivacy = "low"
     zone_current: str | None = None
 
     # Characters
@@ -84,6 +86,7 @@ class StateManager:
 
         state.current_node = self.game_def.start.node
         state.location_current = self.game_def.start.location['id']
+        state.location_privacy = LocationPrivacy.LOW
         state.zone_current = self.game_def.start.location['zone']
 
         # 2. Initialize Meters for player and NPCs

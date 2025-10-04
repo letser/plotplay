@@ -24,7 +24,7 @@ class ModifierManager:
             self.library = self.game_def.modifier_system.library
             self.exclusions = self.game_def.modifier_system.exclusions or []
 
-    def update_modifiers_for_turn(self, state: GameState):
+    def update_modifiers_for_turn(self, state: GameState, rng_seed: int | None = None):
         """
         Checks all defined modifiers for auto-activation based on their 'when' conditions.
         This should be called once per turn.
@@ -32,7 +32,7 @@ class ModifierManager:
         all_character_ids = list(state.meters.keys())
 
         for char_id in all_character_ids:
-            evaluator = ConditionEvaluator(state, state.present_chars)
+            evaluator = ConditionEvaluator(state, state.present_chars, rng_seed=rng_seed)
 
             if char_id not in state.modifiers:
                 state.modifiers[char_id] = []

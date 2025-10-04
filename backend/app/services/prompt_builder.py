@@ -24,7 +24,8 @@ class PromptBuilder:
         state: GameState,
         player_action: str,
         node: Node,
-        recent_history: list[str]
+        recent_history: list[str],
+        rng_seed: int | None = None,
     ) -> str:
         """Builds the main prompt for the narrative Writer AI."""
 
@@ -42,7 +43,7 @@ class PromptBuilder:
         location = next((loc for zone in self.game_def.zones for loc in zone.locations if loc.id == state.location_current), None)
         location_desc = location.description if location and isinstance(location.description, str) else "An undescribed room."
 
-        character_cards = self._build_character_cards(state)
+        character_cards = self._build_character_cards(state, rng_seed=rng_seed)
 
         # Format the beats for inclusion in the prompt
         beats_instructions = "\n".join(f"- {beat}" for beat in node.beats) if node.beats else "No specific instructions for this scene."
@@ -127,10 +128,10 @@ class PromptBuilder:
         """
         return "\n".join(line.strip() for line in prompt.split('\n'))
 
-    def _build_character_cards(self, state: GameState) -> str:
+    def _build_character_cards(self, state: GameState, rng_seed: int | None = None) -> str:
         """Constructs the 'character card' summaries for the prompt."""
         cards = []
-        evaluator = ConditionEvaluator(state, state.present_chars)
+        evaluator = ConditionEvaluator(state, state.present_chars, rng_seed=rng_seed)
 
         for char_id in state.present_chars:
             char_def = self.characters_map.get(char_id)

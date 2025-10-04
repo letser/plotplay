@@ -21,7 +21,7 @@ from app.models.effects import (
 )
 from app.models.enums import NodeType
 from app.models.game import GameDefinition
-from app.models.location import Location, LocationConnection
+from app.models.location import Location, LocationConnection, LocationPrivacy
 from app.models.node import Node, Choice
 from app.services.ai_service import AIService
 from app.services.prompt_builder import PromptBuilder
@@ -42,8 +42,7 @@ class GameEngine:
         self.ai_service = AIService()
         self.prompt_builder = PromptBuilder(game_def, self.clothing_manager)
         self.nodes_map: dict[str, Node] = {node.id: node for node in self.game_def.nodes}
-        self.actions_map: dict[str, GameAction] = {action.id: action for action in
-                                                   self.game_def.actions}  # <-- Add actions_map
+        self.actions_map: dict[str, GameAction] = {action.id: action for action in self.game_def.actions}
         self.characters_map: dict[str, Character] = {char.id: char for char in self.game_def.characters}
         self.locations_map: dict[str, Location] = {
             loc.id: loc for zone in self.game_def.zones for loc in zone.locations
@@ -88,7 +87,7 @@ class GameEngine:
             return await self._handle_movement(action_text)
 
         # Pre-AI effects
-        active_events = self.event_manager.get_triggered_events(state)
+        active_events = self.event_manager.get_triggered_events(state, rng_seed=self._get_turn_seed())
         event_choices = [c for e in active_events for c in e.choices]
         event_narratives = [event.narrative for event in active_events if event.narrative]
         for event in active_events:
@@ -97,7 +96,7 @@ class GameEngine:
         if action_type == "choice" and choice_id:
             await self._handle_predefined_choice(choice_id, event_choices)
 
-        newly_entered_stages, newly_exited_stages = self.arc_manager.check_and_advance_arcs(state)
+        newly_entered_stages, newly_exited_stages = self.arc_manager.check_and_advance_arcs(state, rng_seed=self._get_turn_seed())
         for stage in newly_exited_stages:
             self._apply_effects(stage.effects_on_exit)
         for stage in newly_entered_stages:
@@ -106,7 +105,7 @@ class GameEngine:
 
         # AI Generation
         writer_prompt = self.prompt_builder.build_writer_prompt(state, player_action_str, current_node,
-                                                                state.narrative_history)
+                                                                state.narrative_history, rng_seed=self._get_turn_seed())
         narrative_from_ai = (await self.ai_service.generate(writer_prompt)).content
 
         checker_prompt = self.prompt_builder.build_checker_prompt(narrative_from_ai, player_action_str, state)
@@ -146,7 +145,7 @@ class GameEngine:
             self._apply_effects(item_effects)
 
         self._check_and_apply_node_transitions()
-        self.modifier_manager.update_modifiers_for_turn(state)
+        self.modifier_manager.update_modifiers_for_turn(state, rng_seed=self._get_turn_seed())
         self._update_discoveries()
 
         # Pass time advancement info to process meter dynamics
@@ -165,7 +164,7 @@ class GameEngine:
     def _update_discoveries(self):
         """Checks for and applies new location discoveries."""
         state = self.state_manager.state
-        evaluator = ConditionEvaluator(state, state.present_chars)
+        evaluator = ConditionEvaluator(state, state.present_chars, rng_seed=self._get_turn_seed())
 
         for zone in self.game_def.zones:
             # Check for zone discovery first
@@ -245,6 +244,8 @@ class GameEngine:
         state.location_previous = state.location_current
         state.zone_current = destination_zone_id
         state.location_current = destination_location_id
+        state.location_privacy = self._get_location_privacy(destination_location_id)
+
         state.present_chars = ["player"]  # Companions are left behind for zone travel for now
         self._advance_time(minutes=time_cost_minutes)
         self._update_npc_presence()
@@ -262,7 +263,7 @@ class GameEngine:
     async def _execute_local_movement(self, destination_id: str, connection: LocationConnection) -> dict[str, Any]:
         """Executes a player-initiated movement between locations."""
         state = self.state_manager.state
-        evaluator = ConditionEvaluator(state, state.present_chars)
+        evaluator = ConditionEvaluator(state, state.present_chars, rng_seed=self._get_turn_seed())
         move_rules = self.game_def.movement
 
         # --- Companion Consent Check ---
@@ -328,6 +329,8 @@ class GameEngine:
         # --- Update State ---
         state.location_previous = state.location_current
         state.location_current = destination_id
+        state.location_privacy = self._get_location_privacy(destination_id)
+
         # Update presence: only player and willing companions are now present
         state.present_chars = ["player"] + moving_companions
         self._advance_time(minutes=time_cost_minutes)
@@ -474,7 +477,7 @@ class GameEngine:
         gate_map = {"kiss": "accept_kiss", "sex": "accept_sex", "oral": "accept_oral"}
         for keyword, gate_id in gate_map.items():
             if keyword in player_action.lower() and target_char_id:
-                evaluator = ConditionEvaluator(self.state_manager.state, self.state_manager.state.present_chars)
+                evaluator = ConditionEvaluator(self.state_manager.state, self.state_manager.state.present_chars, rng_seed=self._get_turn_seed())
                 target_char = self.characters_map.get(target_char_id)
                 if not target_char or not target_char.behaviors: continue
                 gate = next((g for g in target_char.behaviors.gates if g.id == gate_id), None)
@@ -532,7 +535,7 @@ class GameEngine:
         return f"Player action: {action_text}"
 
     def _check_and_apply_node_transitions(self):
-        evaluator = ConditionEvaluator(self.state_manager.state, self.state_manager.state.present_chars)
+        evaluator = ConditionEvaluator(self.state_manager.state, self.state_manager.state.present_chars, rng_seed=self._get_turn_seed())
         current_node = self._get_current_node()
 
         for transition in current_node.transitions:
@@ -573,7 +576,7 @@ class GameEngine:
                 # Unlocked actions do not have a 'goto'
 
     def _apply_effects(self, effects: list[AnyEffect]):
-        evaluator = ConditionEvaluator(self.state_manager.state, self.state_manager.state.present_chars)
+        evaluator = ConditionEvaluator(self.state_manager.state, self.state_manager.state.present_chars, rng_seed=self._get_turn_seed())
         for effect in effects:
             if evaluator.evaluate(effect.when):
                 if isinstance(effect, ConditionalEffect): self._apply_conditional_effect(effect)
@@ -591,7 +594,7 @@ class GameEngine:
 
     def _apply_conditional_effect(self, effect: ConditionalEffect):
         """Applies a conditional effect."""
-        evaluator = ConditionEvaluator(self.state_manager.state, self.state_manager.state.present_chars)
+        evaluator = ConditionEvaluator(self.state_manager.state, self.state_manager.state.present_chars, rng_seed=self._get_turn_seed())
         if evaluator.evaluate(effect.when):
             self._apply_effects(effect.then)
         else:
@@ -655,6 +658,8 @@ class GameEngine:
     def _apply_move_to(self, effect: MoveToEffect):
         """Applies a move_to effect and updates character presence."""
         self.state_manager.state.location_current = effect.location
+        self.state_manager.state.location_privacy = self._get_location_privacy(effect.location)
+        self._update_npc_presence()
         # After moving, immediately check the destination node for characters
         current_node = self._get_current_node()
         if current_node.present_characters:
@@ -716,7 +721,7 @@ class GameEngine:
         self._advance_time(minutes=effect.minutes)
 
     def _generate_choices(self, node: Node, event_choices: list[Choice]) -> list[dict[str, Any]]:
-        evaluator = ConditionEvaluator(self.state_manager.state, self.state_manager.state.present_chars)
+        evaluator = ConditionEvaluator(self.state_manager.state, self.state_manager.state.present_chars, rng_seed=self._get_turn_seed())
         available_choices = []
 
         active_choices = event_choices if event_choices else node.choices
@@ -777,7 +782,7 @@ class GameEngine:
 
     def _get_state_summary(self) -> dict[str, Any]:
         state = self.state_manager.state
-        evaluator = ConditionEvaluator(state, state.present_chars) # ADDED FOR reveal_when
+        evaluator = ConditionEvaluator(state, state.present_chars, rng_seed=self._get_turn_seed())
 
         summary_meters = {}
         for char_id, meter_values in state.meters.items():
@@ -930,7 +935,7 @@ class GameEngine:
         if not self.game_def.meter_interactions:
             return
 
-        evaluator = ConditionEvaluator(self.state_manager.state, self.state_manager.state.present_chars)
+        evaluator = ConditionEvaluator(self.state_manager.state, self.state_manager.state.present_chars, rng_seed=self._get_turn_seed())
         for interaction in self.game_def.meter_interactions:
             if evaluator.evaluate(interaction.when):
                 # NOTE: The 'effect' field is a string and not a real effect.
@@ -974,3 +979,20 @@ class GameEngine:
         current_index = (self.state_manager.state.day - 1 + start_index) % len(week_days)
 
         return week_days[current_index]
+
+    def _get_turn_seed(self) -> int:
+        """Generate a deterministic seed for the current turn."""
+        # Combine game ID, session ID, and turn count for deterministic randomness
+        seed_string = f"{self.game_def.meta.id}_{self.session_id}_{self.state_manager.state.turn_count}"
+        # Convert to integer hash
+        return hash(seed_string) % (2 ** 32)
+
+    def _get_location_privacy(self, location_id: str | None = None) -> LocationPrivacy:
+        """Get the privacy level of a location."""
+        if location_id is None:
+            location_id = self.state_manager.state.location_current
+
+        location = self.locations_map.get(location_id)
+        if location and hasattr(location, 'privacy'):
+            return location.privacy
+        return LocationPrivacy.LOW  # Default

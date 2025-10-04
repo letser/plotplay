@@ -7,6 +7,8 @@ from unittest.mock import AsyncMock
 from app.core.game_loader import GameLoader
 from app.core.game_engine import GameEngine
 from app.services.ai_service import AIResponse
+from models.location import LocationPrivacy
+
 
 # --- SIMPLEST TESTS FIRST ---
 
@@ -58,6 +60,7 @@ async def test_event_triggers_and_applies_effects(mocker):
     game_def = loader.load_game('college_romance')
     engine = GameEngine(game_def, "test_session_events")
     engine.state_manager.state.location_current = "gym"
+    engine.state_manager.state.location_privacy = LocationPrivacy.LOW
     engine.state_manager.state.present_chars = ["liam"]
 
     writer_response = AIResponse(content="Placeholder narrative.")

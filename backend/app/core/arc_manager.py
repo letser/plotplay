@@ -20,13 +20,13 @@ class ArcManager:
             stage.id: stage for arc in self.game_def.arcs for stage in arc.stages
         }
 
-    def check_and_advance_arcs(self, state: GameState) -> tuple[list[Stage], list[Stage]]:
+    def check_and_advance_arcs(self, state: GameState, rng_seed: int | None = None ) -> tuple[list[Stage], list[Stage]]:
         """
         Evaluates all arcs and returns lists of newly entered and exited stages.
         """
         newly_entered_stages = []
         newly_exited_stages = []
-        evaluator = ConditionEvaluator(state, state.present_chars)
+        evaluator = ConditionEvaluator(state, state.present_chars, rng_seed=rng_seed)
 
         for arc in self.game_def.arcs:
             current_stage_id = state.active_arcs.get(arc.id)
