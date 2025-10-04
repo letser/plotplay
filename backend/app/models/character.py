@@ -101,13 +101,6 @@ class Behaviors(BaseModel):
     refusals: BehaviorRefusals | None = None
 
 
-class DialogueProfile(BaseModel):
-    """Character dialogue configuration."""
-    base_style: str | None = None
-    vocab: dict[str, list[str]] = Field(default_factory=dict)
-    styles: dict[str, str] = Field(default_factory=dict)
-
-
 class ScheduleSlot(BaseModel):
     """Schedule for a time slot."""
     location: str
@@ -137,6 +130,7 @@ class Character(BaseModel):
     role: str | None = None
     description: str | None = None
     tags: list[str] = Field(default_factory=list)
+    dialogue_style: str | None = None
     author_notes: str | None = None
     meters: dict[str, Meter | dict[str, Any]] | None = None
     flags: dict[str, Flag] | None = None # <-- ADDED THIS LINE
@@ -147,7 +141,6 @@ class Character(BaseModel):
     appearance: Appearance | dict[str, Any] | None = None
     wardrobe: Wardrobe | dict[str, Any] | None = None
     behaviors: Behaviors | list[dict] | dict[str, Any] | None = None
-    dialogue: DialogueProfile | dict[str, Any] | None = None
     schedule: Schedule | dict[str, Any] | None = None
     movement: MovementWillingness | None = None
 

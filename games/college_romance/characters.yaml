@@ -115,11 +115,8 @@ characters:
       refusal_text:
         low_trust: "She hesitates. 'I don't think I'm ready to go there with you yet.'"
 
-    dialogue:
-      base_style: "soft-spoken, thoughtful; warms when safe"
-      vocab:
-        normal: ["maybe", "I guess", "um", "okay"]
-        aroused: ["please", "want", "need"]
+    dialogue_style: "soft-spoken, thoughtful; warms when safe"
+
     schedule:
       # Weekday schedule - at a library
       - when: "time.weekday in ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'] and time.slot == 'afternoon'"
@@ -153,8 +150,7 @@ characters:
       gates:
         - { id: "workout_buddy", when: "location.id == 'gym'" }
         - { id: "wingman", when: "meters.liam.trust >= 30 and npc_present('emma')" }
-    dialogue:
-      base_style: "casual, ribbing"
+    dialogue_style: "casual, ribbing"
     schedule:
       weekday:
         morning:   { location: "gym",        activity: "workout", availability: "high" }
@@ -166,6 +162,8 @@ characters:
     gender: "female"
     pronouns: ["she","her"]
     role: "alt_love_interest"
+    dialogue_style: "intellectual, verbose, drops philosophy references"
+    author_notes: "Zoe is aromantic but enjoys deep friendships. Focus on intellectual connection."
     meters:
       trust:      { default: 25 }
       attraction: { default: 20 }

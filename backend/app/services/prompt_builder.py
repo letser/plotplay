@@ -145,6 +145,20 @@ class PromptBuilder:
             active_modifiers = state.modifiers.get(char_id, [])
             modifier_str = f"Active Modifiers: {', '.join(mod['id'] for mod in active_modifiers) or 'None'}"
 
+            # --- Dialogue Style ---
+            effective_dialogue_style = char_def.dialogue_style or "neutral"
+            if active_modifiers and self.game_def.modifier_system:
+                for active_mod in active_modifiers:
+                    modifier_id = active_mod.get('id')
+                    if modifier_id in self.game_def.modifier_system.library:
+                        modifier_def = self.game_def.modifier_system.library[modifier_id]
+                        if modifier_def.behavior and modifier_def.behavior.dialogue_style:
+                            # First modifier with dialogue_style wins
+                            effective_dialogue_style = modifier_def.behavior.dialogue_style
+                            break
+
+            dialogue_style_str = f"Dialogue Style: {effective_dialogue_style}"
+
             # --- Resolve Consent Gates ---
             allowed_behaviors = []
             if char_def.behaviors and char_def.behaviors.gates:
@@ -167,6 +181,7 @@ class PromptBuilder:
                 f"- **{char_def.name} ({char_def.role or 'character'})**",
                 f"  - Pronouns: {', '.join(char_def.pronouns) if char_def.pronouns else 'not specified'}",
                 f"  - Personality: {', '.join(char_def.personality.core_traits if char_def.personality else [])}",
+                f"  - {dialogue_style_str}",
                 f"  - Current State: {meter_str}",
                 f"  - {modifier_str}",
                 f"  - Behavior: {behavior_str}",
