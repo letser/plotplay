@@ -1,7 +1,6 @@
 """
 PlotPlay v3 Event Manager
 """
-import random
 from app.core.conditions import ConditionEvaluator
 from app.core.state_manager import GameState
 from app.models.game import GameDefinition
@@ -39,7 +38,7 @@ class EventManager:
         if random_pool:
             total_weight = sum(e.trigger.random.weight for e in random_pool)
             if total_weight > 0:
-                roll = random.uniform(0, total_weight)
+                roll = evaluator.rng.uniform(0, total_weight)
                 current_weight = 0
                 for event in random_pool:
                     current_weight += event.trigger.random.weight
@@ -93,3 +92,17 @@ class EventManager:
             state.cooldowns[event.id] = event.cooldown["turns"]
         elif event.trigger and event.trigger.random and event.trigger.random.cooldown:
             state.cooldowns[event.id] = event.trigger.random.cooldown
+
+    def decrement_cooldowns(self, state: GameState):
+        """Decrement all event cooldowns by 1 turn."""
+        cooldowns_to_remove = []
+
+        for event_id, remaining_turns in state.cooldowns.items():
+            if remaining_turns > 0:
+                state.cooldowns[event_id] = remaining_turns - 1
+                if state.cooldowns[event_id] <= 0:
+                    cooldowns_to_remove.append(event_id)
+
+        # Clean up expired cooldowns
+        for event_id in cooldowns_to_remove:
+            del state.cooldowns[event_id]

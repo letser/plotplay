@@ -152,6 +152,7 @@ class GameEngine:
         time_advanced_info = self._advance_time()
         self.modifier_manager.tick_durations(state, time_advanced_info["minutes_passed"])
         self._process_meter_dynamics(time_advanced_info)
+        self.event_manager.decrement_cooldowns(state)
 
         final_node = self._get_current_node()
         choices = self._generate_choices(final_node, event_choices)
