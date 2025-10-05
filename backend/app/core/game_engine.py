@@ -722,9 +722,21 @@ class GameEngine:
 
         if operation := op_map.get(op_to_apply):
             new_value = operation(current_value, value_to_apply)
-            # Clamp to min/max if the definition is found
-            if meter_def:
-                new_value = max(meter_def.min, min(new_value, meter_def.max))
+
+            effective_min = meter_def.min if meter_def else new_value
+            effective_max = meter_def.max if meter_def else new_value
+
+            active_modifiers = self.state_manager.state.modifiers.get(effect.target, [])
+            for mod_state in active_modifiers:
+                mod_def = self.modifier_manager.library.get(mod_state['id'])
+                if mod_def and mod_def.clamp_meters:
+                    if meter_clamp := mod_def.clamp_meters.get(effect.meter):
+                        if 'min' in meter_clamp:
+                            effective_min = max(effective_min, meter_clamp['min'])
+                        if 'max' in meter_clamp:
+                            effective_max = min(effective_max, meter_clamp['max'])
+
+            new_value = max(effective_min, min(new_value, effective_max))
             target_meters[effect.meter] = new_value
 
     def _apply_flag_set(self, effect: FlagSetEffect):
@@ -924,8 +936,6 @@ class GameEngine:
         if time_advanced_info["slot_advanced"]:
             self._apply_meter_decay("slot")
 
-        self._process_meter_interactions()
-
     def _apply_meter_decay(self, decay_type: Literal["day", "slot"]):
         """Applies decay/regen to all relevant meters."""
         for char_id, meters in self.state_manager.state.meters.items():
@@ -948,20 +958,6 @@ class GameEngine:
                         value=decay_value
                     ))
         self.logger.info(f"Applied '{decay_type}' meter decay.")
-
-    def _process_meter_interactions(self):
-        """Evaluates and applies cross-meter interactions."""
-        if not self.game_def.meter_interactions:
-            return
-
-        evaluator = ConditionEvaluator(self.state_manager.state, self.state_manager.state.present_chars, rng_seed=self._get_turn_seed())
-        for interaction in self.game_def.meter_interactions:
-            if evaluator.evaluate(interaction.when):
-                # NOTE: The 'effect' field is a string and not a real effect.
-                # This is a placeholder for a more complex implementation.
-                # For now, we log it.
-                self.logger.info(
-                    f"Meter interaction triggered: {interaction.source} -> {interaction.target} with effect '{interaction.effect}'")
 
     def _get_meter_def(self, char_id: str, meter_id: str) -> Any | None:
         """Helper to find the definition for a specific meter."""

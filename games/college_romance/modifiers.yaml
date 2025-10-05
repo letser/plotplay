@@ -10,3 +10,19 @@ modifier_system:
       behavior:
         dialogue_style: "breathless"
       description: "Heightened desire; softens refusals but doesn’t bypass consent."
+
+    exhausted_arousal_cap:
+      id: "exhausted_arousal_cap"
+      group: "systemic"
+      when: "meters.player.energy < 25"
+      clamp_meters:
+        arousal: { max: 60 }
+      description: "Systemic rule: Low energy caps maximum arousal."
+
+    poor_hygiene_penalty:
+      id: "poor_hygiene_penalty"
+      group: "systemic"
+      when: "meters.player.hygiene < 30"
+      clamp_meters:
+        attraction: { max: 40 }
+      description: "Systemic rule: Poor hygiene caps attraction from others."

@@ -61,25 +61,6 @@ meters:
       min: 0, max: 100, default: 0
     }
 
-# --- Meter interaction heuristics ---
-meter_interactions:
-  - source: "player.energy"
-    target: "all.arousal"
-    when: "source < 25"
-    effect: "max = 60"
-  - source: "player.hygiene"
-    target: "npc.{any}.attraction"
-    when: "source < 30"
-    effect: "effective_delta_multiplier = 0.5"
-  - source: "player.mind"
-    target: "emma.trust"
-    when: "source >= 60"
-    effect: "soft_bonus = +1 on study/date scenes"
-  - source: "emma.corruption"
-    target: "emma.gates"
-    when: "source >= 40"
-    effect: "temporarily allow: ['accept_kiss','accept_oral'] (still needs privacy)"
-
 # --- Movement Rules ---
 movement:
   local:

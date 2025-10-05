@@ -24,6 +24,7 @@ class Modifier(BaseModel):
     appearance: ModifierAppearance | None = None
     behavior: ModifierBehavior | None = None
     safety: ModifierSafety | None = None
+    clamp_meters: dict[str, dict[str, int]] | None = None
     entry_effects: list[AnyEffect] = Field(default_factory=list)
     exit_effects: list[AnyEffect] = Field(default_factory=list)
     description: str | None = None

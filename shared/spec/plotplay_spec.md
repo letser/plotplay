@@ -754,6 +754,10 @@ but don’t invent hard state changes by themselves.
     disallow_gates: ["<gate_id>", ...]  # e.g., forbid "accept_sex" while drunk
     allow_gates: ["<gate_id>", ...]     # rarely used; prefer arcs/gates unless tightly controlled
 
+  # --- Systemic Rules ---
+  clamp_meters:              # OPTIONAL. Enforce temporary boundaries on meters while active.
+    <meter_id>: { min: <int>, max: <int> } # e.g., arousal: { max: 60 }
+
   # --- One-shot hooks (optional sugar) ---
   entry_effects:             # OPTIONAL. Apply once when the modifier becomes active.
     - { type: <effect_type>, ... }
@@ -1210,9 +1214,8 @@ Effects can be authored in nodes, events, arcs, milestones, or items. The Checke
 2. **Node entry_effects** / **event effects** (in order).
 3. **Checker deltas** (validated, clamped).
 4. **Modifiers resolution** (activation, expiry, stacking).
-5. **Meter interactions** (configured relationships between meters).
-6. **Advance time** (explicit or defaults).
-7. **Node transitions** (forced `goto` → authored `transitions` → fallback).
+5. **Advance time** (explicit or defaults).
+6. **Node transitions** (forced `goto` → authored `transitions` → fallback).
 
 ### 13.4. Constraints & Notes
 
