@@ -14,7 +14,7 @@ class MovementRestrictions(BaseModel):
 
 class LocalMovement(BaseModel):
     """Rules for moving within a single zone."""
-    base_time_cost: int = 5
+    base_time: int = 5
     distance_modifiers: dict[str, int] = Field(default_factory=dict)
 
 class ZoneTravel(BaseModel):

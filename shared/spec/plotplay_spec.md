@@ -442,6 +442,7 @@ Characters provide the core state the Writer and Checker operate on: they drive 
   gender: "<string>"              # OPTIONAL. Free text or enum ("female","male","nonbinary").
   description: "<string>"         # OPTIONAL. Author-facing description (cards, logs).
   tags: ["<string>", ...]         # OPTIONAL. Semantic labels (e.g., "shy","athletic").
+  dialogue_style: "<string>"      # OPTIONAL. A simple string describing the character's speech patterns for the AI.
 
   # --- Meters (per-character) ---
   meters:                         # OPTIONAL. Overrides / additions to character_template meters.
@@ -474,8 +475,8 @@ Characters provide the core state the Writer and Checker operate on: they drive 
 
   # --- Schedule & availability ---
   schedule:                       # OPTIONAL. Controls where the character is by time/day.
-    - when: "time.slot == 'morning'"
-      location: "library"
+    - when: "<expr>"              # A condition, typically checking time.slot or time.weekday
+      location: "<location_id>"
     - when: "time.slot == 'night'"
       location: "dorm_room"
 
@@ -1826,10 +1827,9 @@ Events differ from nodes:
       weight: <int>               # Non-negative integer weight.
       cooldown: <int>             # Minutes or slots before re-eligibility.
 
-  # --- Scope ---
-  location_scope:                 # OPTIONAL. Restrict to certain zones/locations.
-    zones: ["<zone_id>", ...]
-    locations: ["<location_id>", ...]
+ # --- Scope ---
+  scope: "<global|zone|location>" # OPTIONAL. Default: "global".
+  location: "<location_id>"       # OPTIONAL. Required if scope is "location".
 
   once: <bool>                    # OPTIONAL. If true, fires only once per run.
 

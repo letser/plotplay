@@ -309,7 +309,7 @@ class GameEngine:
 
         # --- Movement Cost & Restriction Checks ---
         if move_rules and move_rules.restrictions:
-            # *** NEW: Check for consciousness ***
+            # Check for consciousness
             if move_rules.restrictions.requires_consciousness:
                 # This is a placeholder for a future "conscious" flag/modifier
                 is_conscious = state.flags.get("is_conscious", True)
@@ -319,7 +319,6 @@ class GameEngine:
                         "choices": self._generate_choices(self._get_current_node(), []),
                         "current_state": self._get_state_summary()
                     }
-            # *** END NEW ***
             min_energy = move_rules.restrictions.min_energy or 0
             if state.meters.get("player", {}).get("energy", 100) < min_energy:
                 return {
@@ -335,7 +334,7 @@ class GameEngine:
         # --- Calculate Time Cost ---
         time_cost_minutes = 0
         if move_rules and move_rules.local:
-            base_cost = move_rules.local.base_time_cost or 0
+            base_cost = move_rules.local.base_time or 0
             modifier = move_rules.local.distance_modifiers.get(connection.distance, 1) if connection.distance else 1
             time_cost_minutes = base_cost * modifier
 
