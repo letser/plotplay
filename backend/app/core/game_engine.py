@@ -49,6 +49,18 @@ class GameEngine:
         }
         self.zones_map = {zone.id: zone for zone in self.game_def.zones}
         self.turn_meter_deltas: dict[str, dict[str, float]] = {}
+
+        # --- Seed Initialization ---
+        self.base_seed: int | None = None
+        self.generated_seed: int | None = None
+        if isinstance(self.game_def.rng_seed, int):
+            self.base_seed = self.game_def.rng_seed
+            self.logger.info(f"Using fixed RNG seed from game definition: {self.base_seed}")
+        elif self.game_def.rng_seed == "auto":
+            self.generated_seed = random.randint(0, 2 ** 32 - 1)
+            self.base_seed = self.generated_seed
+            self.logger.info(f"Auto-generated RNG seed for session: {self.base_seed}")
+
         self.logger.info(f"GameEngine for session {session_id} initialized.")
 
     async def process_action(
@@ -125,7 +137,7 @@ class GameEngine:
             if item_def and item_def.can_give:
                 # Apply gift effects
                 self._apply_effects(item_def.gift_effects)
-                # Remove item from player inventory
+                # Remove item from the player inventory
                 self.inventory_manager.apply_effect(
                     InventoryChangeEffect(type="inventory_remove", owner="player", item=item_id, count=1),
                     self.state_manager.state
@@ -236,7 +248,7 @@ class GameEngine:
         # --- Calculate Time Cost ---
         time_cost_minutes = 15  # Default
         if move_rules and move_rules.zone_travel:
-            # Simple formula for now, can be expanded with DSL evaluation
+            # Simple formula for now, which can be expanded later with DSL evaluation
             distance = connection.get("distance", 1)
             base_time = 10  # Placeholder for a more complex formula base
             time_cost_minutes = base_time * distance
@@ -981,7 +993,7 @@ class GameEngine:
             self.logger.warning(f"Invalid start_day '{calendar.start_day}' not in week_days")
             return None
 
-        # Calculate current weekday index
+        # Calculate the current weekday index
         # (day - 1) because Day 1 should map to start_day
         current_index = (self.state_manager.state.day - 1 + start_index) % len(week_days)
 
@@ -989,7 +1001,11 @@ class GameEngine:
 
     def _get_turn_seed(self) -> int:
         """Generate a deterministic seed for the current turn."""
-        # Combine game ID, session ID, and turn count for deterministic randomness
+        # If seed was provided from the game config or generated before, then use it
+        if self.base_seed is not None:
+            return self.base_seed * self.state_manager.state.turn_count
+
+        # Otherwise combine game ID, session ID, and turn count for deterministic randomness
         seed_string = f"{self.game_def.meta.id}_{self.session_id}_{self.state_manager.state.turn_count}"
         # Convert to integer hash
         return hash(seed_string) % (2 ** 32)

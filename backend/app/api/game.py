@@ -31,6 +31,8 @@ class GameResponse(BaseModel):
     state_summary: dict[str, Any]
     time_advanced: bool = False
     location_changed: bool = False
+    generated_seed: int | None = None
+
 
 
 @router.get("/list")
@@ -63,7 +65,8 @@ async def start_game(request: StartGameRequest) -> GameResponse:
             choices=result['choices'],
             state_summary=result['current_state'],
             time_advanced=result.get('time_advanced', False),
-            location_changed=result.get('location_changed', False)
+            location_changed=result.get('location_changed', False),
+            generated_seed = engine.generated_seed
         )
 
     except Exception as e:
