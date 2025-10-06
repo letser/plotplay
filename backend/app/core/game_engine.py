@@ -7,8 +7,6 @@ import json
 import re
 import random
 
-from greenlet.tests.test_throw import switch
-
 from app.core.clothing_manager import ClothingManager
 from app.core.conditions import ConditionEvaluator
 from app.core.event_manager import EventManager
@@ -131,7 +129,7 @@ class GameEngine:
             model=self.ai_service.settings.checker_model,
             system_prompt="You are the PlotPlay Checker - a strict JSON-only extraction engine. Output ONLY valid JSON with game state changes. No commentary or explanation.",
             json_mode=True,
-            temperature=0.1
+            temperature=0.1  # Lower temperature for consistency
         )
 
         state_deltas = {}
