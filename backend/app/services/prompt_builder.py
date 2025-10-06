@@ -13,6 +13,10 @@ from app.core.conditions import ConditionEvaluator
 class PromptBuilder:
     """Builds prompts for AI models."""
 
+    MAX_MEMORY_ENTRIES = 10 # to include it in context
+    RECENT_NARRATIVE_COUNT = 2 # to include it in context
+    MEMORY_CUTOFF_OFFSET = 2  # How many turns to skip when using memories
+
     def __init__(self, game_def: GameDefinition, clothing_manager: ClothingManager):
         self.game_def = game_def
         self.clothing_manager = clothing_manager
@@ -86,12 +90,12 @@ class PromptBuilder:
         # Memory summaries for older events (if we have more than 2 turns of history)
         if hasattr(state, 'memory_log') and state.memory_log:
             # Use memories that are older than the recent narrative we'll include
-            memory_cutoff = max(0, len(state.memory_log) - 2)  # Skip last 2 turns worth of memories
+            memory_cutoff = max(0, len(state.memory_log) - self.MEMORY_CUTOFF_OFFSET)
             if memory_cutoff > 0:
                 older_memories = state.memory_log[:memory_cutoff]
                 if older_memories:
                     # Take the last 8-10 memories for context
-                    relevant_memories = older_memories[-10:]
+                    relevant_memories = older_memories[-self.MAX_MEMORY_ENTRIES:]
                     memory_bullets = "\n".join(f"- {m}" for m in relevant_memories)
                     memory_context = f"""
         **Key Events:**
@@ -101,7 +105,7 @@ class PromptBuilder:
         # Recent narrative for immediate context and tone continuity (last 2 turns)
         if recent_history:
             # Use the last 2 narratives for dialogue/tone continuity
-            recent_narratives = recent_history[-2:]
+            recent_narratives = recent_history[-self.RECENT_NARRATIVE_COUNT:]
             if len(recent_narratives) > 1:
                 recent_context = "\n...\n".join(recent_narratives)
             else:

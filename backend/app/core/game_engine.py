@@ -127,7 +127,10 @@ class GameEngine:
         checker_response = await self.ai_service.generate(
             checker_prompt,
             model=self.ai_service.settings.checker_model,
-            system_prompt="You are the PlotPlay Checker - a strict JSON-only extraction engine. Output ONLY valid JSON with game state changes and memory. No commentary or explanation.",
+            system_prompt="""You are the PlotPlay Checker - a strict JSON extraction engine. 
+        Extract ONLY concrete state changes and factual memories from the narrative.
+        Output ONLY valid JSON. Never add commentary, explanations, or markdown formatting.
+        Focus on actions that happened, not dialogue or hypotheticals.""",
             json_mode=True,
             temperature=0.1  # Lower temperature for consistency
         )
@@ -141,15 +144,24 @@ class GameEngine:
             if "memory" in state_deltas:
                 memories = state_deltas.get("memory", [])
                 if isinstance(memories, list):
+                    valid_memories = []
                     for memory in memories[:2]:  # Max 2 memories per turn
-                        if memory and isinstance(memory, str) and len(memory.strip()) > 0:
-                            state.memory_log.append(memory.strip())
+                        if memory and isinstance(memory, str):
+                            cleaned = memory.strip()
+                            # Validate memory quality - not too short, not too long
+                            if 10 < len(cleaned) < 200:
+                                valid_memories.append(cleaned)
+                            else:
+                                self.logger.warning(f"Skipped invalid memory: {cleaned[:50]}...")
 
-                    # Keep last 15 memories
-                    state.memory_log = state.memory_log[-15:]
+                    # Add valid memories to log
+                    state.memory_log.extend(valid_memories)
 
-                    if memories:
-                        self.logger.info(f"Extracted memories: {memories[:2]}")
+                    # Keep last 20 memories
+                    state.memory_log = state.memory_log[-20:]
+
+                    if valid_memories:
+                        self.logger.info(f"Extracted memories: {valid_memories}")
 
         except json.JSONDecodeError:
             self.logger.warning(f"Checker AI returned invalid JSON. Content: {checker_response.content}")
