@@ -1,8 +1,9 @@
 """
-PlotPlay v3 Game Models - Complete game definition structures.
+PlotPlay Game Models - Complete game definition structures.
 
  ============== Narration & AI ==============
 """
+
 from typing import Literal
 from pydantic import BaseModel
 

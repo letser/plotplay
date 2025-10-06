@@ -1,7 +1,7 @@
-# backend/app/core/arc_manager.py
 """
-PlotPlay v3 Arc Manager
+PlotPlay Arc Manager handles arc progression.
 """
+
 from app.core.conditions import ConditionEvaluator
 from app.core.state_manager import GameState
 from app.models.game import GameDefinition

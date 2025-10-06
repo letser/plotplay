@@ -1,4 +1,4 @@
-"""PlotPlay v3 Validation Utilities."""
+"""PlotPlay Validation Utilities."""
 
 from app.models.game import GameDefinition
 from app.models.effects import (

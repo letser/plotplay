@@ -1,5 +1,5 @@
 """
-Test for the Calendar System in PlotPlay v3
+Test for the Calendar System in PlotPlay
 Add this to backend/tests/test_calendar.py
 """
 import pytest

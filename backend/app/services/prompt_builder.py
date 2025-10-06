@@ -1,4 +1,3 @@
-# backend/app/services/prompt_builder.py
 """
 Builds prompts for the Writer and Checker AI models based on the game state.
 """

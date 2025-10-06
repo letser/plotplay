@@ -1,3 +1,7 @@
+"""
+Connects to external AI services
+"""
+
 import json
 from typing import Dict, Optional, Any
 import httpx

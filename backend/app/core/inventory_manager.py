@@ -1,4 +1,7 @@
-# backend/app/core/inventory_manager.py
+""""
+PlotPlay inventory manager handles inventory changes.
+"""
+
 from typing import List
 from app.models.game import GameDefinition
 from app.core.state_manager import GameState

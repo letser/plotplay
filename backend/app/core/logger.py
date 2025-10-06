@@ -1,6 +1,7 @@
 """
 Centralized logging configuration for PlotPlay.
 """
+
 import logging
 from pathlib import Path
 

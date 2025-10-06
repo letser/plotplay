@@ -1,3 +1,7 @@
+"""
+PlotPlay game settings
+"""
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class GameSettings(BaseSettings):

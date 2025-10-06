@@ -1,4 +1,7 @@
-# backend/app/core/clothing_manager.py
+"""
+PlotPlay Clothing Manager handles clothing changes and appearance.
+"""
+
 from typing import Dict, Any
 
 from app.models.game import GameDefinition

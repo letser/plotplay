@@ -1,4 +1,8 @@
-# Create a new file: backend/app/models/flag.py
+"""
+PlotPlay Game Models - Complete game definition structures.
+
+============== Flags ==============
+"""
 from pydantic import BaseModel
 from typing import Literal, Any
 

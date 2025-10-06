@@ -1,3 +1,9 @@
+"""
+PlotPlay Game Models - Complete game definition structures.
+
+ ============== Modifiers System ==============
+"""
+
 from pydantic import BaseModel, Field
 from typing import Literal, Any
 from .effects import AnyEffect

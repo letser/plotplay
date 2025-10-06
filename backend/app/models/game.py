@@ -1,5 +1,5 @@
 """
-PlotPlay v3 Game Models - Complete game definition structures.
+PlotPlay Game Models - Complete game definition structures.
 
 ============== Main Game Definition ==============
 """
@@ -12,7 +12,7 @@ from .enums import ContentRating
 from .events import Event
 from .item import Item
 from .location import Zone
-from .meters import Meter, MeterInteraction
+from .meters import Meter
 from .movement import MovementConfig
 from .narration import NarrationConfig
 from .node import Node

@@ -1,5 +1,5 @@
 """
-PlotPlay v3 Game Models - Complete game definition structures.
+PlotPlay Game Models - Complete game definition structures.
 
  ============== Time System ==============
 """

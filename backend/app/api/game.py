@@ -1,3 +1,6 @@
+"""
+Main game API endpoints.
+"""
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Any, Literal, Dict

@@ -1,6 +1,7 @@
 """
-PlotPlay v3 Event Manager
+PlotPlay Event Manager handles event triggers.
 """
+
 from app.core.conditions import ConditionEvaluator
 from app.core.state_manager import GameState
 from app.models.game import GameDefinition

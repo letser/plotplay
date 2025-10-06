@@ -1,12 +1,12 @@
-from __future__ import annotations
-from typing import TYPE_CHECKING
+"""
+PlotPlay Modifier Manager handles modifier activation and effects.
+"""
+
 from app.models.game import GameDefinition
 from app.core.state_manager import GameState
 from app.core.conditions import ConditionEvaluator
 from app.models.effects import ApplyModifierEffect, RemoveModifierEffect
-
-if TYPE_CHECKING:
-    from app.core.game_engine import GameEngine
+from app.core.game_engine import GameEngine
 
 
 class ModifierManager:
@@ -103,9 +103,9 @@ class ModifierManager:
         duration = duration_override if duration_override is not None else modifier_def.duration_default_min
         state.modifiers[char_id].append({"id": modifier_id, "duration": duration})
 
-        # --- NEW: Trigger Entry Effects ---
+        # --- Trigger Entry Effects ---
         if modifier_def.entry_effects:
-            self.engine._apply_effects(modifier_def.entry_effects)
+            self.engine.apply_effects(modifier_def.entry_effects)
 
     def _remove_modifier(self, char_id: str, modifier_id: str, state: GameState):
         """Helper to remove a modifier from a character's active list."""
@@ -114,6 +114,6 @@ class ModifierManager:
 
             # --- NEW: Trigger Exit Effects ---
             if modifier_def and modifier_def.exit_effects:
-                self.engine._apply_effects(modifier_def.exit_effects)
+                self.engine.apply_effects(modifier_def.exit_effects)
 
             state.modifiers[char_id] = [m for m in state.modifiers[char_id] if m.get('id') != modifier_id]

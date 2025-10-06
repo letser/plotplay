@@ -1,6 +1,7 @@
-# backend/app/api/debug.py
+"""
+Debug endpoint to fetch log files
+"""
 from fastapi import APIRouter, HTTPException, Query
-from fastapi.responses import PlainTextResponse
 from pathlib import Path
 
 router = APIRouter()

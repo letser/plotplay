@@ -1,8 +1,13 @@
-# backend/app/core/game_engine.py
+"""
+PlotPlay main game engine. Handles game logic and state management.
+"""
+
 from typing import Any, Literal, cast
 import json
 import re
 import random
+
+from greenlet.tests.test_throw import switch
 
 from app.core.clothing_manager import ClothingManager
 from app.core.conditions import ConditionEvaluator
@@ -103,17 +108,17 @@ class GameEngine:
         event_choices = [c for e in active_events for c in e.choices]
         event_narratives = [event.narrative for event in active_events if event.narrative]
         for event in active_events:
-            self._apply_effects(event.effects)
+            self.apply_effects(event.effects)
 
         if action_type == "choice" and choice_id:
             await self._handle_predefined_choice(choice_id, event_choices)
 
         newly_entered_stages, newly_exited_stages = self.arc_manager.check_and_advance_arcs(state, rng_seed=self._get_turn_seed())
         for stage in newly_exited_stages:
-            self._apply_effects(stage.effects_on_exit)
+            self.apply_effects(stage.effects_on_exit)
         for stage in newly_entered_stages:
-            self._apply_effects(stage.effects_on_enter)
-            self._apply_effects(stage.effects_on_advance)
+            self.apply_effects(stage.effects_on_enter)
+            self.apply_effects(stage.effects_on_advance)
 
         # AI Generation
         writer_prompt = self.prompt_builder.build_writer_prompt(state, player_action_str, current_node,
@@ -139,7 +144,7 @@ class GameEngine:
                 item_def = self.inventory_manager.item_defs.get(item_id)
                 if item_def and item_def.can_give:
                     # Apply gift effects
-                    self._apply_effects(item_def.gift_effects)
+                    self.apply_effects(item_def.gift_effects)
                     # Remove item from the player inventory
                     self.inventory_manager.apply_effect(
                         InventoryChangeEffect(type="inventory_remove", owner="player", item=item_id, count=1),
@@ -157,7 +162,7 @@ class GameEngine:
 
         if action_type == "use" and item_id:
             item_effects = self.inventory_manager.use_item("player", item_id, state)
-            self._apply_effects(item_effects)
+            self.apply_effects(item_effects)
 
         self._check_and_apply_node_transitions()
         self.modifier_manager.update_modifiers_for_turn(state, rng_seed=self._get_turn_seed())
@@ -579,7 +584,7 @@ class GameEngine:
         all_choices = event_choices + current_node.choices + current_node.dynamic_choices
         found_choice = next((c for c in all_choices if c.id == choice_id), None)
         if found_choice:
-            if found_choice.effects: self._apply_effects(found_choice.effects)
+            if found_choice.effects: self.apply_effects(found_choice.effects)
             if found_choice.goto: self.state_manager.state.current_node = found_choice.goto
             return
 
@@ -587,34 +592,44 @@ class GameEngine:
         if choice_id in self.state_manager.state.unlocked_actions:
             action_def = self.actions_map.get(choice_id)
             if action_def:
-                if action_def.effects: self._apply_effects(action_def.effects)
+                if action_def.effects: self.apply_effects(action_def.effects)
                 # Unlocked actions do not have a 'goto'
 
-    def _apply_effects(self, effects: list[AnyEffect]):
+    def apply_effects(self, effects: list[AnyEffect]):
         evaluator = ConditionEvaluator(self.state_manager.state, self.state_manager.state.present_chars, rng_seed=self._get_turn_seed())
         for effect in effects:
             if isinstance(effect, ConditionalEffect):
                 self._apply_conditional_effect(effect)
             elif evaluator.evaluate(effect.when):
-                if isinstance(effect, RandomEffect): self._apply_random_effect(effect)
-                elif isinstance(effect, MeterChangeEffect): self._apply_meter_change(effect)
-                elif isinstance(effect, FlagSetEffect): self._apply_flag_set(effect)
-                elif isinstance(effect, GotoNodeEffect): self._apply_goto_node(effect)
-                elif isinstance(effect, MoveToEffect): self._apply_move_to(effect)
-                elif isinstance(effect, InventoryChangeEffect): self.inventory_manager.apply_effect(effect, self.state_manager.state)
-                elif isinstance(effect, ClothingChangeEffect): self.clothing_manager.apply_effect(effect)
-                elif isinstance(effect, (ApplyModifierEffect, RemoveModifierEffect)): self.modifier_manager.apply_effect(effect, self.state_manager.state)
-                elif isinstance(effect, UnlockEffect): self._apply_unlock(effect)
-                elif isinstance(effect, AdvanceTimeEffect): self._apply_advance_time(effect)
-
+                match effect:
+                    case RandomEffect():
+                        self._apply_random_effect(effect)
+                    case MeterChangeEffect():
+                        self._apply_meter_change(effect)
+                    case FlagSetEffect():
+                        self._apply_flag_set(effect)
+                    case GotoNodeEffect():
+                        self._apply_goto_node(effect)
+                    case MoveToEffect():
+                        self._apply_move_to(effect)
+                    case InventoryChangeEffect():
+                        self.inventory_manager.apply_effect(effect, self.state_manager.state)
+                    case ClothingChangeEffect():
+                        self.clothing_manager.apply_effect(effect)
+                    case ApplyModifierEffect() | RemoveModifierEffect():
+                        self.modifier_manager.apply_effect(effect, self.state_manager.state)
+                    case UnlockEffect():
+                        self._apply_unlock(effect)
+                    case AdvanceTimeEffect():
+                        self._apply_advance_time(effect)
 
     def _apply_conditional_effect(self, effect: ConditionalEffect):
         """Applies a conditional effect."""
         evaluator = ConditionEvaluator(self.state_manager.state, self.state_manager.state.present_chars, rng_seed=self._get_turn_seed())
         if evaluator.evaluate(effect.when):
-            self._apply_effects(effect.then)
+            self.apply_effects(effect.then)
         else:
-            self._apply_effects(effect.else_effects)
+            self.apply_effects(effect.else_effects)
 
     def _apply_random_effect(self, effect: RandomEffect):
         """Applies a random effect."""
@@ -627,7 +642,7 @@ class GameEngine:
         for choice in effect.choices:
             current_weight += choice.weight
             if roll <= current_weight:
-                self._apply_effects(choice.effects)
+                self.apply_effects(choice.effects)
                 return
 
     def _apply_unlock(self, effect: UnlockEffect):

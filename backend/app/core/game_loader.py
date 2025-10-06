@@ -1,4 +1,4 @@
-"""PlotPlay v3 Game Loader."""
+"""PlotPlay Game Loader."""
 
 from pathlib import Path
 from typing import Any

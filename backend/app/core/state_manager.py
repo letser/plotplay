@@ -1,5 +1,4 @@
-# backend/app/core/state_manager.py
-"""PlotPlay v3 State Manager - Runtime state tracking."""
+"""PlotPlay State Manager - Runtime state tracking."""
 
 from dataclasses import dataclass, field
 from datetime import datetime, UTC
