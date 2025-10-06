@@ -11,7 +11,7 @@ from app.models.location import LocationPrivacy
 
 @dataclass
 class GameState:
-    """Complete v3 game state at a point in time."""
+    """Complete game state at a point in time."""
     # Time & Location
     day: int = 1
     time_slot: str | None = None
@@ -50,6 +50,7 @@ class GameState:
     actions_this_slot: int = 0
     current_node: str = "start"
     narrative_history: list[str] = field(default_factory=list)
+    memory_log: list[str] = field(default_factory=list)  # Factual memory summaries
     turn_count: int = 0
 
     created_at: datetime | None = None

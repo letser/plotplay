@@ -20,7 +20,7 @@ class PromptBuilder:
 
     def build_writer_prompt(self, state: GameState, player_action: str, node: Node,
                             recent_history: list[str], rng_seed: int | None = None) -> str:
-        """Enhanced writer prompt with more context."""
+        """Enhanced writer prompt with hybrid memory/narrative context."""
 
         narration_rules = self.game_def.narration
 
@@ -76,7 +76,46 @@ class PromptBuilder:
             f"- {beat}" for beat in node.beats) if node.beats else "No specific instructions for this scene."
 
         # Format recent context
-        recent_context = "\n".join(recent_history[-3:]) if recent_history else "The story is just beginning."
+        # Old implementation with 3 recent narratives:
+        #recent_context = "\n".join(recent_history[-3:]) if recent_history else "The story is just beginning."
+
+        # Build hybrid context: Memory plus Recent Narrative
+        memory_context = ""
+        recent_context = ""
+
+        # Memory summaries for older events (if we have more than 2 turns of history)
+        if hasattr(state, 'memory_log') and state.memory_log:
+            # Use memories that are older than the recent narrative we'll include
+            memory_cutoff = max(0, len(state.memory_log) - 2)  # Skip last 2 turns worth of memories
+            if memory_cutoff > 0:
+                older_memories = state.memory_log[:memory_cutoff]
+                if older_memories:
+                    # Take the last 8-10 memories for context
+                    relevant_memories = older_memories[-10:]
+                    memory_bullets = "\n".join(f"- {m}" for m in relevant_memories)
+                    memory_context = f"""
+        **Key Events:**
+        {memory_bullets}
+        """
+
+        # Recent narrative for immediate context and tone continuity (last 2 turns)
+        if recent_history:
+            # Use the last 2 narratives for dialogue/tone continuity
+            recent_narratives = recent_history[-2:]
+            if len(recent_narratives) > 1:
+                recent_context = "\n...\n".join(recent_narratives)
+            else:
+                recent_context = recent_narratives[0]
+        else:
+            recent_context = "The story is just beginning."
+
+        # Combine memory and recent narrative
+        story_context = ""
+        if memory_context:
+            story_context = f"{memory_context}\n**Recent Scene:**\n{recent_context}"
+        else:
+            story_context = f"**Story So Far:**\n{recent_context}"
+
 
         system_prompt = f"""
         You are the PlotPlay Writer - a master storyteller for an adult interactive fiction game.
@@ -91,6 +130,7 @@ class PromptBuilder:
         - Never speak for the player's internal thoughts or voice.
         - Keep dialogue consistent with each character's style as described.
         - This is a {node.type.value if node.type else 'scene'} node - pace accordingly.
+        - Use the Key Events for factual continuity, but focus on the Recent Scene for tone and immediate context.
         """
 
         prompt = f"""
@@ -113,9 +153,8 @@ class PromptBuilder:
         **Player Inventory:** {', '.join(player_inventory) if player_inventory else 'Nothing of note'}
 
         {arc_status}
-
-        **Story So Far:**
-        ...{recent_context}
+        
+        {story_context}
 
         **Player's Action:** {player_action}
 
@@ -124,11 +163,11 @@ class PromptBuilder:
         return "\n".join(line.strip() for line in prompt.split('\n'))
 
     def build_checker_prompt(self, narrative: str, player_action: str, state: GameState) -> str:
-        """Enhanced checker prompt with clothing layer validation."""
+        """Checker prompt with state changes and memory extraction."""
 
         present_chars = [self.characters_map[cid] for cid in state.present_chars if cid in self.characters_map]
 
-        # Create valid meters list
+        # Create a valid meters list
         valid_meters = {"player": list(self.game_def.meters.get("player", {}).keys())}
         for char in present_chars:
             template_meters = list(self.game_def.meters.get("character_template", {}).keys())
@@ -179,6 +218,7 @@ class PromptBuilder:
         5. **OUTPUT FORMAT:** Return ONLY the JSON object with these keys: meter_changes, flag_changes, inventory_changes, clothing_changes
         6. **Meter changes:** Only report if narrative CLEARLY shows emotional/physical change through actions or strong reactions.
         7. **Clothing:** Only valid layers can be changed. Check the Valid Clothing Layers list.
+        8. **Memory:** Add 1-2 brief factual summaries of notable events from this turn.
 
         **Player's Action:** "{player_action}"
         **Narrative to Analyze:** "{narrative}"
@@ -201,8 +241,12 @@ class PromptBuilder:
           "meter_changes": {{ "character_id": {{ "meter_name": +/-value }} }},
           "flag_changes": {{ "flag_name": new_value }},
           "inventory_changes": {{ "owner_id": {{ "item_id": +/-count }} }},
-          "clothing_changes": {{ "character_id": {{ "removed": ["layer_name"], "displaced": ["layer_name"] }} }}
+          "clothing_changes": {{ "character_id": {{ "removed": ["layer_name"], "displaced": ["layer_name"] }} }},
+          "memory": ["Brief factual summary of key events (1-2 sentences max)"]
         }}
+
+        For memory field: Focus on actions taken, emotional changes, agreements made, items given/received.
+        Good examples: "Emma shared her phone number with you", "You rejected Alex's invitation, hurting their feelings"
 
         Respond with ONLY a valid JSON object. No text before or after the JSON.
         """
