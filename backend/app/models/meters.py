@@ -20,11 +20,3 @@ class Meter(BaseModel):
     delta_cap_per_turn: int | None = None
     thresholds: dict[str, list[int]] | None = None
     hidden_until: str | None = None
-
-
-class MeterInteraction(BaseModel):
-    """Cross-meter effects and dependencies."""
-    source: str
-    target: str
-    when: str
-    effect: str

@@ -133,18 +133,21 @@ class GameEngine:
 
         # Handle Gifting Action
         if action_type == "give" and item_id and target:
-            item_def = self.inventory_manager.item_defs.get(item_id)
-            if item_def and item_def.can_give:
-                # Apply gift effects
-                self._apply_effects(item_def.gift_effects)
-                # Remove item from the player inventory
-                self.inventory_manager.apply_effect(
-                    InventoryChangeEffect(type="inventory_remove", owner="player", item=item_id, count=1),
-                    self.state_manager.state
-                )
-                self.logger.info(f"Player gave item '{item_id}' to '{target}'.")
+            if target not in state.present_chars:
+                self.logger.warning(f"Player tried to give item to '{target}' who is not present.")
             else:
-                self.logger.warning(f"Player tried to give non-giftable item '{item_id}'.")
+                item_def = self.inventory_manager.item_defs.get(item_id)
+                if item_def and item_def.can_give:
+                    # Apply gift effects
+                    self._apply_effects(item_def.gift_effects)
+                    # Remove item from the player inventory
+                    self.inventory_manager.apply_effect(
+                        InventoryChangeEffect(type="inventory_remove", owner="player", item=item_id, count=1),
+                        self.state_manager.state
+                    )
+                    self.logger.info(f"Player gave item '{item_id}' to '{target}'.")
+                else:
+                    self.logger.warning(f"Player tried to give non-giftable item '{item_id}'.")
 
         # Post-AI State Updates
         reconciled_narrative = self._reconcile_narrative(player_action_str, narrative_from_ai, state_deltas, target)

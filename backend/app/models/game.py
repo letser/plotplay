@@ -54,7 +54,6 @@ class GameDefinition(BaseModel):
     time: TimeConfig = Field(default_factory=TimeConfig)
     movement: MovementConfig = Field(default_factory=MovementConfig)
     meters: dict[str, dict[str, Meter]] | None = None
-    meter_interactions: list[MeterInteraction] | None = None
     flags: dict[str, Flag] | None = None
     modifier_system: ModifierSystem | None = None
     includes: list[str] = Field(default_factory=list)
