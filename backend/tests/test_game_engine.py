@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock
 from app.core.game_loader import GameLoader
 from app.core.game_engine import GameEngine
 from app.services.ai_service import AIResponse
-from models.location import LocationPrivacy
+from app.models.location import LocationPrivacy
 
 
 # --- SIMPLEST TESTS FIRST ---
