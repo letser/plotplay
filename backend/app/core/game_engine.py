@@ -126,8 +126,13 @@ class GameEngine:
         narrative_from_ai = (await self.ai_service.generate(writer_prompt)).content
 
         checker_prompt = self.prompt_builder.build_checker_prompt(narrative_from_ai, player_action_str, state)
-        checker_response = await self.ai_service.generate(checker_prompt, model=self.ai_service.settings.checker_model,
-                                                          json_mode=True)
+        checker_response = await self.ai_service.generate(
+            checker_prompt,
+            model=self.ai_service.settings.checker_model,
+            system_prompt="You are the PlotPlay Checker - a strict JSON-only extraction engine. Output ONLY valid JSON with game state changes. No commentary or explanation.",
+            json_mode=True,
+            temperature=0.1
+        )
 
         state_deltas = {}
         try:

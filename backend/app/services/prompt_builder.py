@@ -29,18 +29,26 @@ class PromptBuilder:
         """Builds the main prompt for the narrative Writer AI."""
 
         narration_rules = self.game_def.narration
+        location = next((loc for zone in self.game_def.zones for loc in zone.locations if loc.id == state.location_current), None)
+        location_desc = location.description if location and isinstance(location.description, str) else "An undescribed room."
+        privacy_level = location.privacy if location else "public"
+
         system_prompt = f"""
-        You are a master storyteller for an immersive, adult-themed interactive fiction game.
-        Your response must be from a {narration_rules.pov} perspective in the {narration_rules.tense}.
-        Your narrative should be between {narration_rules.paragraphs} paragraphs.
-        Adhere strictly to character consent rules. If an action is blocked, use the character's refusal lines.
-        Never speak for the player or describe their internal thoughts.
+        You are the PlotPlay Writer - a master storyteller for an adult interactive fiction game.
+        Write from a **{narration_rules.pov} perspective** in the **{narration_rules.tense} tense**, 
+        up to **{narration_rules.paragraphs} paragraphs**.
+
+        **CRITICAL RULES:**
+        - Stay within the given scene and character details. Use only the provided beats and characters.
+        - Never introduce new characters or unrelated events.
+        - Never explicitly mention game mechanics (items, points, meters). Imply changes through narrative.
+        - Respect consent boundaries. Use character refusal lines if an action is blocked.
+        - Location privacy is {privacy_level}. Keep intimate actions appropriate to the setting.
+        - Never speak for the player's internal thoughts or voice.
         """
 
         world_setting = self.game_def.world.get("setting", "A generic setting.") if self.game_def.world else ""
         tone = self.game_def.world.get("tone", "A neutral tone.") if self.game_def.world else ""
-        location = next((loc for zone in self.game_def.zones for loc in zone.locations if loc.id == state.location_current), None)
-        location_desc = location.description if location and isinstance(location.description, str) else "An undescribed room."
 
         character_cards = self._build_character_cards(state, rng_seed=rng_seed)
 
@@ -95,17 +103,18 @@ class PromptBuilder:
         valid_items = [item.id for item in self.game_def.items]
 
         prompt = f"""
-        You are a strict data extraction engine for a game. Your task is to analyze a narrative text and identify concrete state changes that occurred *in the present moment* of the story.
+        You are a strict data extraction engine. Analyze the narrative and extract ONLY concrete state changes.
 
         **CRITICAL INSTRUCTIONS:**
-        1.  **Analyze Actions, Not Dialogue:** Only extract state changes from direct actions performed by characters.
-        2.  **IGNORE STORIES AND MEMORIES:** Do NOT extract state changes from stories, memories, hypothetical events, or dialogue where characters talk about past or future events. For example, if a character says "I gave someone $20", do NOT deduct money.
-        3.  **BE PRECISE:** Only report changes that are explicitly stated or strongly implied by a character's direct, present actions. If you are not certain, do not report a change.
-        4.  **Use Valid IDs Only:** You must only use the IDs provided in the "Valid Game Entities" section.
+        1. **Analyze ACTIONS, not dialogue:** Extract only from physical actions happening NOW.
+        2. **IGNORE stories/memories:** Skip backstory, hypotheticals, or past/future references.
+        3. **BE CONSERVATIVE:** If uncertain, DO NOT report a change. No emotional inference without clear evidence.
+        4. **Use Valid IDs ONLY:** Use only the exact IDs provided below.
+        5. **OUTPUT FORMAT:** Return ONLY the JSON object with these keys: meter_changes, flag_changes, inventory_changes, clothing_changes
 
         **Player's Action:** "{player_action}"
         **Narrative to Analyze:** "{narrative}"
-
+        
         **Current State Context:**
         - Meters: {json.dumps(state.meters)}
         - Flags: {json.dumps(state.flags)}
@@ -152,7 +161,7 @@ class PromptBuilder:
                     if modifier_id in self.game_def.modifier_system.library:
                         modifier_def = self.game_def.modifier_system.library[modifier_id]
                         if modifier_def.behavior and modifier_def.behavior.dialogue_style:
-                            # First modifier with dialogue_style wins
+                            # The first modifier with dialogue_style wins
                             effective_dialogue_style = modifier_def.behavior.dialogue_style
                             break
 
