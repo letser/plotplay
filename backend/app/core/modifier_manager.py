@@ -2,11 +2,14 @@
 PlotPlay Modifier Manager handles modifier activation and effects.
 """
 
+import typing
 from app.models.game import GameDefinition
 from app.core.state_manager import GameState
 from app.core.conditions import ConditionEvaluator
 from app.models.effects import ApplyModifierEffect, RemoveModifierEffect
-from app.core.game_engine import GameEngine
+
+if typing.TYPE_CHECKING:
+    from app.core.game_engine import GameEngine
 
 
 class ModifierManager:
@@ -14,7 +17,7 @@ class ModifierManager:
     Manages the activation, duration, and effects of character modifiers.
     """
 
-    def __init__(self, game_def: GameDefinition, engine: GameEngine):
+    def __init__(self, game_def: GameDefinition, engine: "GameEngine"):
         self.game_def = game_def
         self.engine = engine  # Keep a reference to the engine to apply effects
         if not self.game_def.modifier_system:

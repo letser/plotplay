@@ -20,7 +20,7 @@ from app.models.effects import (
     AnyEffect, MeterChangeEffect, FlagSetEffect, GotoNodeEffect,
     ApplyModifierEffect, RemoveModifierEffect, InventoryChangeEffect,
     ClothingChangeEffect, MoveToEffect, UnlockEffect, ConditionalEffect, RandomEffect,
-    AdvanceTimeEffect # <-- IMPORTED
+    AdvanceTimeEffect
 )
 from app.models.enums import NodeType
 from app.models.game import GameDefinition
