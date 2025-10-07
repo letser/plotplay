@@ -1,13 +1,36 @@
+# ===============================
+# Modifiers - Coffee Shop Date (v3 Spec)
+# ===============================
+
 modifier_system:
   library:
     flattered:
       id: "flattered"
       group: "emotional"
-      # This will now activate when Alex's comfort is between 30 and 60
-      when: "meters.alex.comfort >= 30 and meters.alex.comfort <= 60"
-      duration_default_min: 5
+      when: "meters.alex.comfort >= 30 and meters.alex.interest >= 25"
+      duration_default_min: 15
       appearance:
-        cheeks: "warmly flushed"
+        cheeks: "slightly flushed"
+        eyes: "bright"
       behavior:
-        dialogue_style: "more open"
-      description: "Feeling positive after a compliment."
+        dialogue_style: "warmer, more open"
+      description: "Feeling positive after a compliment or kind gesture."
+
+    nervous:
+      id: "nervous"
+      group: "emotional"
+      when: "meters.alex.comfort < 30"
+      appearance:
+        posture: "slightly tense"
+        eyes: "darting"
+      behavior:
+        dialogue_style: "shorter responses, uncertain"
+      description: "Feeling uncertain or anxious in the interaction."
+
+    confident_player:
+      id: "confident_player"
+      group: "emotional"
+      when: "meters.player.confidence >= 70"
+      behavior:
+        dialogue_style: "assured, relaxed"
+      description: "The player is feeling confident and comfortable."

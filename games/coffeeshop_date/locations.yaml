@@ -7,23 +7,28 @@ zones:
     name: "Downtown"
     discovered: true
     accessible: true
-    locations:
-      - id: "coffee_shop"
-        name: "Corner Coffee Shop"
-        type: "public"
-        privacy: "low"
-        discovered: true
-        features: ["counter", "tables", "window_seats"]
-        connections:
-          - to: "outside"
-            type: "door"
 
+    locations:
       - id: "outside"
         name: "Outside the Coffee Shop"
         type: "public"
         privacy: "low"
         discovered: true
-        features: ["sidewalk", "bench"]
+        description: "The afternoon sun warms the sidewalk. Through the window, you can see your date Alex already inside, looking at her phone."
+        features: ["sidewalk", "bench", "mint jar"]
         connections:
           - to: "coffee_shop"
             type: "door"
+            distance: "immediate"
+
+      - id: "coffee_shop"
+        name: "Corner Coffee Shop"
+        type: "public"
+        privacy: "low"
+        discovered: true
+        description: "The cozy interior smells of fresh espresso and pastries. Soft jazz plays in the background."
+        features: ["counter", "tables", "window_seats", "menu_board"]
+        connections:
+          - to: "outside"
+            type: "door"
+            distance: "immediate"

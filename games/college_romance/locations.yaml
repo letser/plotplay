@@ -10,105 +10,168 @@ zones:
     properties:
       size: "large"
       security: "medium"
-      privacy: "low"
-    transport_connections:
-      - to: "downtown"
-        methods: ["bus", "walk"]
-        distance: 2
+
     locations:
+      # === DORM AREA ===
       - id: "player_room"
         name: "Your Dorm Room"
         type: "private"
         privacy: "high"
         discovered: true
-        features: ["bed", "desk", "shower", "closet"]
+        description: "Your small but cozy dorm room. A bed, desk, closet, and mini-fridge make up your personal space."
+        features: ["bed", "desk", "closet", "mini_fridge", "shower"]
+        connections:
+          - to: "dorm_hallway"
+            type: "door"
+            distance: "immediate"
         events:
           on_first_enter:
-            narrative: "Your journey begins here."
+            narrative: "Welcome to your home for the year. Time to make the most of college life."
             effects:
               - { type: "flag_set", key: "game_started", value: true }
+
+      - id: "dorm_hallway"
+        name: "Dorm Hallway"
+        type: "public"
+        privacy: "low"
+        discovered: true
+        description: "A long corridor lined with dorm room doors. Students come and go at all hours."
+        connections:
+          - to: "player_room"
+            type: "door"
+            distance: "immediate"
+          - to: ["dorm_common", "emma_room"]
+            type: "hallway"
+            distance: "short"
+          - to: "campus_quad"
+            type: "path"
+            distance: "short"
 
       - id: "dorm_common"
         name: "Dorm Common Room"
         type: "public"
         privacy: "low"
         discovered: true
-        features: ["couch", "tv", "vending_machine"]
+        description: "A communal space with worn couches, a TV, and vending machines. Students hang out here between classes."
+        features: ["couch", "tv", "vending_machine", "study_table"]
         connections:
-          - to: "player_room"
+          - to: "dorm_hallway"
             type: "hallway"
+            distance: "short"
 
-      - id: "cafeteria"
-        name: "Campus Cafeteria"
+      - id: "emma_room"
+        name: "Emma's Dorm Room"
+        type: "private"
+        privacy: "high"
+        discovered: false
+        description: "Emma's neatly organized room. Textbooks are stacked precisely, and photos of family decorate her desk."
+        access:
+          locked: true
+          unlocked_when: "flags.emma_invited_you_over == true"
+        connections:
+          - to: "dorm_hallway"
+            type: "door"
+            distance: "immediate"
+
+      # === ACADEMIC BUILDINGS ===
+      - id: "campus_quad"
+        name: "Campus Quad"
         type: "public"
         privacy: "low"
         discovered: true
-        features: ["food_counter", "tables"]
+        description: "The heart of campus. Students lounge on the grass, toss frisbees, and rush between classes."
+        features: ["benches", "fountain", "grass", "bulletin_board"]
+        connections:
+          - to: "dorm_hallway"
+            type: "path"
+            distance: "short"
+          - to: ["library", "cafeteria", "lecture_hall"]
+            type: "path"
+            distance: "short"
+          - to: "campus_cafe"
+            type: "path"
+            distance: "medium"
 
       - id: "library"
         name: "University Library"
         type: "public"
         privacy: "medium"
         discovered: true
-        features: ["study_desks", "silent_floor", "librarian"]
-
-      - id: "lecture_hall"
-        name: "Lecture Hall"
-        type: "public"
-        privacy: "low"
-        discovered: true
-        features: ["projector", "seating"]
-
-      - id: "gym"
-        name: "Campus Gym"
-        type: "public"
-        privacy: "low"
-        discovered: true
-        features: ["weights", "treadmills", "showers"]
-
-      - id: "campus_cafe"
-        name: "Campus Café"
-        type: "public"
-        privacy: "low"
-        discovered: true
-        features: ["barista", "tables", "sofa"]
-
-      - id: "campus_quad"
-        name: "Campus Quad"
-        type: "public"
-        privacy: "low"
-        discovered: true
-        features: ["benches", "fountain"]
-
-      - id: "emma_room"
-        name: "Emma’s Dorm Room"
-        type: "private"
-        privacy: "high"
-        discovered: false
-        access:
-          locked: true
-          unlocked_when: "flags.emma_invited_you_over == true"
+        description: "A quiet sanctuary of books and study carrels. The smell of old paper fills the air."
+        features: ["study_desks", "computers", "quiet_floor", "group_study_rooms"]
         connections:
-          - to: "dorm_common"
-            type: "hallway"
+          - to: "campus_quad"
+            type: "path"
             distance: "short"
 
-      - id: "campus_cafe_back"
-        name: "Café Back Booth"
-        type: "semi_private"
-        privacy: "medium"
+      - id: "lecture_hall"
+        name: "Psychology Lecture Hall"
+        type: "public"
+        privacy: "low"
         discovered: true
+        description: "A tiered lecture hall with uncomfortable seats. The professor's voice echoes from the podium."
+        features: ["seats", "projector", "whiteboard"]
+        connections:
+          - to: "campus_quad"
+            type: "path"
+            distance: "short"
+
+      - id: "cafeteria"
+        name: "Campus Cafeteria"
+        type: "public"
+        privacy: "low"
+        discovered: true
+        description: "Noisy and crowded at peak hours. The food is mediocre but cheap."
+        features: ["food_counter", "tables", "drink_station"]
+        connections:
+          - to: "campus_quad"
+            type: "path"
+            distance: "short"
+
+      - id: "gym"
+        name: "Campus Recreation Center"
+        type: "public"
+        privacy: "low"
+        discovered: true
+        description: "The smell of sweat and the clang of weights. Students work out, play basketball, and stay fit."
+        features: ["weights", "treadmills", "basketball_court", "locker_rooms"]
+        connections:
+          - to: "campus_quad"
+            type: "path"
+            distance: "medium"
+
+      - id: "campus_cafe"
+        name: "The Daily Grind Café"
+        type: "public"
+        privacy: "low"
+        discovered: true
+        description: "A cozy coffee shop on campus. Much better than cafeteria coffee, but pricier."
+        features: ["counter", "tables", "comfy_chairs", "study_nook"]
+        connections:
+          - to: "campus_quad"
+            type: "path"
+            distance: "medium"
 
   - id: "downtown"
     name: "Downtown"
     discovered: false
     accessible: false
     discovery_conditions:
-      - "meters.player.confidence >= 50 or flags.knows_about_downtown == true"
+      - "meters.player.confidence >= 40 or flags.knows_downtown == true"
+    properties:
+      size: "medium"
+    transport_connections:
+      - to: "campus"
+        methods: ["bus", "walk"]
+        distance: 2
+
     locations:
       - id: "night_club"
         name: "Pulse Nightclub"
         type: "public"
-        privacy: "low"
+        privacy: "medium"
         discovered: false
-        features: ["dance_floor", "bar", "vip_booth"]
+        description: "Pulsing music, strobe lights, and a crowded dance floor. The energy is electric."
+        features: ["dance_floor", "bar", "vip_booth", "bathroom"]
+        discovery_conditions:
+          - "meters.player.confidence >= 50 or flags.invited_to_club == true"

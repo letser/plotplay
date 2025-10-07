@@ -1,28 +1,79 @@
+# ===============================
+# Modifiers - College Romance (v3 Spec)
+# ===============================
+
 modifier_system:
   library:
     aroused:
       id: "aroused"
       group: "emotional"
-      when: "meters.emma.arousal >= 40"
+      when: "meters.{character}.arousal >= 50"
       appearance:
         cheeks: "flushed"
-        eyes: "glossy"
+        eyes: "dilated"
       behavior:
-        dialogue_style: "breathless"
-      description: "Heightened desire; softens refusals but doesn’t bypass consent."
-
-    exhausted_arousal_cap:
-      id: "exhausted_arousal_cap"
-      group: "systemic"
-      when: "meters.player.energy < 25"
+        dialogue_style: "breathless, intimate"
+        inhibition: -2
+      description: "Feeling desire and attraction."
+    
+    exhausted:
+      id: "exhausted"
+      group: "physical"
+      when: "meters.player.energy < 20"
+      behavior:
+        coordination: -2
       clamp_meters:
-        arousal: { max: 60 }
-      description: "Systemic rule: Low energy caps maximum arousal."
-
-    poor_hygiene_penalty:
-      id: "poor_hygiene_penalty"
-      group: "systemic"
-      when: "meters.player.hygiene < 30"
+        arousal: { max: 40 }
+      description: "Too tired to do much of anything effectively."
+    
+    filthy:
+      id: "filthy"
+      group: "physical"
+      when: "meters.player.hygiene < 25"
+      appearance:
+        skin: "grimy"
       clamp_meters:
-        attraction: { max: 40 }
-      description: "Systemic rule: Poor hygiene caps attraction from others."
+        attraction: { max: 30 }
+      description: "Poor hygiene is noticeable and off-putting."
+    
+    smells_good:
+      id: "smells_good"
+      group: "cosmetic"
+      duration_default_min: 120
+      appearance:
+        aura: "pleasant scent"
+      behavior:
+        inhibition: 1
+      description: "Wearing cologne makes you more appealing."
+    
+    drunk:
+      id: "drunk"
+      group: "intoxication"
+      duration_default_min: 180
+      appearance:
+        eyes: "glossy"
+        posture: "unsteady"
+      behavior:
+        inhibition: -3
+        coordination: -2
+      safety:
+        disallow_gates: ["accept_sex"]
+      description: "Intoxicated and impaired. Cannot consent to sex."
+    
+    confident_player:
+      id: "confident_player"
+      group: "emotional"
+      when: "meters.player.confidence >= 70"
+      behavior:
+        dialogue_style: "assured, smooth"
+      description: "High confidence makes social interactions easier."
+  
+  stacking:
+    default: "highest"
+    per_group:
+      emotional: "additive"
+      intoxication: "highest"
+  
+  exclusions:
+    - group: "intoxication"
+      exclusive: true

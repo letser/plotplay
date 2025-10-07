@@ -8,6 +8,8 @@ characters:
     age: 19
     gender: "male"
     pronouns: ["you"]
+    inventory:
+      dorm_key: 1
     wardrobe:
       outfits:
         - id: "player_casual"
@@ -17,184 +19,263 @@ characters:
             top: { item: "t-shirt", color: "gray" }
             bottom: { item: "jeans" }
             feet: { item: "sneakers" }
-            underwear_top: { item: "boxers" }
-            underwear_bottom: { item: "boxers" }
 
   - id: "emma"
     name: "Emma Chen"
-    age: 20
+    age: 19
     gender: "female"
-    pronouns: ["she","her"]
+    pronouns: ["she", "her"]
     role: "love_interest"
+    dialogue_style: "soft-spoken, thoughtful, uses 'um' and 'like' when nervous"
+    author_notes: "Emma is shy and studious. She has two paths: purity (slow romance) and corruption (bold experimentation)."
+
     meters:
-      trust: { default: 20 }
-      attraction: { default: 15 }
+      trust: { default: 10 }
+      attraction: { default: 5 }
       arousal: { default: 0 }
       boldness: { default: 15 }
-      corruption: { default: 5 }
-      academic_stress: { min: 0, max: 100, default: 35, visible: true, icon: "📚" }
+      corruption: { default: 0 }
+
     personality:
-      core_traits: ["shy", "studious", "kind", "rule-following"]
-      values: ["honesty", "boundaries", "academic success"]
-      fears: ["public embarrassment", "rumors", "failing exams"]
-      desires: ["safe intimacy", "feeling understood", "trying new things slowly"]
-      quirks: ["tucks hair behind ear when nervous", "color-codes notes"]
+      core_traits: ["shy", "studious", "kind", "curious"]
+      values: ["honesty", "academic success", "trust"]
+      fears: ["judgment", "failure", "embarrassment"]
+      desires: ["connection", "acceptance", "new experiences"]
+      quirks: ["tucks hair behind ear when nervous", "bites lower lip when thinking"]
+
     appearance:
       base:
         height: "162 cm"
-        build: "petite, athletic"
-        hair: { color: "black", length: "shoulder", style: "ponytail" }
+        build: "petite, slender"
+        hair: { color: "black", length: "shoulder-length", style: "straight, often in ponytail" }
         eyes: { color: "dark brown" }
-        style: ["modest", "neat", "pastel palette"]
+        skin: { color: "light", tone: "warm" }
+        style: ["modest", "neat", "feminine"]
+
     wardrobe:
       rules:
-        layer_order: [ "outerwear", "dress", "top", "bottom", "feet", "accessories", "underwear_top", "underwear_bottom" ]
+        layer_order: ["outerwear", "top", "bottom", "feet", "accessories", "underwear_top", "underwear_bottom"]
         required_layers: ["top", "bottom"]
-        removable_layers: ["outerwear", "feet", "accessories"]
         sexual_layers: ["underwear_top", "underwear_bottom"]
+
       outfits:
-        - id: "modest_campus"
-          name: "Campus Pastels"
+        - id: "emma_casual"
+          name: "Campus Casual"
           tags: ["default"]
           layers:
             outerwear: { item: "cardigan", color: "cream" }
             top: { item: "blouse", color: "pastel pink" }
             bottom: { item: "jeans", style: "high-waist" }
-            feet: { item: "sneakers" }
-            underwear_top: { item: "bra", style: "t-shirt" }
-            underwear_bottom: { item: "panties", style: "bikini" }
-            accessories: { item: "glasses and backpack" }
-        - id: "bold_weekend"
-          name: "Weekend Bold"
-          unlock_when: "meters.emma.corruption >= 40 or meters.emma.boldness >= 60"
+            feet: { item: "sneakers", color: "white" }
+            underwear_top: { item: "bra", style: "plain cotton" }
+            underwear_bottom: { item: "panties", style: "cotton bikini" }
+            accessories: { item: "small backpack" }
+
+        - id: "emma_bold"
+          name: "Bold Weekend Outfit"
           tags: ["unlockable"]
+          unlock_when: "meters.emma.corruption >= 40 or meters.emma.boldness >= 60"
           layers:
             top: { item: "crop top", color: "black" }
             bottom: { item: "mini skirt", color: "red" }
-            feet: { item: "ankle boots" }
-            underwear_top: { item: "push-up bra", style: "lace" }
-            underwear_bottom: { item: "thong", style: "g-string" }
-            accessories: { item: "choker and lip gloss" }
+            feet: { item: "ankle boots", color: "black" }
+            underwear_top: { item: "lace bra", style: "push-up" }
+            underwear_bottom: { item: "thong", style: "lace" }
+            accessories: { item: "choker necklace" }
+
     behaviors:
       gates:
         - id: "accept_compliment"
           when: "always"
+
         - id: "accept_flirting"
           when_any:
             - "meters.emma.trust >= 25"
-            - "meters.emma.corruption >= 30"
+            - "meters.emma.corruption >= 20"
+
         - id: "accept_date"
           when_any:
             - "meters.emma.attraction >= 35 and meters.emma.trust >= 30"
-            - "meters.emma.corruption >= 35 and meters.emma.attraction >= 25"
+            - "meters.emma.corruption >= 30"
+
         - id: "accept_kiss"
           when_any:
-            - "meters.emma.attraction >= 55 and meters.emma.trust >= 45"
-            - "meters.emma.corruption >= 45 and meters.emma.arousal >= 35"
+            - "meters.emma.attraction >= 50 and meters.emma.trust >= 45"
+            - "meters.emma.corruption >= 40 and meters.emma.arousal >= 30"
+
+        - id: "accept_touching"
+          when_all:
+            - "meters.emma.arousal >= 50"
+            - "(meters.emma.trust >= 60) or (meters.emma.corruption >= 50)"
+            - "location.privacy in ['medium', 'high']"
+
         - id: "accept_oral"
           when_all:
             - "meters.emma.arousal >= 70"
-            - "(meters.emma.trust >= 70) or (meters.emma.corruption >= 60)"
+            - "(meters.emma.trust >= 75) or (meters.emma.corruption >= 65)"
             - "location.privacy == 'high'"
+
         - id: "accept_sex"
           when_all:
             - "meters.emma.arousal >= 80"
-            - "(meters.emma.trust >= 80 and meters.emma.attraction >= 80) or (meters.emma.corruption >= 70)"
+            - "(meters.emma.trust >= 85 and meters.emma.attraction >= 85) or (meters.emma.corruption >= 75)"
             - "location.privacy == 'high'"
-            - "flags.protection_available == true or meters.emma.corruption >= 80"
+            - "(has('condoms') and flags.protection_discussed == true) or meters.emma.corruption >= 85"
+
       refusals:
-        generic: "She pulls back, cheeks warm. 'Not yet.'"
-        low_trust: "She shakes her head. 'Slow down… please.'"
-        wrong_place: "She glances around. 'Not here.'"
+        generic: "She pulls back, cheeks warm. 'Not yet... I'm not ready.'"
+        low_trust: "She shakes her head gently. 'I don't know you well enough yet.'"
+        wrong_place: "She glances around nervously. 'Not here... someone might see.'"
+        too_fast: "She looks overwhelmed. 'This is moving too fast for me.'"
 
     movement:
       willing_locations:
-        - { location: "player_room", when: "meters.emma.trust >= 60" }
+        - { location: "player_room", when: "meters.emma.trust >= 50" }
         - { location: "library", when: "always" }
         - { location: "cafeteria", when: "always" }
-      refusal_text:
-        low_trust: "She hesitates. 'I don't think I'm ready to go there with you yet.'"
+        - { location: "campus_cafe", when: "always" }
+        - { location: "emma_room", when: "flags.emma_invited_you_over == true" }
 
-    dialogue_style: "soft-spoken, thoughtful; warms when safe"
+      refusal_text:
+        low_trust: "She hesitates. 'I don't think I should go there with you yet... sorry.'"
+        uncomfortable: "She looks uncertain. 'Maybe another time?'"
 
     schedule:
-      # Weekday schedule - at a library
       - when: "time.weekday in ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'] and time.slot == 'afternoon'"
         location: "library"
 
-      # Weekend schedule - at cafe
-      - when: "time.weekday in ['saturday', 'sunday'] and time.slot == 'afternoon'"
-        location: "cafe"
+      - when: "time.weekday in ['monday', 'wednesday', 'friday'] and time.slot == 'morning'"
+        location: "lecture_hall"
 
-      # Friday night - at a party
+      - when: "time.weekday in ['saturday', 'sunday'] and time.slot == 'afternoon'"
+        location: "campus_cafe"
+
+  - id: "zoe"
+    name: "Zoe Martinez"
+    age: 21
+    gender: "female"
+    pronouns: ["she", "her"]
+    role: "alt_love_interest"
+    dialogue_style: "confident, playful, uses nicknames like 'handsome' and 'sweetheart'"
+    author_notes: "Zoe is bold and experienced. She's the 'wild' option compared to Emma's innocence."
+
+    meters:
+      trust: { default: 20 }
+      attraction: { default: 15 }
+      arousal: { default: 0 }
+      boldness: { default: 65 }
+      corruption: { default: 40 }
+
+    personality:
+      core_traits: ["confident", "flirty", "adventurous", "direct"]
+      values: ["honesty", "fun", "authenticity"]
+      desires: ["excitement", "passion", "connection"]
+      quirks: ["winks when flirting", "touches people when talking"]
+
+    appearance:
+      base:
+        height: "168 cm"
+        build: "athletic, curvy"
+        hair: { color: "auburn", length: "mid-back", style: "wavy, loose" }
+        eyes: { color: "hazel" }
+        skin: { color: "olive", tone: "warm" }
+        style: ["bold", "fashionable", "sexy"]
+
+    wardrobe:
+      outfits:
+        - id: "zoe_cafe"
+          name: "Barista Outfit"
+          tags: ["default", "work"]
+          layers:
+            top: { item: "fitted t-shirt", color: "black" }
+            bottom: { item: "tight jeans", color: "dark blue" }
+            feet: { item: "boots", style: "ankle" }
+            underwear_top: { item: "lace bra", style: "demi-cup" }
+            underwear_bottom: { item: "lace panties", style: "cheeky" }
+
+        - id: "zoe_club"
+          name: "Night Out"
+          tags: ["party"]
+          layers:
+            top: { item: "halter top", color: "emerald green" }
+            bottom: { item: "leather pants", color: "black" }
+            feet: { item: "heels", style: "stiletto" }
+            underwear_top: { item: "strapless bra", style: "lace" }
+            underwear_bottom: { item: "thong", style: "lace" }
+
+    behaviors:
+      gates:
+        - id: "accept_flirting"
+          when: "meters.zoe.attraction >= 15"
+
+        - id: "accept_date"
+          when: "meters.zoe.attraction >= 30 and meters.zoe.trust >= 25"
+
+        - id: "accept_kiss"
+          when_any:
+            - "meters.zoe.attraction >= 40"
+            - "location.privacy in ['medium', 'high']"
+
+        - id: "accept_touching"
+          when_all:
+            - "meters.zoe.attraction >= 50"
+            - "meters.zoe.arousal >= 40"
+            - "location.privacy in ['medium', 'high']"
+
+        - id: "accept_sex"
+          when_all:
+            - "meters.zoe.arousal >= 70"
+            - "meters.zoe.attraction >= 60"
+            - "location.privacy == 'high'"
+
+      refusals:
+        generic: "She smirks. 'Hold on there, tiger. Not quite yet.'"
+        wrong_place: "She laughs. 'As much as I'd love to, not here.'"
+
+    schedule:
+      - when: "time.weekday in ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'] and time.slot in ['afternoon', 'evening']"
+        location: "campus_cafe"
+
       - when: "time.weekday == 'friday' and time.slot == 'night'"
-        location: "student_union"
+        location: "night_club"
+
+      - when: "time.weekday == 'saturday' and time.slot == 'night'"
+        location: "night_club"
 
   - id: "liam"
     name: "Liam Park"
     age: 20
     gender: "male"
-    pronouns: ["he","him"]
+    pronouns: ["he", "him"]
     role: "friend"
-    meters:
-      trust:      { default: 35 }
-      attraction: { default: 0 }
-      boldness:   { default: 45 }
-    personality:
-      core_traits: ["supportive", "sarcastic", "social"]
-    appearance:
-      base:
-        height: "178 cm"
-        build: "lean, athletic"
-    behaviors:
-      gates:
-        - { id: "workout_buddy", when: "location.id == 'gym'" }
-        - { id: "wingman", when: "meters.liam.trust >= 30 and npc_present('emma')" }
-    dialogue_style: "casual, ribbing"
-    schedule:
-      weekday:
-        morning:   { location: "gym",        activity: "workout", availability: "high" }
-        noon:      { location: "cafeteria",  activity: "eat",     availability: "high" }
+    dialogue_style: "casual, bro-ish, supportive"
+    author_notes: "Liam is your gym buddy and wingman. Provides friendship path and advice."
 
-  - id: "zoe"
-    name: "Zoe Alvarez"
-    age: 21
-    gender: "female"
-    pronouns: ["she","her"]
-    role: "alt_love_interest"
-    dialogue_style: "intellectual, verbose, drops philosophy references"
-    author_notes: "Zoe is aromantic but enjoys deep friendships. Focus on intellectual connection."
     meters:
-      trust:      { default: 25 }
-      attraction: { default: 20 }
-      arousal:    { default: 5 }
-      boldness:   { default: 55 }
-      corruption: { default: 35 }
+      trust: { default: 35 }
+      attraction: { default: 0 }
+      boldness: { default: 50 }
+
     personality:
-      core_traits: ["confident", "flirty", "adventurous"]
+      core_traits: ["supportive", "loyal", "easygoing", "direct"]
+
     appearance:
       base:
-        height: "168 cm"
-        build: "curvy"
-        hair: { color: "auburn", style: "wavy" }
-    wardrobe:
-      outfits:
-        - id: "club_ready"
-          name: "Club Ready"
-          tags: ["default"]
-          layers:
-            top: { item: "halter top", color: "emerald" }
-            bottom: { item: "leather pants" }
-            feet: { item: "heels" }
-            underwear_top: { item: "lace bra" }
-            underwear_bottom: { item: "lace panties" }
+        height: "180 cm"
+        build: "athletic, fit"
+        hair: { color: "black", style: "short, messy" }
+
     behaviors:
       gates:
-        - { id: "accept_flirting", when: "meters.zoe.attraction >= 20" }
-        - { id: "accept_date", when: "meters.zoe.attraction >= 35 and meters.zoe.trust >= 25" }
-        - { id: "accept_kiss", when_any: ["meters.zoe.attraction >= 45", "location.privacy in ['medium', 'high']"] }
-        - { id: "accept_sex", when_all: ["meters.zoe.arousal >= 75", "location.privacy == 'high'"] }
+        - id: "workout_buddy"
+          when: "location.id == 'gym'"
+
+        - id: "give_advice"
+          when: "meters.liam.trust >= 40"
+
     schedule:
-      weekday:
-        night:       { location: "campus_cafe", activity: "shift",      availability: "high" }
-        late_night:  { location: "night_club",  activity: "dance",      availability: "high" }
+      - when: "time.weekday in ['monday', 'wednesday', 'friday'] and time.slot == 'morning'"
+        location: "gym"
+
+      - when: "time.slot == 'noon'"
+        location: "cafeteria"

@@ -1,90 +1,137 @@
+# games/college_romance/arcs.yaml
 # ===============================
 # Arcs & Milestones - College Romance (v3 Spec)
 # ===============================
 
 arcs:
+  # === PLAYER SELF-IMPROVEMENT ===
   - id: "player_growth"
-    name: "Player Self-Improvement"
-    description: "Boost your mind, body, and looks to unlock dates and deeper intimacy."
+    name: "Self-Improvement"
+    description: "Build your stats to unlock dates and deeper relationships."
+    category: "personal"
     stages:
-      - id: "study_hard"
-        name: "Study Hard"
-        advance_when: "meters.player.mind >= 60"
-        effects_on_advance:
-          - { type: "flag_set", key: "midterms_over", value: true }
-          - { type: "meter_change", target: "emma", meter: "trust", op: "add", value: 5 }
-      - id: "workout_regime"
-        name: "Workout Regime"
-        advance_when: "meters.player.body >= 60"
-        effects_on_advance:
-          - { type: "meter_change", target: "zoe", meter: "attraction", op: "add", value: 5 }
-      - id: "style_upgrade"
-        name: "Style Upgrade"
-        advance_when: "meters.player.looks >= 60"
-        effects_on_advance:
-          - { type: "meter_change", target: "emma", meter: "attraction", op: "add", value: 5 }
+      - id: "freshman_start"
+        name: "Freshman Beginning"
+        advance_when: "time.day >= 1"
+        effects_on_enter:
+          - { type: "flag_set", key: "arc_started", value: true }
 
+      - id: "academic_focus"
+        name: "Academic Achievement"
+        advance_when: "meters.player.mind >= 50"
+        effects_on_advance:
+          - { type: "meter_change", target: "player", meter: "confidence", op: "add", value: 10 }
+
+      - id: "fitness_achieved"
+        name: "Physical Fitness"
+        advance_when: "meters.player.body >= 50"
+        effects_on_advance:
+          - { type: "meter_change", target: "player", meter: "confidence", op: "add", value: 10 }
+          - { type: "meter_change", target: "player", meter: "looks", op: "add", value: 5 }
+
+      - id: "well_rounded"
+        name: "Well-Rounded Student"
+        advance_when: "meters.player.mind >= 60 and meters.player.body >= 60 and meters.player.looks >= 60"
+        effects_on_advance:
+          - { type: "meter_change", target: "player", meter: "confidence", op: "add", value: 15 }
+
+  # === EMMA PURITY PATH ===
   - id: "emma_purity"
-    name: "Emma’s Purity Path"
+    name: "Emma's Pure Romance"
     character: "emma"
     category: "romance"
+    description: "Build trust and genuine connection with Emma through slow, respectful progression."
     stages:
-      - id: "first_meet"
-        name: "First Meeting"
-        advance_when: "meters.emma.trust >= 20"
-      - id: "study_together"
-        name: "Study Together"
-        advance_when: "meters.emma.trust >= 40 and meters.emma.attraction >= 30"
-      - id: "first_date"
-        name: "First Date"
-        advance_when: "meters.emma.attraction >= 50 and gates.emma.accept_date"
-        effects_on_advance:
-          - type: "unlock_action"
-            actions: ["deep_talk_emma"]
-      - id: "first_kiss"
-        name: "First Kiss"
-        advance_when: "flags.emma_first_kiss == true"
-      - id: "intimate_trust"
-        name: "Intimate Trust"
-        advance_when: "meters.emma.trust >= 80 and meters.emma.attraction >= 80"
-        unlocks:
-          endings: ["emma_pure"]
+      - id: "first_meeting"
+        name: "First Impressions"
+        advance_when: "flags.emma_met == true"
+        effects_on_enter:
+          - { type: "meter_change", target: "emma", meter: "trust", op: "add", value: 5 }
 
+      - id: "friendship_building"
+        name: "Building Friendship"
+        advance_when: "meters.emma.trust >= 30"
+        effects_on_advance:
+          - { type: "unlock_actions", actions: ["deep_talk_emma", "flirt_emma"] }
+
+      - id: "romantic_interest"
+        name: "Growing Attraction"
+        advance_when: "meters.emma.attraction >= 40 and meters.emma.trust >= 40"
+        effects_on_advance:
+          - { type: "flag_set", key: "emma_likes_you", value: true }
+
+      - id: "dating"
+        name: "Dating Officially"
+        advance_when: "flags.emma_first_kiss == true and meters.emma.trust >= 60"
+        effects_on_advance:
+          - { type: "flag_set", key: "dating_emma", value: true }
+
+      - id: "deep_connection"
+        name: "Deep Emotional Bond"
+        advance_when: "meters.emma.trust >= 80 and meters.emma.attraction >= 75"
+        unlocks:
+          endings: ["emma_pure_ending"]
+
+  # === EMMA CORRUPTION PATH ===
   - id: "emma_corruption"
-    name: "Emma’s Corruption Path"
+    name: "Emma's Corruption"
     character: "emma"
     category: "corruption"
+    description: "Push Emma's boundaries and awaken her wild side."
     stages:
-      - id: "temptations"
-        name: "Temptations"
-        advance_when: "meters.emma.corruption >= 40"
-      - id: "club_outing"
-        name: "Club Outing"
-        advance_when: "milestone('temptations').completed and meters.emma.boldness >= 50"
-      - id: "corrupted_romance"
-        name: "Corrupted Romance"
-        advance_when: "meters.emma.corruption >= 70 and gates.emma.accept_sex"
+      - id: "innocent"
+        name: "Innocent Beginning"
+        advance_when: "flags.emma_met == true"
+
+      - id: "curiosity"
+        name: "Curious Exploration"
+        advance_when: "meters.emma.corruption >= 25"
+        effects_on_advance:
+          - { type: "meter_change", target: "emma", meter: "boldness", op: "add", value: 10 }
+
+      - id: "experimenting"
+        name: "Bold Experimentation"
+        advance_when: "meters.emma.corruption >= 50 and meters.emma.boldness >= 40"
+        effects_on_advance:
+          - { type: "unlock_outfit", character: "emma", outfit: "emma_bold" }
+
+      - id: "corrupted"
+        name: "Fully Corrupted"
+        advance_when: "meters.emma.corruption >= 75"
         unlocks:
-          endings: ["emma_corrupt"]
-      - id: "good_girl_gone_bad"
-        name: "Good Girl Gone Bad"
+          endings: ["emma_corrupt_ending"]
+
+      - id: "total_corruption"
+        name: "Total Transformation"
         advance_when: "meters.emma.corruption >= 90"
         unlocks:
-          endings: ["emma_good_girl_bad"]
+          endings: ["emma_bad_girl_ending"]
 
+  # === ZOE ROMANCE ===
   - id: "zoe_romance"
-    name: "Zoe’s Romance Path"
+    name: "Zoe's Wild Romance"
     character: "zoe"
     category: "romance"
+    description: "Navigate a passionate relationship with the bold and experienced Zoe."
     stages:
-      - id: "cafe_flirt"
-        name: "Café Flirt"
-        advance_when: "meters.zoe.attraction >= 30"
-      - id: "club_dance"
-        name: "Club Dance"
-        advance_when: "meters.zoe.attraction >= 50 and gates.zoe.accept_kiss"
-      - id: "zoe_romance_full"
-        name: "Zoe’s Romance"
-        advance_when: "gates.zoe.accept_sex"
+      - id: "flirty_start"
+        name: "Playful Flirtation"
+        advance_when: "flags.zoe_flirted == true"
+
+      - id: "mutual_attraction"
+        name: "Mutual Attraction"
+        advance_when: "meters.zoe.attraction >= 40 and meters.zoe.trust >= 30"
+        effects_on_advance:
+          - { type: "flag_set", key: "zoe_interested", value: true }
+
+      - id: "passionate_affair"
+        name: "Passionate Connection"
+        advance_when: "flags.zoe_first_kiss == true and meters.zoe.attraction >= 60"
         unlocks:
           endings: ["zoe_romance_ending"]
+
+      - id: "exclusive_relationship"
+        name: "Exclusive Partners"
+        advance_when: "meters.zoe.trust >= 70 and meters.zoe.attraction >= 80 and flags.chose_zoe == true"
+        unlocks:
+          endings: ["zoe_exclusive_ending"]

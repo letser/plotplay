@@ -4,70 +4,121 @@
 
 items:
   - id: "dorm_key"
-    name: "Dorm Key"
+    name: "Dorm Room Key"
     category: "key"
-    description: "Opens your dorm room."
+    description: "Your dorm room key. Don't lose it or you'll pay a $50 replacement fee."
     stackable: false
     droppable: false
     unlocks:
-      location: "dorm_room"
+      location: "player_room"
 
   - id: "condoms"
     name: "Condoms"
     category: "consumable"
-    description: "Basic protection. Necessary for responsible intimacy unless corruption is very high."
-    value: 5
+    description: "A pack of condoms. Responsible protection for intimate moments."
+    icon: "🎈"
+    value: 10
     stackable: true
-    consumable: true
-    effects_on_use:
-      - { type: "flag_set", key: "protection_available", value: true }
+    consumable: false
+    obtain_conditions:
+      - "meters.player.confidence >= 30"
 
   - id: "flowers"
     name: "Bouquet of Flowers"
     category: "gift"
-    description: "Fresh roses wrapped neatly."
+    description: "Fresh roses wrapped neatly. A classic romantic gesture."
+    icon: "💐"
     value: 20
     stackable: false
     consumable: true
+    can_give: true
     gift_effects:
-      - { type: "meter_change", target: "emma", meter: "attraction", op: "add", value: 10 }
-      - { type: "meter_change", target: "zoe",  meter: "attraction", op: "add", value: 10 }
+      - { type: "meter_change", target: "emma", meter: "attraction", op: "add", value: 15 }
+      - { type: "meter_change", target: "emma", meter: "trust", op: "add", value: 10 }
+      - { type: "flag_set", key: "gave_emma_flowers", value: true }
 
   - id: "textbook"
-    name: "Advanced Textbook"
+    name: "Psychology Textbook"
     category: "consumable"
-    description: "A heavy reference book. Helps improve mind when studied."
-    value: 25
+    description: "A heavy textbook for your psych class. Study it to boost your mind stat."
+    icon: "📚"
+    value: 30
     stackable: true
     consumable: true
+    use_text: "You crack open the textbook and study for an hour, absorbing new concepts."
     effects_on_use:
-      - { type: "meter_change", target: "player", meter: "mind", op: "add", value: 5 }
+      - { type: "meter_change", target: "player", meter: "mind", op: "add", value: 8 }
+      - { type: "meter_change", target: "player", meter: "energy", op: "subtract", value: 15 }
+      - { type: "advance_time", minutes: 60 }
 
-  - id: "protein_bar"
-    name: "Protein Bar"
+  - id: "protein_shake"
+    name: "Protein Shake"
     category: "consumable"
-    description: "Quick snack favored by Liam. Restores some energy."
+    description: "A chalky but effective protein shake. Good for post-workout recovery."
+    icon: "🥤"
     value: 5
+    stackable: true
     consumable: true
+    use_text: "You chug the protein shake. It tastes awful but you feel energized."
     effects_on_use:
-      - { type: "meter_change", target: "player", meter: "energy", op: "add", value: 10 }
-      - { type: "meter_change", target: "player", meter: "hygiene", op: "subtract", value: 5 }
+      - { type: "meter_change", target: "player", meter: "energy", op: "add", value: 15 }
+      - { type: "meter_change", target: "player", meter: "body", op: "add", value: 2 }
+
+  - id: "energy_drink"
+    name: "Energy Drink"
+    category: "consumable"
+    description: "A can of caffeinated energy drink. Restores energy quickly."
+    icon: "⚡"
+    value: 3
+    stackable: true
+    consumable: true
+    use_text: "You crack open the can and down it. A jittery surge of energy hits you."
+    effects_on_use:
+      - { type: "meter_change", target: "player", meter: "energy", op: "add", value: 25 }
+      - { type: "meter_change", target: "player", meter: "hygiene", op: "subtract", value: 3 }
+
+  - id: "shower_supplies"
+    name: "Shower Supplies"
+    category: "consumable"
+    description: "Soap, shampoo, and deodorant. Essential for basic hygiene."
+    icon: "🧼"
+    value: 8
+    stackable: true
+    consumable: true
+    use_text: "You take a refreshing shower, washing away the day's grime."
+    effects_on_use:
+      - { type: "meter_change", target: "player", meter: "hygiene", op: "set", value: 90 }
+      - { type: "meter_change", target: "player", meter: "energy", op: "add", value: 5 }
+      - { type: "advance_time", minutes: 20 }
 
   - id: "stylish_outfit"
-    name: "Stylish Outfit"
+    name: "Stylish New Outfit"
     category: "equipment"
-    description: "Trendy outfit that boosts looks when worn."
+    description: "A trendy outfit that makes you look sharp. Boosts your looks stat when you wear it."
+    icon: "👔"
     value: 50
+    stackable: false
     tags: ["clothing"]
     slots: ["outfit"]
     stat_mods:
-      looks: 10
+      looks: 15
 
-  - id: "emma_panties"
-    name: "Emma’s Panties"
-    category: "trophy"
-    description: "A pair of Emma’s panties, obtained only if intimacy deepens and corruption rises."
+  - id: "cologne"
+    name: "Nice Cologne"
+    category: "consumable"
+    description: "A bottle of attractive cologne. Makes you smell good for dates."
+    icon: "💧"
+    value: 25
+    stackable: true
+    consumable: true
+    use_text: "You spray on some cologne. You smell great now."
+    effects_on_use:
+      - { type: "meter_change", target: "player", meter: "looks", op: "add", value: 5 }
+      - { type: "apply_modifier", character: "player", modifier_id: "smells_good", duration_min: 120 }
+
+  - id: "phone"
+    name: "Your Phone"
+    category: "misc"
+    description: "Your smartphone. Keeps you connected."
+    stackable: false
     droppable: false
-    obtain_conditions:
-      - "meters.emma.corruption >= 60"
-      - "flags.emma_undressed == true"

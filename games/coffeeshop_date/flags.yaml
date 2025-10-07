@@ -1,16 +1,38 @@
-# Create a new file: games/coffeeshop_date/flags.yaml
+# ===============================
+# Flags - Coffee Shop Date (v3 Spec)
+# ===============================
+
 flags:
-  paid_for_coffee:
+  took_mint:
+    type: "bool"
+    default: false
+    visible: false
+    description: "Set to true if player took a mint before entering."
+
+  ordered_coffee:
+    type: "bool"
+    default: false
+    visible: false
+    description: "Set to true after ordering coffee."
+
+  paid_for_alex:
     type: "bool"
     default: false
     visible: true
     label: "Paid for Alex"
-    description: "Set to true if the player pays for both coffees."
+    description: "Set to true if the player pays for Alex's coffee."
 
   told_joke:
     type: "bool"
     default: false
+    visible: false
     description: "Set to true if the player tells a funny story."
+
+  complimented_alex:
+    type: "bool"
+    default: false
+    visible: false
+    description: "Set to true if player compliments Alex's appearance."
 
   got_number:
     type: "bool"
@@ -18,3 +40,9 @@ flags:
     visible: true
     label: "Got Alex's Number"
     description: "Set to true if Alex gives the player her number."
+
+  alex_impressed:
+    type: "bool"
+    default: false
+    visible: false
+    description: "Set to true if Alex is particularly impressed by the player."

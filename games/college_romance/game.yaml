@@ -1,122 +1,104 @@
 # ===============================
-# Game Manifest (game.yaml)
-# College Romance — PlotPlay content pack (v3 Spec)
+# Game Manifest - College Romance (v3 Spec)
+# A comprehensive college dating sim testing all engine features
 # ===============================
 
 meta:
   id: "college_romance"
-  title: "College Romance: Emma Route"
-  version: "0.1.0"
+  title: "College Romance: Emma & Zoe"
+  version: "1.0.0"
   spec_version: "3.1"
-  author: "AutoGen"
+  authors: ["PlotPlay Team"]
   content_rating: "explicit"
-  tags: ["romance", "college", "slice_of_life", "NSFW", "corruption", "training"]
+  tags: ["romance", "college", "slice_of_life", "nsfw", "stat-building", "multiple-routes"]
+  description: "Navigate college life while building relationships with Emma and Zoe. Manage your stats, make choices, and unlock different romance paths."
+  nsfw_allowed: true
 
-# --- Starting point of the game ---
+# Starting point
 start:
   node: "intro_dorm"
   location: { zone: "campus", id: "player_room" }
 
-# --- Default narration style ---
+# Narration style
 narration:
   pov: "second"
   tense: "present"
   paragraphs: "2-3"
-  token_budget: 320
+  token_budget: 350
   checker_budget: 220
 
-# --- Model cost profiles ---
-model_profiles:
-  writer: "cheap"
-  checker: "fast"
-
-# --- Global meters ---
+# Global meters
 meters:
   player:
     energy: { min: 0, max: 100, default: 70, visible: true, icon: "⚡", decay_per_slot: -10 }
-    money: { min: 0, max: 9999, default: 60, visible: true, icon: "💵", format: "currency" }
-    mind: { min: 0, max: 100, default: 40, visible: true, icon: "🧠" }
-    body: { min: 0, max: 100, default: 35, visible: true, icon: "💪" }
-    looks: { min: 0, max: 100, default: 45, visible: true, icon: "✨" }
-    hygiene: { min: 0, max: 100, default: 60, visible: true, icon: "🧼", decay_per_slot: -5 }
+    money: { min: 0, max: 999, default: 60, visible: true, icon: "💵", format: "currency" }
+    mind: { min: 0, max: 100, default: 30, visible: true, icon: "🧠" }
+    body: { min: 0, max: 100, default: 30, visible: true, icon: "💪" }
+    looks: { min: 0, max: 100, default: 40, visible: true, icon: "✨" }
+    hygiene: { min: 0, max: 100, default: 70, visible: true, icon: "🧼", decay_per_slot: -8 }
 
   character_template:
     trust: {
-        min: 0, max: 100, default: 10,
-        thresholds: { stranger: [0,19], acquaintance: [20,39], friend: [40,69], close: [70,89], intimate: [90,100] }
-      }
+      min: 0, max: 100, default: 10,
+      thresholds: { stranger: [0, 19], acquaintance: [20, 39], friend: [40, 69], close: [70, 89], intimate: [90, 100] }
+    }
     attraction: {
       min: 0, max: 100, default: 5,
-      thresholds: { none: [0,19], interested: [20,39], attracted: [40,69], infatuated: [70,89], in_love: [90,100] }
+      thresholds: { none: [0, 19], interested: [20, 39], attracted: [40, 69], infatuated: [70, 89], in_love: [90, 100] }
     }
-    arousal: {
-      min: 0, max: 100, default: 0,
-      hidden_until: "meters.{character}.attraction >= 30"
-    }
-    boldness: {
-      min: 0, max: 100, default: 20,
-      hidden_until: "meters.{character}.trust >= 40"
-    }
-    corruption: {
-      min: 0, max: 100, default: 0
-    }
+    arousal: { min: 0, max: 100, default: 0, hidden_until: "meters.{character}.attraction >= 30" }
+    boldness: { min: 0, max: 100, default: 20, hidden_until: "meters.{character}.trust >= 30" }
+    corruption: { min: 0, max: 100, default: 0 }
 
-# --- Movement Rules ---
+# Movement rules
 movement:
   local:
-    base_time_cost: 5 # Minutes for a standard move
+    base_time: 5
     distance_modifiers:
       immediate: 0
       short: 1
       medium: 2
       long: 3
   restrictions:
-    min_energy: 5 # Player can't move if energy is below this
-    energy_cost_per_move: 2 # Base energy cost for any move
+    min_energy: 5
+    energy_cost_per_move: 2
 
-# --- Time system ---
+# Time system with calendar
 time:
-  mode: "hybrid" # Changed from "slots" to "hybrid"
-  slots: ["morning", "noon", "afternoon", "night", "late_night"]
+  mode: "hybrid"
+  slots: ["morning", "noon", "afternoon", "evening", "night", "late_night"]
   actions_per_slot: 3
   auto_advance: true
 
-  # --- New Clock Configuration for Hybrid Mode ---
   clock:
-    minutes_per_day: 1440 # 24 * 60
+    minutes_per_day: 1440
     slot_windows:
-      morning:    { start: "06:00", end: "11:59" }
-      noon:       { start: "12:00", end: "13:59" }
+      morning:    { start: "06:00", end: "10:59" }
+      noon:       { start: "11:00", end: "13:59" }
       afternoon:  { start: "14:00", end: "17:59" }
-      night:      { start: "18:00", end: "22:59" }
-      late_night: { start: "23:00", end: "05:59" } # Spans across midnight
+      evening:    { start: "18:00", end: "20:59" }
+      night:      { start: "21:00", end: "23:59" }
+      late_night: { start: "00:00", end: "05:59" }
 
   calendar:
     enabled: true
     epoch: "2025-09-01"
-    week_days: ["monday","tuesday","wednesday","thursday","friday","saturday","sunday"]
+    week_days: ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
     start_day: "monday"
-    weeks_enabled: true
+
   start:
     day: 1
     slot: "morning"
     time: "08:30"
 
-# --- Global action policies (UI/Writer guardrails) ---
-action_filters:
-  banned_topics: ["minors", "non-consensual acts", "sexualized violence"]
-  banned_freeform:
-    - { pattern: "drugging", reason: "not allowed in this game" }
-    - { pattern: "incest",   reason: "forbidden" }
-
-# --- List of included content files ---
+# Included content files
 includes:
   - "characters.yaml"
   - "flags.yaml"
   - "modifiers.yaml"
   - "locations.yaml"
-  - "nodes.yaml"
-  - "events.yaml"
-  - "arcs.yaml"
   - "items.yaml"
   - "actions.yaml"
+  - "events.yaml"
+  - "arcs.yaml"
+  - "nodes.yaml"

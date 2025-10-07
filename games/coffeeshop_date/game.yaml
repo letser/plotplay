@@ -1,59 +1,63 @@
 # ===============================
-# Game Manifest (game.yaml)
-# Coffee Shop Date - v3 Spec
+# Game Manifest - Coffee Shop Date (v3 Spec)
+# A quick, linear test game for basic mechanics validation
 # ===============================
 
 meta:
   id: "coffeeshop_date"
-  title: "Coffee Shop Date - Test Game"
+  title: "Coffee Shop Date"
   version: "1.0.0"
   spec_version: "3.1"
-  author: "TestDev"
+  authors: ["PlotPlay Team"]
   content_rating: "teen"
   tags: ["test", "romance", "linear"]
+  description: "A simple first-date scenario for testing core mechanics"
+  nsfw_allowed: false
 
-# --- Starting point of the game ---
+# Starting point
 start:
   node: "outside_cafe"
   location: { zone: "downtown", id: "outside" }
 
-# --- Default narration style ---
+# Narration style
 narration:
   pov: "second"
   tense: "present"
   paragraphs: "1-2"
+  token_budget: 300
+  checker_budget: 150
 
-# --- Meter definitions ---
+# Meters
 meters:
   player:
     confidence: { min: 0, max: 100, default: 50, visible: true, icon: "😎" }
-    money: { min: 0, max: 100, default: 20, visible: true, icon: "💵" }
+    money: { min: 0, max: 100, default: 30, visible: true, icon: "💵" }
 
   character_template:
     comfort: {
       min: 0, max: 100, default: 20,
-      thresholds: { nervous: [0,30], relaxed: [31,70], comfortable: [71,100] }
+      thresholds: { nervous: [0, 30], relaxed: [31, 70], comfortable: [71, 100] }
     }
     interest: {
       min: 0, max: 100, default: 15,
-      thresholds: { polite: [0,30], interested: [31,70], attracted: [71,100] }
+      thresholds: { polite: [0, 30], interested: [31, 70], attracted: [71, 100] }
     }
 
-# --- Time system configuration ---
+# Time system
 time:
   mode: "slots"
-  slots: ["afternoon"]
+  slots: ["afternoon", "evening"]
   actions_per_slot: 10
   auto_advance: false
   start:
     day: 1
     slot: "afternoon"
 
-# --- List of included content files ---
+# Included content files
 includes:
   - "characters.yaml"
   - "flags.yaml"
   - "modifiers.yaml"
   - "locations.yaml"
-  - "nodes.yaml"
   - "items.yaml"
+  - "nodes.yaml"

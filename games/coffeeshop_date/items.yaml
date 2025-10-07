@@ -1,4 +1,3 @@
-# games/coffeeshop_date/items.yaml
 # ===============================
 # Items - Coffee Shop Date (v3 Spec)
 # ===============================
@@ -7,23 +6,37 @@ items:
   - id: "phone"
     name: "Your Phone"
     category: "misc"
-    description: "Your smartphone."
+    description: "Your smartphone with Alex's number programmed in."
     stackable: false
     droppable: false
-
-  - id: "alex_number"
-    name: "Alex's Phone Number"
-    category: "trophy"
-    description: "Alex's phone number written on a napkin."
-    stackable: false
 
   - id: "breath_mint"
     name: "Breath Mint"
     category: "consumable"
-    description: "A single, powerful breath mint for a confidence boost."
+    description: "A complimentary mint from the jar outside. Fresh and minty."
     icon: "🍬"
     stackable: true
     consumable: true
-    use_text: "You pop the breath mint, a cool wave of confidence washing over you."
+    use_text: "You pop the mint in your mouth, feeling a cool burst of confidence."
     effects_on_use:
       - { type: "meter_change", target: "player", meter: "confidence", op: "add", value: 5 }
+
+  - id: "coffee"
+    name: "Coffee"
+    category: "consumable"
+    description: "A hot cup of coffee."
+    icon: "☕"
+    value: 5
+    stackable: true
+    consumable: true
+    use_text: "You take a sip of the warm coffee, feeling energized."
+    effects_on_use:
+      - { type: "meter_change", target: "player", meter: "confidence", op: "add", value: 3 }
+
+  - id: "alex_number"
+    name: "Alex's Phone Number"
+    category: "trophy"
+    description: "Alex's phone number written on a napkin with a little smiley face."
+    icon: "📱"
+    stackable: false
+    droppable: false

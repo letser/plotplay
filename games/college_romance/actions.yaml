@@ -1,6 +1,10 @@
+# ===============================
+# Actions - College Romance (v3 Spec)
+# ===============================
+
 actions:
   - id: "deep_talk_emma"
-    prompt: "Ask Emma about her family"
+    prompt: "Have a deep conversation with Emma about her family"
     category: "conversation"
     conditions: "npc_present('emma') and meters.emma.trust >= 60"
     effects:
@@ -9,6 +13,46 @@ actions:
         meter: "trust"
         op: "add"
         value: 10
+      - type: "meter_change"
+        target: "emma"
+        meter: "attraction"
+        op: "add"
+        value: 5
       - type: "flag_set"
         key: "emma_opened_up"
+        value: true
+
+  - id: "flirt_emma"
+    prompt: "Flirt with Emma"
+    category: "romance"
+    conditions: "npc_present('emma') and gates.emma.accept_flirting"
+    effects:
+      - type: "meter_change"
+        target: "emma"
+        meter: "attraction"
+        op: "add"
+        value: 8
+      - type: "meter_change"
+        target: "emma"
+        meter: "arousal"
+        op: "add"
+        value: 5
+
+  - id: "flirt_zoe"
+    prompt: "Flirt with Zoe"
+    category: "romance"
+    conditions: "npc_present('zoe') and gates.zoe.accept_flirting"
+    effects:
+      - type: "meter_change"
+        target: "zoe"
+        meter: "attraction"
+        op: "add"
+        value: 8
+      - type: "meter_change"
+        target: "zoe"
+        meter: "arousal"
+        op: "add"
+        value: 6
+      - type: "flag_set"
+        key: "zoe_flirted"
         value: true
