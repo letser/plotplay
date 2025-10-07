@@ -26,7 +26,9 @@ def game_loader():
 @pytest.fixture
 def mock_ai_service():
     """Provides a mock AI service with configurable responses."""
+    from app.services.ai_service import AISettings
     service = MagicMock(spec=AIService)
+    service.settings = AISettings() # Add this line
 
     def create_response(content: str, memory: list[str] = None):
         if memory:
@@ -34,6 +36,7 @@ def mock_ai_service():
         return AIResponse(content=content)
 
     service.create_response = create_response
+    service.generate = AsyncMock(return_value=AIResponse(content="Test narrative"))
     return service
 
 

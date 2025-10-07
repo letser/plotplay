@@ -15,6 +15,18 @@ modifier_system:
         dialogue_style: "breathless, intimate"
         inhibition: -2
       description: "Feeling desire and attraction."
+
+    flattered:
+      id: "flattered"
+      group: "emotional"
+      when: "meters.alex.comfort >= 30 and meters.alex.interest >= 25"
+      duration_default_min: 15
+      appearance:
+        cheeks: "slightly flushed"
+        eyes: "bright"
+      behavior:
+        dialogue_style: "warmer, more open"
+      description: "Feeling positive after a compliment or kind gesture."
     
     exhausted:
       id: "exhausted"
