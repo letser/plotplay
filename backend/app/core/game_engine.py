@@ -509,18 +509,28 @@ class GameEngine:
         return await self.process_action("do", "look around for exits")
 
     def _update_npc_presence(self):
+        """
+        Updates NPC presence based on schedules. Adds NPCs scheduled to be in the
+        current location. This logic assumes schedules determine appearance, but will
+        not remove characters who arrived by other means (e.g., following the player).
+        """
         state = self.state_manager.state
-        current_time = state.time_slot
         current_loc = state.location_current
+        evaluator = ConditionEvaluator(state, state.present_chars, rng_seed=self._get_turn_seed())
+
         for char in self.game_def.characters:
-            if char.id != "player" and char.schedule:
-                # Determine if it's a weekday or weekend for schedule lookup
-                # This is a simplification; a full calendar system would be more robust.
-                schedule_for_today = char.schedule.weekday
-                if schedule_for_today and current_time in schedule_for_today:
-                    if schedule_for_today[current_time].location == current_loc:
+            if char.id == "player" or not char.schedule:
+                continue
+
+            # Check if any schedule rule places the character in the current location
+            for rule in char.schedule:
+                if rule.get("location") == current_loc:
+                    if evaluator.evaluate(rule.get("when")):
                         if char.id not in state.present_chars:
                             state.present_chars.append(char.id)
+                            self.logger.info(f"NPC '{char.id}' appeared in '{current_loc}' based on schedule.")
+                        # Found a matching rule, no need to check further for this character
+                        break
 
     def _reconcile_narrative(self, player_action: str, ai_narrative: str, deltas: dict,
                              target_char_id: str | None) -> str:
@@ -626,11 +636,16 @@ class GameEngine:
                 # Unlocked actions do not have a 'goto'
 
     def apply_effects(self, effects: list[AnyEffect]):
-        evaluator = ConditionEvaluator(self.state_manager.state, self.state_manager.state.present_chars, rng_seed=self._get_turn_seed())
+        evaluator = ConditionEvaluator(self.state_manager.state, self.state_manager.state.present_chars,
+                                       rng_seed=self._get_turn_seed())
         for effect in effects:
+            # First, identify and process container-like effects that have their own internal logic.
             if isinstance(effect, ConditionalEffect):
                 self._apply_conditional_effect(effect)
-            elif evaluator.evaluate(effect.when):
+                continue  # Skip to the next effect in the list
+
+            # For all other "simple" effects, evaluate their 'when' clause before applying.
+            if evaluator.evaluate(effect.when):
                 match effect:
                     case RandomEffect():
                         self._apply_random_effect(effect)
@@ -659,7 +674,7 @@ class GameEngine:
         if evaluator.evaluate(effect.when):
             self.apply_effects(effect.then)
         else:
-            self.apply_effects(effect.else_effects)
+            self.apply_effects(effect.otherwise)
 
     def _apply_random_effect(self, effect: RandomEffect):
         """Applies a random effect."""

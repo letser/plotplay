@@ -3,9 +3,7 @@ Shared pytest fixtures and configuration for PlotPlay tests.
 """
 import pytest
 import json
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
-from typing import Dict, Any, List
 
 from app.core.game_loader import GameLoader
 from app.core.game_engine import GameEngine
@@ -14,6 +12,9 @@ from app.models.game import GameDefinition, MetaConfig, StartConfig
 from app.models.character import Character
 from app.models.location import Zone, Location
 from app.models.node import Node
+from app.models.enums import NodeType
+from app.models.meters import Meter
+from app.models.flag import Flag
 
 
 @pytest.fixture
@@ -27,7 +28,7 @@ def mock_ai_service():
     """Provides a mock AI service with configurable responses."""
     service = MagicMock(spec=AIService)
 
-    def create_response(content: str, memory: List[str] = None):
+    def create_response(content: str, memory: list[str] = None):
         if memory:
             return AIResponse(content=json.dumps({"memory": memory}))
         return AIResponse(content=content)
@@ -39,6 +40,7 @@ def mock_ai_service():
 @pytest.fixture
 def minimal_game_def():
     """Creates a minimal valid game definition for testing."""
+    from app.models.time import TimeConfig, TimeStart
     return GameDefinition(
         meta=MetaConfig(
             id="test_game",
@@ -49,10 +51,14 @@ def minimal_game_def():
             node="start_node",
             location={"zone": "test_zone", "id": "test_location"}
         ),
+        time=TimeConfig(
+            start=TimeStart(day=1, slot="morning")
+        ),
         nodes=[
             Node(
                 id="start_node",
-                type="normal",
+                type="scene",
+                title="Start Node",
                 transitions=[]
             )
         ],
@@ -60,23 +66,31 @@ def minimal_game_def():
             Zone(
                 id="test_zone",
                 name="Test Zone",
-                locations={
-                    "test_location": Location(
+                locations=[
+                    Location(
                         id="test_location",
                         name="Test Location"
                     )
-                }
+                ]
             )
         ],
-        characters={
-            "player": Character(
+        characters=[
+            Character(
                 id="player",
                 name="Player",
+                age=25,
                 gender="unspecified"
             )
+        ],
+        meters={
+            "player": {
+                "health": Meter(min=0, max=100, default=100)
+            }
+        },
+        flags={
+            "game_started": Flag(type="bool", default=False)
         }
     )
-
 
 @pytest.fixture
 async def mock_game_engine(minimal_game_def, mock_ai_service):

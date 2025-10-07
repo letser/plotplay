@@ -1187,7 +1187,7 @@ Effects can be authored in nodes, events, arcs, milestones, or items. The Checke
 - type: conditional
   when: "<expr>"
   then: [ <effects...> ]
-  else: [ <effects...> ]
+  otherwise: [ <effects...> ]
 
 - type: random
   choices:
@@ -1234,7 +1234,7 @@ Effects can be authored in nodes, events, arcs, milestones, or items. The Checke
   when: "player.polite == true"
   then:
     - { type: meter_change, target: "emma", meter: "trust", op: "add", value: 2 }
-  else:
+  otherwise:
     - { type: meter_change, target: "emma", meter: "trust", op: "subtract", value: 1 }
 
 ```

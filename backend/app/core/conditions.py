@@ -32,6 +32,7 @@ class ConditionEvaluator:
         ast.Sub: operator.sub,
         ast.Mult: operator.mul,
         ast.Div: operator.truediv,
+        ast.USub: operator.neg,
     }
 
     def __init__(self, game_state: GameState, present_chars: list[str],

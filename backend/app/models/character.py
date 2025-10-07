@@ -100,18 +100,10 @@ class Behaviors(BaseModel):
     gates: list[BehaviorGate] = Field(default_factory=list)
     refusals: BehaviorRefusals | None = None
 
-
-class ScheduleSlot(BaseModel):
-    """Schedule for a time slot."""
-    location: str
-    activity: str
-    availability: Literal["none", "low", "medium", "high"]
-
-
 class Schedule(BaseModel):
     """Character schedule."""
-    weekday: dict[str, ScheduleSlot] | None = None
-    weekend: dict[str, ScheduleSlot] | None = None
+    when: str # condition
+    location: str # location_id
 
 class MovementWillingness(BaseModel):
     """Defines an NPC's willingness to move with the player."""
@@ -141,7 +133,7 @@ class Character(BaseModel):
     appearance: Appearance | dict[str, Any] | None = None
     wardrobe: Wardrobe | dict[str, Any] | None = None
     behaviors: Behaviors | list[dict] | dict[str, Any] | None = None
-    schedule: Schedule | dict[str, Any] | None = None
+    schedule: Schedule | list[Schedule] | None = None
     movement: MovementWillingness | None = None
 
     @field_validator('age')

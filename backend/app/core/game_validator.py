@@ -150,15 +150,22 @@ class GameValidator:
 
     def _validate_effect(self, effect: AnyEffect, context: str):
         """Validates the IDs within a single effect."""
+        # Generic checks for common attribute names first
+        if hasattr(effect, 'character') and effect.character and effect.character not in self.character_ids:
+            self.errors.append(
+                f"[{context}] > Effect '{effect.type}' references non-existent character ID: '{effect.character}'"
+            )
+        if hasattr(effect, 'owner') and effect.owner and effect.owner not in self.character_ids:
+            self.errors.append(
+                f"[{context}] > Effect '{effect.type}' references non-existent owner ID: '{effect.owner}'"
+            )
+
+        # Specific checks for different effect types
         match effect:
-            case MeterChangeEffect() | InventoryChangeEffect() | ClothingChangeEffect() | ApplyModifierEffect() | RemoveModifierEffect() | UnlockEffect():
-                if hasattr(effect, 'character') and effect.character and effect.character not in self.character_ids:
+            case MeterChangeEffect():
+                if effect.target and effect.target not in self.character_ids:
                     self.errors.append(
-                        f"[{context}] > Effect '{effect.type}' references non-existent character ID: '{effect.character}'"
-                    )
-                if hasattr(effect, 'owner') and effect.owner and effect.owner not in self.character_ids:
-                    self.errors.append(
-                        f"[{context}] > Effect '{effect.type}' references non-existent owner ID: '{effect.owner}'"
+                        f"[{context}] > Effect '{effect.type}' references non-existent target ID: '{effect.target}'"
                     )
             case InventoryChangeEffect():
                 if effect.item not in self.item_ids:
@@ -170,7 +177,7 @@ class GameValidator:
                     self.errors.append(
                         f"[{context}] > Effect '{effect.type}' references non-existent outfit ID: '{effect.outfit}'"
                     )
-            case  MoveToEffect():
+            case MoveToEffect():
                 if effect.location not in self.location_ids:
                     self.errors.append(
                         f"[{context}] > Effect '{effect.type}' references non-existent location ID: '{effect.location}'"
@@ -182,10 +189,10 @@ class GameValidator:
                     )
             case ApplyModifierEffect() | RemoveModifierEffect():
                 if effect.modifier_id not in self.modifier_ids:
-                     self.errors.append(
+                    self.errors.append(
                         f"[{context}] > Effect '{effect.type}' references non-existent modifier ID: '{effect.modifier_id}'"
                     )
-            case  UnlockEffect():
+            case UnlockEffect():
                 if effect.actions:
                     for action_id in effect.actions:
                         if action_id not in self.action_ids:
@@ -201,7 +208,7 @@ class GameValidator:
             case ConditionalEffect():
                 for sub_effect in effect.then:
                     self._validate_effect(sub_effect, f"{context} > Conditional 'then'")
-                for sub_effect in effect.else_effects:
+                for sub_effect in effect.otherwise:
                     self._validate_effect(sub_effect, f"{context} > Conditional 'else'")
 
             case RandomEffect():

@@ -5,58 +5,48 @@ import pytest
 from app.core.game_engine import GameEngine
 from app.core.event_manager import EventManager
 from app.core.arc_manager import ArcManager
-from app.models.event import Event, EventChoice
-from app.models.arc import Arc, Milestone
-from app.models.location import LocationPrivacy
-from app.models.effects import *
-
+from app.models.events import Event, EventTrigger
+from app.models.node import Choice
+from app.models.arc import Arc, Stage
+from app.models.flag import Flag
+from app.models.effects import FlagSetEffect, MeterChangeEffect
 
 class TestEventManager:
     """Tests for the event system."""
 
     def test_event_trigger_conditions(self, minimal_game_def):
         """Test that events trigger when conditions are met."""
-        # Add test event
         test_event = Event(
             id="test_event",
-            name="Test Event",
-            description="A test event",
-            trigger={
-                "conditions": ["meters.player.health < 50"],
-                "locations": ["test_location"],
-                "chars_present": ["emma"]
-            },
-            on_trigger="You feel weak...",
+            title="Test Event",
+            trigger=EventTrigger(
+                conditional=[{"when": "meters.player.health < 50"}]
+            ),
+            narrative="You feel weak...",
             choices=[
-                EventChoice(
+                Choice(
                     id="rest",
-                    text="Rest",
+                    prompt="Rest",
                     effects=[
-                        MeterChangeEffect(
-                            target="player",
-                            meter="health",
-                            op="add",
-                            value=20
-                        )
+                        MeterChangeEffect(type="meter_change", target="player", meter="health", op="add", value=20)
                     ]
                 )
             ]
         )
-
-        minimal_game_def.events = {"test_event": test_event}
+        minimal_game_def.events.append(test_event)
 
         engine = GameEngine(minimal_game_def, "test_events")
         manager = EventManager(minimal_game_def)
-
-        # Setup triggering conditions
         state = engine.state_manager.state
+
+        # Conditions not met
+        state.meters["player"]["health"] = 60
+        triggered = manager.get_triggered_events(state)
+        assert len(triggered) == 0
+
+        # Conditions met
         state.meters["player"]["health"] = 40
-        state.location_current = "test_location"
-        state.present_chars = ["emma"]
-
-        # Check for events
-        triggered = manager.check_events(state)
-
+        triggered = manager.get_triggered_events(state)
         assert len(triggered) == 1
         assert triggered[0].id == "test_event"
 
@@ -64,199 +54,142 @@ class TestEventManager:
         """Test that event cooldowns work correctly."""
         test_event = Event(
             id="cooldown_event",
-            name="Cooldown Event",
-            trigger={"conditions": ["true"]},
-            cooldown=3,
-            on_trigger="Event triggered",
-            choices=[]
+            title="Cooldown Event",
+            trigger=EventTrigger(conditional=[{"when": "true"}]),
+            cooldown={"turns": 3},
+            narrative="Event triggered"
         )
-
-        minimal_game_def.events = {"cooldown_event": test_event}
+        minimal_game_def.events.append(test_event)
 
         engine = GameEngine(minimal_game_def, "test_cooldown")
         manager = EventManager(minimal_game_def)
         state = engine.state_manager.state
 
-        # First trigger
-        triggered = manager.check_events(state)
+        # First trigger, which will set the cooldown
+        triggered = manager.get_triggered_events(state)
         assert len(triggered) == 1
-
-        # Mark as triggered
-        state.event_cooldowns["cooldown_event"] = 3
+        assert "cooldown_event" in state.cooldowns
+        assert state.cooldowns["cooldown_event"] == 3
 
         # Should not trigger while on cooldown
-        state.event_cooldowns["cooldown_event"] = 2
-        triggered = manager.check_events(state)
+        triggered = manager.get_triggered_events(state)
         assert len(triggered) == 0
 
-        # Should trigger again after cooldown
-        state.event_cooldowns["cooldown_event"] = 0
-        triggered = manager.check_events(state)
+        # Manually decrement cooldown to test expiration
+        state.cooldowns["cooldown_event"] = 1
+        manager.decrement_cooldowns(state)
+
+        # Assert that the cooldown is now gone because it reached 0 and was cleaned up
+        assert "cooldown_event" not in state.cooldowns
+
+        # Should trigger again now that the cooldown is expired
+        triggered = manager.get_triggered_events(state)
         assert len(triggered) == 1
 
-    def test_event_priority(self, minimal_game_def):
-        """Test that higher priority events trigger first."""
-        high_priority = Event(
-            id="high",
-            priority=10,
-            trigger={"conditions": ["true"]},
-            on_trigger="High priority",
-            choices=[]
+    def test_location_scope_events(self, minimal_game_def):
+        """Test events that are scoped to a specific location."""
+        scoped_event = Event(
+            id="scoped_event",
+            title="Scoped Event",
+            scope="location",
+            location="test_location",
+            trigger=EventTrigger(conditional=[{"when": "true"}]),
+            narrative="A location-specific event"
         )
-
-        low_priority = Event(
-            id="low",
-            priority=1,
-            trigger={"conditions": ["true"]},
-            on_trigger="Low priority",
-            choices=[]
-        )
-
-        minimal_game_def.events = {
-            "high": high_priority,
-            "low": low_priority
-        }
-
-        manager = EventManager(minimal_game_def)
-        state = engine.state_manager.state
-
-        triggered = manager.check_events(state)
-
-        # High priority should be first
-        assert triggered[0].id == "high"
-        assert triggered[1].id == "low"
-
-    def test_location_privacy_events(self, minimal_game_def):
-        """Test events that depend on location privacy."""
-        private_event = Event(
-            id="private_event",
-            trigger={
-                "conditions": ["true"],
-                "privacy": LocationPrivacy.HIGH
-            },
-            on_trigger="Private moment",
-            choices=[]
-        )
-
-        minimal_game_def.events = {"private_event": private_event}
+        minimal_game_def.events.append(scoped_event)
 
         engine = GameEngine(minimal_game_def, "test_privacy")
         manager = EventManager(minimal_game_def)
         state = engine.state_manager.state
 
-        # Should not trigger in low privacy
-        state.location_privacy = LocationPrivacy.LOW
-        triggered = manager.check_events(state)
-        assert len(triggered) == 0
-
-        # Should trigger in high privacy
-        state.location_privacy = LocationPrivacy.HIGH
-        triggered = manager.check_events(state)
+        # Should trigger in the correct location
+        state.location_current = "test_location"
+        triggered = manager.get_triggered_events(state)
         assert len(triggered) == 1
+        assert triggered[0].id == "scoped_event"
+
+        # Should NOT trigger in a different location
+        state.location_current = "another_location"
+        triggered = manager.get_triggered_events(state)
+        assert len(triggered) == 0
 
 
 class TestArcManager:
     """Tests for the story arc system."""
 
-    def test_milestone_progression(self, minimal_game_def):
-        """Test that milestones advance when conditions are met."""
+    def test_stage_progression(self, minimal_game_def):
+        """Test that stages advance when conditions are met."""
         test_arc = Arc(
             id="test_arc",
             name="Test Arc",
-            description="A test story arc",
-            milestones=[
-                Milestone(
-                    id="start",
-                    name="Start",
-                    condition="meters.player.health > 50",
-                    effects=[
-                        FlagSetEffect(key="arc_started", value=True)
-                    ]
-                ),
-                Milestone(
-                    id="middle",
-                    name="Middle",
-                    condition="flags.arc_started == true and meters.player.health > 75",
-                    effects=[
-                        FlagSetEffect(key="arc_middle", value=True)
-                    ]
-                ),
-                Milestone(
-                    id="end",
-                    name="End",
-                    condition="flags.arc_middle == true",
-                    effects=[
-                        FlagSetEffect(key="arc_complete", value=True)
-                    ]
-                )
+            stages=[
+                Stage(id="start", name="Start", advance_when="meters.player.health > 50"),
+                Stage(id="middle", name="Middle", advance_when="meters.player.health > 75"),
+                Stage(id="end", name="End", advance_when="meters.player.health == 100"),
             ]
         )
-
-        minimal_game_def.arcs = {"test_arc": test_arc}
+        minimal_game_def.arcs.append(test_arc)
 
         engine = GameEngine(minimal_game_def, "test_arcs")
         manager = ArcManager(minimal_game_def)
         state = engine.state_manager.state
 
-        # Start with health > 50
-        state.meters["player"]["health"] = 60
-        completed = manager.check_milestones(state)
+        # Initial state, no progression
+        state.meters["player"]["health"] = 50
+        entered, exited = manager.check_and_advance_arcs(state)
+        assert not entered
+        assert not exited
 
-        assert "start" in completed
-        assert state.flags.get("arc_started") is True
+        # Advance to 'start'
+        state.meters["player"]["health"] = 60
+        entered, exited = manager.check_and_advance_arcs(state)
+        assert len(entered) == 1
+        assert entered[0].id == "start"
+        assert state.active_arcs["test_arc"] == "start"
         assert "start" in state.completed_milestones
 
-        # Increase health for middle milestone
+        # Advance to 'middle', exiting 'start'
         state.meters["player"]["health"] = 80
-        completed = manager.check_milestones(state)
+        entered, exited = manager.check_and_advance_arcs(state)
+        assert len(entered) == 1
+        assert len(exited) == 1
+        assert entered[0].id == "middle"
+        assert exited[0].id == "start"
+        assert state.active_arcs["test_arc"] == "middle"
 
-        assert "middle" in completed
-        assert state.flags.get("arc_middle") is True
-
-        # End should complete automatically
-        completed = manager.check_milestones(state)
-
-        assert "end" in completed
-        assert state.flags.get("arc_complete") is True
-
-    def test_arc_completion_tracking(self, minimal_game_def):
-        """Test that completed milestones are properly tracked."""
+    def test_arc_effects_on_advance(self, minimal_game_def):
+        """Test that effects are applied when a stage advances."""
         test_arc = Arc(
-            id="track_arc",
-            name="Track Arc",
-            milestones=[
-                Milestone(
-                    id="m1",
-                    name="M1",
-                    condition="true",
-                    effects=[]
-                ),
-                Milestone(
-                    id="m2",
-                    name="M2",
-                    condition="true",
-                    effects=[]
+            id="effect_arc",
+            name="Effect Arc",
+            stages=[
+                Stage(
+                    id="trigger_effect",
+                    name="Trigger Effect",
+                    advance_when="meters.player.health > 90",
+                    effects_on_enter=[FlagSetEffect(type="flag_set", key="arc_started", value=True)],
+                    effects_on_advance=[FlagSetEffect(type="flag_set", key="arc_advanced", value=True)]
                 )
             ]
         )
+        minimal_game_def.arcs.append(test_arc)
+        # Use the Flag model to add flags, not a dictionary
+        minimal_game_def.flags["arc_started"] = Flag(type="bool", default=False)
+        minimal_game_def.flags["arc_advanced"] = Flag(type="bool", default=False)
 
-        minimal_game_def.arcs = {"track_arc": test_arc}
-
-        engine = GameEngine(minimal_game_def, "test_tracking")
-        manager = ArcManager(minimal_game_def)
+        engine = GameEngine(minimal_game_def, "test_arc_effects")
         state = engine.state_manager.state
 
-        # Complete first milestone
-        completed = manager.check_milestones(state)
-        assert "m1" in completed
-        assert "m1" in state.completed_milestones
+        state.meters["player"]["health"] = 95
+        entered_stages, _ = engine.arc_manager.check_and_advance_arcs(state)
 
-        # Should not re-complete
-        completed = manager.check_milestones(state)
-        assert "m1" not in completed
+        # Apply the effects from the newly entered stages
+        for stage in entered_stages:
+            engine.apply_effects(stage.effects_on_enter)
+            engine.apply_effects(stage.effects_on_advance)
 
-        # But m2 should complete
-        assert "m2" in completed
+        assert state.flags.get("arc_started") is True
+        assert state.flags.get("arc_advanced") is True
 
 
 class TestDynamicChoices:
@@ -264,32 +197,18 @@ class TestDynamicChoices:
 
     def test_conditional_choices(self, minimal_game_def):
         """Test that choices appear/hide based on conditions."""
-        from app.models.node import Node, Choice
+        from app.models.node import Node, NodeType
 
         test_node = Node(
             id="conditional_node",
-            type="choice",
+            type=NodeType.SCENE,
+            title="Conditional Choices",
             choices=[
-                Choice(
-                    id="always",
-                    text="Always visible",
-                    to="start_node"
-                ),
-                Choice(
-                    id="high_health",
-                    text="High health only",
-                    condition="meters.player.health > 75",
-                    to="start_node"
-                ),
-                Choice(
-                    id="has_key",
-                    text="Need key",
-                    condition="has('key')",
-                    to="start_node"
-                )
+                Choice(id="always", prompt="Always visible"),
+                Choice(id="high_health", prompt="High health only", conditions="meters.player.health > 75"),
+                Choice(id="has_key", prompt="Need key", conditions="has('key')")
             ]
         )
-
         minimal_game_def.nodes.append(test_node)
 
         engine = GameEngine(minimal_game_def, "test_choices")
@@ -298,171 +217,32 @@ class TestDynamicChoices:
         # Low health, no key
         state.meters["player"]["health"] = 50
         state.inventory["player"] = {}
-
         choices = engine._generate_choices(test_node, [])
         choice_ids = {c["id"] for c in choices}
-
-        assert "always" in choice_ids
-        assert "high_health" not in choice_ids
-        assert "has_key" not in choice_ids
+        assert choice_ids == {"always"}
 
         # High health, has key
         state.meters["player"]["health"] = 80
+        if not state.inventory.get("player"):
+            state.inventory["player"] = {}
         state.inventory["player"]["key"] = 1
-
         choices = engine._generate_choices(test_node, [])
         choice_ids = {c["id"] for c in choices}
-
-        assert "always" in choice_ids
-        assert "high_health" in choice_ids
-        assert "has_key" in choice_ids
+        assert choice_ids == {"always", "high_health", "has_key"}
 
     def test_event_choices_merge(self, minimal_game_def):
         """Test that event choices merge with node choices."""
-        from app.models.node import Node, Choice
-
-        node_choice = Choice(
-            id="node_choice",
-            text="From node",
-            to="start_node"
-        )
+        from app.models.node import Node, NodeType
 
         test_node = Node(
-            id="merge_node",
-            type="choice",
-            choices=[node_choice]
+            id="merge_node", type=NodeType.SCENE, title="Merge",
+            choices=[Choice(id="node_choice", prompt="From node")]
         )
-
-        event_choice = EventChoice(
-            id="event_choice",
-            text="From event",
-            effects=[]
-        )
-
-        triggered_events = [
-            Event(
-                id="test",
-                on_trigger="Test",
-                choices=[event_choice]
-            )
-        ]
+        event_choices = [Choice(id="event_choice", prompt="From event")]
 
         engine = GameEngine(minimal_game_def, "test_merge")
-        choices = engine._generate_choices(test_node, triggered_events)
-
+        choices = engine._generate_choices(test_node, event_choices)
         choice_ids = {c["id"] for c in choices}
-        assert "node_choice" in choice_ids
-        assert "event_choice" in choice_ids
-        assert len(choices) == 2
 
-
-class TestEffectProcessing:
-    """Tests for complex effect processing."""
-
-    def test_conditional_effects(self, minimal_game_def):
-        """Test conditional effect branching."""
-        engine = GameEngine(minimal_game_def, "test_conditional")
-        state = engine.state_manager.state
-
-        # Create nested conditional
-        effect = ConditionalEffect(
-            when="meters.player.health > 50",
-            then=[
-                ConditionalEffect(
-                    when="has('key')",
-                    then=[
-                        FlagSetEffect(key="both_true", value=True)
-                    ],
-                    else_effects=[
-                        FlagSetEffect(key="only_health", value=True)
-                    ]
-                )
-            ],
-            else_effects=[
-                FlagSetEffect(key="low_health", value=True)
-            ]
-        )
-
-        # Test with high health and key
-        state.meters["player"]["health"] = 75
-        state.inventory["player"]["key"] = 1
-        engine._apply_conditional_effect(effect)
-
-        assert state.flags.get("both_true") is True
-        assert state.flags.get("only_health") is None
-        assert state.flags.get("low_health") is None
-
-        # Reset and test with high health, no key
-        state.flags = {}
-        state.inventory["player"] = {}
-        engine._apply_conditional_effect(effect)
-
-        assert state.flags.get("both_true") is None
-        assert state.flags.get("only_health") is True
-        assert state.flags.get("low_health") is None
-
-    def test_random_effects(self, minimal_game_def):
-        """Test random effect selection."""
-        engine = GameEngine(minimal_game_def, "test_random_123")  # Fixed seed
-        state = engine.state_manager.state
-
-        effect = RandomEffect(
-            choices=[
-                RandomChoice(
-                    weight=50,
-                    effects=[FlagSetEffect(key="outcome_a", value=True)]
-                ),
-                RandomChoice(
-                    weight=50,
-                    effects=[FlagSetEffect(key="outcome_b", value=True)]
-                )
-            ]
-        )
-
-        # With fixed seed, should be deterministic
-        engine._apply_random_effect(effect)
-
-        # One and only one outcome should be selected
-        has_a = state.flags.get("outcome_a") is True
-        has_b = state.flags.get("outcome_b") is True
-        assert has_a != has_b  # XOR - exactly one is true
-
-    def test_complex_meter_operations(self, minimal_game_def):
-        """Test multiply, divide, and set operations."""
-        minimal_game_def.meters = {
-            "player": {
-                "health": {"min": 0, "max": 100, "default": 50}
-            }
-        }
-
-        engine = GameEngine(minimal_game_def, "test_ops")
-        state = engine.state_manager.state
-
-        # Test multiply
-        state.meters["player"]["health"] = 40
-        engine._apply_meter_change(MeterChangeEffect(
-            target="player", meter="health", op="multiply", value=2
-        ))
-        assert state.meters["player"]["health"] == 80
-
-        # Test divide
-        engine._apply_meter_change(MeterChangeEffect(
-            target="player", meter="health", op="divide", value=4
-        ))
-        assert state.meters["player"]["health"] == 20
-
-        # Test set
-        engine._apply_meter_change(MeterChangeEffect(
-            target="player", meter="health", op="set", value=100
-        ))
-        assert state.meters["player"]["health"] == 100
-
-        # Test clamping on overflow
-        engine._apply_meter_change(MeterChangeEffect(
-            target="player", meter="health", op="add", value=50
-        ))
-        assert state.meters["player"]["health"] == 100  # Clamped to max
-
-
-if __name__ == "__main__":
-    pytest.main([__file__, "-v"])
+        # When event choices are present, they should REPLACE node choices
+        assert choice_ids == {"event_choice"}

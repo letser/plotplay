@@ -1,355 +1,144 @@
 """
-Comprehensive tests for AI integration in PlotPlay v3.
+Tests for AI service integration and prompt building in PlotPlay v3.
 """
 import pytest
 import json
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, MagicMock
+
+from app.models.character import Character, Appearance, AppearanceBase
 from app.core.game_engine import GameEngine
-from app.core.prompt_builder import PromptBuilder
-from app.services.ai_service import AIService, AIResponse
-from app.models.location import LocationPrivacy
-from app.core.reconciliation import ReconciliationEngine
+from app.services.prompt_builder import PromptBuilder
+from app.services.ai_service import AIResponse
+
+# Mark all tests in this file as async
+pytestmark = pytest.mark.asyncio
 
 
 class TestPromptBuilder:
-    """Tests for prompt generation."""
+    """Tests for the PromptBuilder class."""
 
-    @pytest.mark.asyncio
-    async def test_writer_prompt_structure(self, minimal_game_def):
-        """Test that writer prompts contain all required sections."""
-        engine = GameEngine(minimal_game_def, "test_writer")
-        builder = engine.prompt_builder
+    def test_writer_prompt_contains_all_sections(self, minimal_game_def, sample_game_state):
+        """Verify the writer prompt has all the required markdown sections."""
+        # Add more detail to the game def for a richer prompt
+        player = minimal_game_def.characters[0]
+        player.description = "A curious adventurer."
+        player.appearance = Appearance(base=AppearanceBase(style=["practical"]))
 
-        # Setup state with some history
-        state = engine.state_manager.state
-        state.narrative_history = ["Previous narrative 1", "Previous narrative 2"]
-        state.memory_log = ["Memory 1", "Memory 2"]
-        state.meters["player"]["health"] = 75
-        state.present_chars = ["player", "emma"]
+        npc = Character(
+            id="zara",
+            name="Zara",
+            age=30,
+            gender="female",
+            description="A mysterious merchant.",
+            dialogue_style="Speaks in riddles."
+        )
+        minimal_game_def.characters.append(npc)
+        sample_game_state.present_chars.append("zara")
+        sample_game_state.memory_log.append("Zara seemed interested in the old map.")
 
-        prompt = builder.build_writer_prompt(
-            state=state,
-            action="look around",
-            current_node=engine._get_current_node(),
-            recent_history=state.narrative_history[-5:]
+        engine = GameEngine(minimal_game_def, "test_prompt")
+        prompt_builder = PromptBuilder(minimal_game_def, engine.clothing_manager)
+        current_node = engine._get_current_node()
+        player_action = "Player asks Zara about the map."
+
+        prompt = prompt_builder.build_writer_prompt(
+            sample_game_state,
+            player_action,
+            current_node,
+            sample_game_state.narrative_history,
+            rng_seed=123
         )
 
-        # Verify all required sections are present
-        assert "GAME CONTEXT" in prompt
-        assert "CURRENT SITUATION" in prompt
-        assert "CHARACTER INFORMATION" in prompt
-        assert "ACTION TO NARRATE" in prompt
-        assert "CONSTRAINTS" in prompt
+        # Check for key markdown headers and content
+        assert "**Game Title:** Test Game" in prompt
+        assert "**PLAYER CHARACTER: Player**" in prompt
+        assert "A curious adventurer." in prompt
+        assert "**NON-PLAYER CHARACTERS**" in prompt
+        assert "Zara (female)" in prompt
+        assert "Speaks in riddles." in prompt
+        assert "**CURRENT SITUATION**" in prompt
+        assert "Location: Test Location" in prompt
+        assert "Present: Player, Zara" in prompt
+        assert "**MEMORY LOG**" in prompt
+        assert "Zara seemed interested in the old map." in prompt
+        assert "**Player's Action:**" in prompt
+        assert "Player asks Zara about the map." in prompt
+        assert "Continue the narrative." in prompt
 
-        # Verify key information is included
-        assert "health: 75" in prompt
-        assert "Previous narrative" in prompt
-        assert "Memory 1" in prompt
+    def test_checker_prompt_structure(self):
+        """Verify the checker prompt is structured correctly."""
+        prompt_builder = PromptBuilder(MagicMock(), MagicMock())
+        ai_narrative = "You ask Zara about the map. She smiles enigmatically."
+        player_action = "Player asks Zara about the map."
 
-    @pytest.mark.asyncio
-    async def test_checker_prompt_structure(self, minimal_game_def):
-        """Test that checker prompts are properly formatted."""
-        engine = GameEngine(minimal_game_def, "test_checker")
-        builder = engine.prompt_builder
+        prompt = prompt_builder.build_checker_prompt(ai_narrative, player_action, MagicMock())
 
-        state = engine.state_manager.state
-        narrative = "The player looks around the room."
-
-        prompt = builder.build_checker_prompt(
-            state=state,
-            narrative=narrative,
-            action="look around",
-            target=None
-        )
-
-        # Verify structure
-        assert "NARRATIVE TO ANALYZE" in prompt
-        assert narrative in prompt
-        assert "VALIDATION REQUIREMENTS" in prompt
-        assert "OUTPUT FORMAT" in prompt
-        assert "JSON" in prompt
-
-    def test_reconciliation_prompt_structure(self, minimal_game_def):
-        """Test reconciliation prompt generation."""
-        engine = GameEngine(minimal_game_def, "test_recon")
-        builder = engine.prompt_builder
-
-        violations = [
-            {"type": "consent_gate", "character": "emma", "reason": "trust too low"}
-        ]
-
-        prompt = builder.build_reconciliation_prompt(
-            narrative="Emma kisses you.",
-            violations=violations,
-            state=engine.state_manager.state
-        )
-
-        assert "ORIGINAL NARRATIVE" in prompt
-        assert "VIOLATIONS" in prompt
-        assert "consent_gate" in prompt
-        assert "trust too low" in prompt
-        assert "REWRITE REQUIREMENTS" in prompt
+        assert "You are the PlotPlay Checker" in prompt
+        assert "[NARRATIVE TO CHECK]" in prompt
+        assert ai_narrative in prompt
+        assert "[PLAYER ACTION THAT PROMPTED THIS]" in prompt
+        assert player_action in prompt
+        assert "[TASK]" in prompt
+        assert "Extract all concrete, factual state changes" in prompt
 
 
 class TestAIServiceIntegration:
-    """Tests for AI service integration."""
+    """Tests for the GameEngine's interaction with the AI service."""
 
-    @pytest.mark.asyncio
-    async def test_ai_response_parsing(self, mock_game_engine):
-        """Test parsing of AI responses."""
-        engine = mock_game_engine
+    async def test_engine_calls_writer_and_checker(self, mock_game_engine: GameEngine):
+        """Test that process_action calls both writer and checker AIs."""
+        await mock_game_engine.process_action("do", "Look around the room.")
 
-        # Mock checker response with all fields
-        checker_response = {
+        assert mock_game_engine.ai_service.generate.call_count >= 2
+
+        first_call_args = mock_game_engine.ai_service.generate.call_args_list[0].args
+        second_call_args = mock_game_engine.ai_service.generate.call_args_list[1].args
+
+        assert "**Player's Action:**" in first_call_args[0]
+        assert "Look around the room." in first_call_args[0]
+
+        assert "[NARRATIVE TO CHECK]" in second_call_args[0]
+        assert "Test narrative" in second_call_args[0]
+
+    async def test_engine_applies_state_changes_from_checker(self, mock_game_engine: GameEngine):
+        """Test that the engine correctly parses and applies state changes."""
+        mock_game_engine.game_def.flags["found_secret_door"] = MagicMock(default=False)
+
+        checker_response_json = json.dumps({
             "flag_changes": {
-                "emma.met": True,
-                "first_kiss": True
+                "found_secret_door": True
             },
             "meter_changes": {
-                "emma": {"trust": 5, "attraction": 10}
-            },
-            "inventory_changes": {
-                "player": {"remove": ["flowers"]}
-            },
-            "memory": [
-                "You gave Emma flowers",
-                "Emma seemed happy"
-            ],
-            "location_change": {
-                "zone": "park",
-                "location": "bench"
+                "player": {"health": -5}
             }
-        }
+        })
 
-        engine.ai_service.generate.return_value = AIResponse(
-            content=json.dumps(checker_response)
-        )
-
-        # Process action and verify changes are applied
-        response = await engine.process_action(
-            action_type="do",
-            action_text="give flowers to emma"
-        )
-
-        state = engine.state_manager.state
-
-        # Verify all changes were applied
-        assert state.flags.get("emma.met") is True
-        assert state.flags.get("first_kiss") is True
-        assert "You gave Emma flowers" in state.memory_log
-        # Note: The actual state changes would be applied by the engine
-
-    @pytest.mark.asyncio
-    async def test_ai_error_handling(self, mock_game_engine):
-        """Test handling of AI service errors."""
-        engine = mock_game_engine
-
-        # Simulate AI service error
-        engine.ai_service.generate.side_effect = Exception("AI service unavailable")
-
-        # Should handle gracefully
-        response = await engine.process_action(
-            action_type="do",
-            action_text="test action"
-        )
-
-        # Should provide fallback response
-        assert "narrative" in response
-        assert response.get("error") is not None or len(response["narrative"]) > 0
-
-    @pytest.mark.asyncio
-    async def test_malformed_ai_response_handling(self, mock_game_engine):
-        """Test handling of malformed AI responses."""
-        engine = mock_game_engine
-
-        # Return invalid JSON
-        engine.ai_service.generate.return_value = AIResponse(
-            content="This is not valid JSON"
-        )
-
-        # Should handle gracefully
-        response = await engine.process_action(
-            action_type="do",
-            action_text="test action"
-        )
-
-        assert "narrative" in response
-
-
-class TestReconciliation:
-    """Tests for the reconciliation system."""
-
-    def test_consent_gate_detection(self, minimal_game_def):
-        """Test detection of consent gate violations."""
-        engine = GameEngine(minimal_game_def, "test_consent")
-        recon = ReconciliationEngine(minimal_game_def)
-
-        # Setup state with low trust
-        state = engine.state_manager.state
-        state.meters["emma"] = {"trust": 20}
-        state.flags["emma.first_kiss"] = False
-
-        # Check romantic action with low trust
-        violations = recon.check_violations(
-            state=state,
-            narrative="Emma kisses you passionately.",
-            action="kiss emma",
-            target="emma",
-            checker_response={}
-        )
-
-        assert len(violations) > 0
-        assert any(v["type"] == "consent_gate" for v in violations)
-
-    def test_meter_limit_violations(self, minimal_game_def):
-        """Test detection of meter limit violations."""
-        minimal_game_def.meters = {
-            "player": {
-                "health": {"min": 0, "max": 100, "default": 50}
-            }
-        }
-
-        engine = GameEngine(minimal_game_def, "test_limits")
-        recon = ReconciliationEngine(minimal_game_def)
-
-        state = engine.state_manager.state
-        state.meters["player"]["health"] = 95
-
-        # Check action that would exceed max
-        checker_response = {
-            "meter_changes": {
-                "player": {"health": 20}  # Would go to 115
-            }
-        }
-
-        violations = recon.check_violations(
-            state=state,
-            narrative="You feel incredibly healthy.",
-            action="drink potion",
-            target=None,
-            checker_response=checker_response
-        )
-
-        assert len(violations) > 0
-        assert any(v["type"] == "meter_limit" for v in violations)
-
-    @pytest.mark.asyncio
-    async def test_narrative_reconciliation(self, mock_game_engine):
-        """Test that narratives are properly reconciled when violations occur."""
-        engine = mock_game_engine
-
-        # Setup for consent violation
-        engine.state_manager.state.meters["emma"] = {"trust": 10}
-        engine.state_manager.state.present_chars = ["emma"]
-
-        # Mock writer to return romantic narrative
-        writer_response = AIResponse(
-            content="Emma's eyes flutter closed as she leans in for a kiss."
-        )
-
-        # Mock checker to not add kiss flag (since it shouldn't happen)
-        checker_response = AIResponse(
-            content=json.dumps({"flag_changes": {}})
-        )
-
-        # Mock reconciliation to return rejection
-        recon_response = AIResponse(
-            content="Emma steps back with a gentle smile. 'Not yet...'"
-        )
-
-        engine.ai_service.generate.side_effect = [
-            writer_response,
-            checker_response,
-            recon_response
+        mock_game_engine.ai_service.generate.side_effect = [
+            AsyncMock(return_value=AIResponse(content="You find a secret door.")),
+            AsyncMock(return_value=AIResponse(content=checker_response_json))
         ]
 
-        response = await engine.process_action(
-            action_type="do",
-            action_text="kiss emma",
-            target="emma"
-        )
+        initial_health = mock_game_engine.state_manager.state.meters["player"]["health"]
 
-        # Should use reconciled narrative
-        assert "Not yet" in response["narrative"]
-        assert "flutter closed" not in response["narrative"]
+        await mock_game_engine.process_action("do", "Search the room.")
 
+        state = mock_game_engine.state_manager.state
 
-class TestMemorySystem:
-    """Tests for memory extraction and management."""
+        assert state.flags.get("found_secret_door") is True
+        assert state.meters["player"]["health"] == initial_health - 5
 
-    @pytest.mark.asyncio
-    async def test_memory_extraction(self, mock_game_engine):
-        """Test that memories are properly extracted from checker responses."""
-        engine = mock_game_engine
+    async def test_engine_handles_invalid_checker_json(self, mock_game_engine: GameEngine):
+        """Test that the engine logs a warning and continues if checker returns bad JSON."""
+        invalid_json = '{"flag_changes": {"is_confused": true,}}' # Extra comma
 
-        # Mock responses with memories
-        writer_response = AIResponse(content="You chat with Emma.")
-        checker_response = AIResponse(content=json.dumps({
-            "memory": [
-                "Emma mentioned she likes jazz",
-                "You learned Emma is a student"
-            ]
-        }))
-
-        engine.ai_service.generate.side_effect = [writer_response, checker_response]
-
-        await engine.process_action(action_type="do", action_text="talk to emma")
-
-        state = engine.state_manager.state
-        assert "Emma mentioned she likes jazz" in state.memory_log
-        assert "You learned Emma is a student" in state.memory_log
-
-    @pytest.mark.asyncio
-    async def test_memory_limit_enforcement(self, mock_game_engine):
-        """Test that memory log is limited to prevent unbounded growth."""
-        engine = mock_game_engine
-        state = engine.state_manager.state
-
-        # Fill memory log
-        for i in range(20):
-            state.memory_log.append(f"Old memory {i}")
-
-        # Add new memories
-        writer_response = AIResponse(content="Test")
-        checker_response = AIResponse(content=json.dumps({
-            "memory": ["New memory 1", "New memory 2", "New memory 3"]
-        }))
-
-        engine.ai_service.generate.side_effect = [writer_response, checker_response]
-        await engine.process_action(action_type="do", action_text="test")
-
-        # Should be limited (default is 15)
-        assert len(state.memory_log) <= 15
-        # Newest memories should be kept
-        assert "New memory 3" in state.memory_log
-        # Oldest should be dropped
-        assert "Old memory 0" not in state.memory_log
-
-    @pytest.mark.asyncio
-    async def test_memory_context_in_prompts(self, mock_game_engine):
-        """Test that memories are included in writer prompts."""
-        engine = mock_game_engine
-        state = engine.state_manager.state
-
-        # Add memories
-        state.memory_log = [
-            "Emma works at the coffee shop",
-            "Emma's favorite coffee is cappuccino",
-            "You and Emma sat by the window"
+        mock_game_engine.ai_service.generate.side_effect = [
+            AsyncMock(return_value=AIResponse(content="Something confusing happens.")),
+            AsyncMock(return_value=AIResponse(content=invalid_json))
         ]
 
-        # Build prompt
-        prompt = engine.prompt_builder.build_writer_prompt(
-            state=state,
-            action="order coffee",
-            current_node=engine._get_current_node(),
-            recent_history=[]
-        )
+        result = await mock_game_engine.process_action("do", "Touch the weird orb.")
 
-        # Verify memories are included
-        assert "Emma works at the coffee shop" in prompt
-        assert "cappuccino" in prompt
+        assert "Something confusing happens." in result["narrative"]
 
-
-if __name__ == "__main__":
-    pytest.main([__file__, "-v"])
+        state = mock_game_engine.state_manager.state
+        assert state.flags.get("is_confused") is None

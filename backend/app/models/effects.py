@@ -84,7 +84,7 @@ class ConditionalEffect(Effect):
     """An effect that branches based on a condition."""
     type: Literal["conditional"] = "conditional"
     then: list["AnyEffect"] = Field(default_factory=list)
-    else_effects: list["AnyEffect"] = Field(default_factory=list, alias="else")
+    otherwise: list["AnyEffect"] = Field(default_factory=list)
 
 class RandomChoice(BaseModel):
     """A single weighted choice for a random effect."""

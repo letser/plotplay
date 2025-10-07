@@ -56,6 +56,6 @@ class Zone(BaseModel):
     accessible: bool = True
     tags: list[str] = Field(default_factory=list)
     properties: dict[str, Any] | None = None
-    transport_connections: list[dict[str, Any]] = Field(default_factory=list)
+    transport_connections: list[dict[str, Any]]  | None = None
     discovery_conditions: list[str] | None = None
     locations: list[Location] = Field(default_factory=list)
