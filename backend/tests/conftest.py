@@ -5,16 +5,19 @@ import pytest
 import json
 from unittest.mock import AsyncMock, MagicMock
 
+import pytest_asyncio
+
 from app.core.game_loader import GameLoader
 from app.core.game_engine import GameEngine
-from app.services.ai_service import AIService, AIResponse
+from app.services.ai_service import AIService, AIResponse, AISettings
 from app.models.game import GameDefinition, MetaConfig, StartConfig
 from app.models.character import Character
-from app.models.location import Zone, Location
-from app.models.node import Node
+from app.models.location import Zone, Location, LocationPrivacy
+from app.models.node import Node, Choice
 from app.models.enums import NodeType
 from app.models.meters import Meter
 from app.models.flag import Flag
+from app.models.time import TimeConfig, TimeStart
 
 
 @pytest.fixture
@@ -26,9 +29,8 @@ def game_loader():
 @pytest.fixture
 def mock_ai_service():
     """Provides a mock AI service with configurable responses."""
-    from app.services.ai_service import AISettings
     service = MagicMock(spec=AIService)
-    service.settings = AISettings() # Add this line
+    service.settings = AISettings()
 
     def create_response(content: str, memory: list[str] = None):
         if memory:
@@ -43,7 +45,6 @@ def mock_ai_service():
 @pytest.fixture
 def minimal_game_def():
     """Creates a minimal valid game definition for testing."""
-    from app.models.time import TimeConfig, TimeStart
     return GameDefinition(
         meta=MetaConfig(
             id="test_game",
@@ -95,6 +96,7 @@ def minimal_game_def():
         }
     )
 
+
 @pytest.fixture
 async def mock_game_engine(minimal_game_def, mock_ai_service):
     """Creates a GameEngine with mocked AI service."""
@@ -113,6 +115,7 @@ async def mock_game_engine(minimal_game_def, mock_ai_service):
 def sample_game_state():
     """Provides a sample game state for testing."""
     from app.core.state_manager import GameState
+    from app.models.location import LocationPrivacy
 
     state = GameState()
     state.meters = {
@@ -128,9 +131,18 @@ def sample_game_state():
     state.current_node = "start_node"
     state.day = 1
     state.time_slot = "morning"
+    state.time_hhmm = None  # For clock/hybrid modes
+    state.weekday = None  # For calendar system
     state.location_current = "test_location"
-    state.location_zone = "test_zone"
+    state.zone_current = "test_zone"
+    state.location_privacy = LocationPrivacy.LOW  # Add this required field
     state.present_chars = ["player"]
+    state.memory_log = []
+    state.narrative_history = []
+    state.modifiers = {}  # Add this for modifiers
+    state.clothing_states = {}  # Add this for clothing
+    state.active_arcs = {}  # Add this for arcs
+    state.completed_milestones = []  # Add this for arc milestones
 
     return state
 

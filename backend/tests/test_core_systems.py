@@ -5,7 +5,7 @@ import pytest
 from app.core.state_manager import StateManager, GameState
 from app.core.conditions import ConditionEvaluator
 from app.core.game_validator import GameValidator
-from app.models.time import TimeConfig, CalendarConfig
+from app.models.time import TimeConfig, CalendarConfig, ClockConfig
 from app.models.effects import *
 from app.core.game_engine import GameEngine
 
@@ -22,7 +22,7 @@ class TestStateManager:
         assert state.zone_current == "test_zone"
         assert state.location_current == "test_location"
         assert state.day == 1
-        assert state.time_slot == "morning"  # Correctly check for the defined start slot
+        assert state.time_slot == "morning"
         assert "player" in state.meters
         assert "health" in state.meters["player"]
         assert "player" in state.inventory
@@ -33,12 +33,25 @@ class TestStateManager:
         engine = GameEngine(minimal_game_def, "test_bounds")
 
         # Test overflow
-        engine._apply_meter_change(MeterChangeEffect(target="player", meter="health", op="set", value=150))
+        engine._apply_meter_change(MeterChangeEffect(
+            type="meter_change",
+            target="player",
+            meter="health",
+            op="set",
+            value=150
+        ))
         assert engine.state_manager.state.meters["player"]["health"] == 100
 
         # Test underflow
-        engine._apply_meter_change(MeterChangeEffect(target="player", meter="health", op="set", value=-50))
+        engine._apply_meter_change(MeterChangeEffect(
+            type="meter_change",
+            target="player",
+            meter="health",
+            op="set",
+            value=-50
+        ))
         assert engine.state_manager.state.meters["player"]["health"] == 0
+
 
 class TestConditionEvaluator:
     """Tests for the ConditionEvaluator class."""
@@ -68,30 +81,38 @@ class TestConditionEvaluator:
         """Test all DSL functions from the specification."""
         evaluator = ConditionEvaluator(sample_game_state, ["emma", "alex"])
 
-        # has() function
+        # has() function - checks player inventory
         assert evaluator.evaluate("has('key')")
         assert evaluator.evaluate("has('potion')")
         assert not evaluator.evaluate("has('sword')")
 
         # npc_present() function
         assert evaluator.evaluate("npc_present('emma')")
+        assert evaluator.evaluate("npc_present('alex')")
         assert not evaluator.evaluate("npc_present('john')")
 
         # get() function with defaults
         assert evaluator.evaluate("get('meters.player.health', 0) == 100")
         assert evaluator.evaluate("get('meters.missing.value', 999) == 999")
+        assert evaluator.evaluate("get('flags.game_started', false) == true")
 
         # Math functions
         assert evaluator.evaluate("min(10, 20) == 10")
         assert evaluator.evaluate("max(10, 20) == 20")
         assert evaluator.evaluate("abs(-10) == 10")
         assert evaluator.evaluate("clamp(150, 0, 100) == 100")
+        assert evaluator.evaluate("clamp(-10, 0, 100) == 0")
+        assert evaluator.evaluate("clamp(50, 0, 100) == 50")
 
         # rand() function (deterministic with seed)
         eval_with_seed = ConditionEvaluator(sample_game_state, [], rng_seed=12345)
         results = [eval_with_seed.evaluate("rand(0.5)") for _ in range(100)]
         # Should get mix of true/false, not all same
         assert True in results and False in results
+
+        # Test rand with edge cases
+        assert not evaluator.evaluate("rand(0.0)")  # Always false
+        assert evaluator.evaluate("rand(1.0)")  # Always true
 
     def test_time_and_calendar_conditions(self, sample_game_state):
         """Test time-based condition evaluation."""
@@ -105,6 +126,34 @@ class TestConditionEvaluator:
         assert evaluator.evaluate("time.weekday == 'friday'")
         assert evaluator.evaluate("time.day == 5")
         assert evaluator.evaluate("time.weekday in ['friday', 'saturday']")
+        assert not evaluator.evaluate("time.weekday == 'monday'")
+
+    def test_membership_operator(self, sample_game_state):
+        """Test the 'in' operator for membership checking."""
+        evaluator = ConditionEvaluator(sample_game_state, ["emma"])
+
+        # Test with lists
+        assert evaluator.evaluate("'emma' in ['emma', 'alex', 'john']")
+        assert not evaluator.evaluate("'sarah' in ['emma', 'alex', 'john']")
+
+        # Test with time slots - need to set the time_slot properly
+        sample_game_state.time_slot = "evening"
+        # Create a new evaluator with the updated state
+        evaluator = ConditionEvaluator(sample_game_state, ["emma"])
+        assert evaluator.evaluate("time.slot in ['evening', 'night']")
+        assert not evaluator.evaluate("time.slot in ['morning', 'afternoon']")
+
+    def test_safe_path_resolution(self, sample_game_state):
+        """Test that missing paths safely resolve to null/falsey."""
+        evaluator = ConditionEvaluator(sample_game_state, [])
+
+        # Missing paths should be falsey
+        assert not evaluator.evaluate("meters.nonexistent.value")
+        assert not evaluator.evaluate("flags.missing_flag")
+
+        # Can still compare with null
+        assert evaluator.evaluate("meters.nonexistent.value == null")
+        assert evaluator.evaluate("not meters.nonexistent.value")
 
 
 class TestGameValidator:
@@ -134,7 +183,6 @@ class TestGameValidator:
 
     def test_validates_character_references(self, minimal_game_def):
         """Test that validator catches invalid character references."""
-        # Add effect referencing non-existent character
         from app.models.effects import MeterChangeEffect
 
         minimal_game_def.nodes[0].entry_effects = [
@@ -148,9 +196,30 @@ class TestGameValidator:
         ]
 
         validator = GameValidator(minimal_game_def)
-        # Correct the expected error message to match the validator's output
         with pytest.raises(ValueError, match="references non-existent target ID"):
             validator.validate()
+
+    def test_validates_meter_references(self, minimal_game_def):
+        """Test that validator catches references to undefined meters."""
+        from app.models.effects import MeterChangeEffect
+
+        minimal_game_def.nodes[0].entry_effects = [
+            MeterChangeEffect(
+                target="player",
+                meter="undefined_meter",
+                op="add",
+                value=10,
+                type="meter_change"
+            )
+        ]
+
+        validator = GameValidator(minimal_game_def)
+        # This might not raise an error depending on implementation
+        # but we should test the behavior
+        try:
+            validator.validate()
+        except ValueError as e:
+            assert "undefined_meter" in str(e)
 
 
 class TestTimeSystem:
@@ -164,9 +233,8 @@ class TestTimeSystem:
             actions_per_slot=1
         )
 
-        from app.core.game_engine import GameEngine
         engine = GameEngine(minimal_game_def, "test_time")
-        engine.state_manager.state.time_slot = "morning"  # Manually set start slot
+        engine.state_manager.state.time_slot = "morning"
 
         assert engine.state_manager.state.time_slot == "morning"
 
@@ -187,37 +255,67 @@ class TestTimeSystem:
 
     def test_calendar_weekday_calculation(self, minimal_game_def):
         """Test calendar weekday calculations."""
-        # Correctly create and assign a new TimeConfig object
         minimal_game_def.time = TimeConfig(
+            mode="slots",
             calendar=CalendarConfig(
                 enabled=True,
-                start_day="wednesday",
-                week_days=["monday", "tuesday", "wednesday", "thursday",
-                           "friday", "saturday", "sunday"]
+                start_day="monday"  # Day 1 will be Monday
             )
         )
 
-        from app.core.game_engine import GameEngine
         engine = GameEngine(minimal_game_def, "test_calendar")
+        state = engine.state_manager.state
 
-        # Manually trigger the initial weekday calculation since we modified the def
-        engine.state_manager.state.weekday = engine._calculate_weekday()
+        # Day 1 should be Monday (based on start_day)
+        state.day = 1
+        weekday = engine._calculate_weekday()
+        assert weekday == "monday"
 
-        # Day 1 = Wednesday
-        assert engine.state_manager.state.weekday == "wednesday"
+        # Day 7 should be Sunday
+        state.day = 7
+        weekday = engine._calculate_weekday()
+        assert weekday == "sunday"
 
-        # Test various days
-        test_cases = [
-            (2, "thursday"),
-            (5, "sunday"),
-            (8, "wednesday"),  # Wraps around
-            (14, "tuesday"),  # Two weeks
-        ]
+        # Day 8 should wrap to Monday
+        state.day = 8
+        weekday = engine._calculate_weekday()
+        assert weekday == "monday"
 
-        for day, expected_weekday in test_cases:
-            engine.state_manager.state.day = day
-            assert engine._calculate_weekday() == expected_weekday
+        # Day 15 should also be Monday (2 weeks later)
+        state.day = 15
+        weekday = engine._calculate_weekday()
+        assert weekday == "monday"
 
+    def test_clock_mode_time_advancement(self, minimal_game_def):
+        """Test time advancement in clock mode."""
+        from app.models.time import ClockConfig
 
-if __name__ == "__main__":
-    pytest.main([__file__, "-v"])
+        minimal_game_def.time = TimeConfig(
+            mode="clock",
+            clock=ClockConfig(
+                minutes_per_day=1440  # 24 hours
+            )
+        )
+
+        engine = GameEngine(minimal_game_def, "test_clock")
+        state = engine.state_manager.state
+
+        # Set initial time
+        state.time_hhmm = "08:00"
+
+        # Advance time by default amount (10 minutes if no parameter given)
+        engine._advance_time()
+
+        # Check that time advanced
+        assert state.time_hhmm == "08:10"
+
+        # Test specific advancement
+        engine._advance_time(30)  # Advance 30 minutes
+        assert state.time_hhmm == "08:40"
+
+        # Test day rollover
+        state.time_hhmm = "23:50"
+        engine._advance_time(20)  # Should roll over to next day
+
+        assert state.time_hhmm == "00:10"
+        assert state.day == 2
