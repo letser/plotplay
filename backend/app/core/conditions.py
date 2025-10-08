@@ -35,18 +35,16 @@ class ConditionEvaluator:
         ast.USub: operator.neg,
     }
 
-    def __init__(self, game_state: GameState, present_chars: list[str],
-                 rng_seed: int | None = None):
+    def __init__(self, game_state: GameState, rng_seed: int | None = None):
         """
         Initialize the evaluator with game state and optional RNG seed.
 
         Args:
             game_state: Current game state
-            present_chars: List of NPCs present in current location
             rng_seed: Seed for deterministic randomness (turn_count + game_id hash)
         """
         self.game_state = game_state
-        self.present_chars = present_chars
+        self.present_chars = self.game_state.present_chars
 
         # Set up deterministic random if seed provided
         self.rng = random.Random(rng_seed) if rng_seed else random

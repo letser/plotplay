@@ -301,7 +301,7 @@ class PromptBuilder:
     def _build_character_cards(self, state: GameState, rng_seed: int | None = None) -> str:
         """Constructs the 'character card' summaries for the prompt."""
         cards = []
-        evaluator = ConditionEvaluator(state, state.present_chars, rng_seed=rng_seed)
+        evaluator = ConditionEvaluator(state, rng_seed=rng_seed)
 
         for char_id in state.present_chars:
             char_def = self.characters_map.get(char_id)

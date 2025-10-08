@@ -215,7 +215,7 @@ class GameEngine:
     def _update_discoveries(self):
         """Checks for and applies new location discoveries."""
         state = self.state_manager.state
-        evaluator = ConditionEvaluator(state, state.present_chars, rng_seed=self._get_turn_seed())
+        evaluator = ConditionEvaluator(state, rng_seed=self._get_turn_seed())
 
         for zone in self.game_def.zones:
             # Check for zone discovery first
@@ -314,7 +314,7 @@ class GameEngine:
     async def _execute_local_movement(self, destination_id: str, connection: LocationConnection) -> dict[str, Any]:
         """Executes a player-initiated movement between locations."""
         state = self.state_manager.state
-        evaluator = ConditionEvaluator(state, state.present_chars, rng_seed=self._get_turn_seed())
+        evaluator = ConditionEvaluator(state, rng_seed=self._get_turn_seed())
         move_rules = self.game_def.movement
 
         # --- Companion Consent Check ---
@@ -516,7 +516,7 @@ class GameEngine:
         """
         state = self.state_manager.state
         current_loc = state.location_current
-        evaluator = ConditionEvaluator(state, state.present_chars, rng_seed=self._get_turn_seed())
+        evaluator = ConditionEvaluator(state, rng_seed=self._get_turn_seed())
 
         for char in self.game_def.characters:
             if char.id == "player" or not char.schedule:
@@ -537,7 +537,7 @@ class GameEngine:
         gate_map = {"kiss": "accept_kiss", "sex": "accept_sex", "oral": "accept_oral"}
         for keyword, gate_id in gate_map.items():
             if keyword in player_action.lower() and target_char_id:
-                evaluator = ConditionEvaluator(self.state_manager.state, self.state_manager.state.present_chars, rng_seed=self._get_turn_seed())
+                evaluator = ConditionEvaluator(self.state_manager.state, rng_seed=self._get_turn_seed())
                 target_char = self.characters_map.get(target_char_id)
                 if not target_char or not target_char.behaviors: continue
                 gate = next((g for g in target_char.behaviors.gates if g.id == gate_id), None)
@@ -595,7 +595,7 @@ class GameEngine:
         return f"Player action: {action_text}"
 
     def _check_and_apply_node_transitions(self):
-        evaluator = ConditionEvaluator(self.state_manager.state, self.state_manager.state.present_chars, rng_seed=self._get_turn_seed())
+        evaluator = ConditionEvaluator(self.state_manager.state, rng_seed=self._get_turn_seed())
         current_node = self._get_current_node()
 
         for transition in current_node.transitions:
@@ -636,8 +636,7 @@ class GameEngine:
                 # Unlocked actions do not have a 'goto'
 
     def apply_effects(self, effects: list[AnyEffect]):
-        evaluator = ConditionEvaluator(self.state_manager.state, self.state_manager.state.present_chars,
-                                       rng_seed=self._get_turn_seed())
+        evaluator = ConditionEvaluator(self.state_manager.state, rng_seed=self._get_turn_seed())
         for effect in effects:
             # First, identify and process container-like effects that have their own internal logic.
             if isinstance(effect, ConditionalEffect):
@@ -670,7 +669,7 @@ class GameEngine:
 
     def _apply_conditional_effect(self, effect: ConditionalEffect):
         """Applies a conditional effect."""
-        evaluator = ConditionEvaluator(self.state_manager.state, self.state_manager.state.present_chars, rng_seed=self._get_turn_seed())
+        evaluator = ConditionEvaluator(self.state_manager.state, rng_seed=self._get_turn_seed())
         if evaluator.evaluate(effect.when):
             self.apply_effects(effect.then)
         else:
@@ -814,7 +813,7 @@ class GameEngine:
         self._advance_time(minutes=effect.minutes)
 
     def _generate_choices(self, node: Node, event_choices: list[Choice]) -> list[dict[str, Any]]:
-        evaluator = ConditionEvaluator(self.state_manager.state, self.state_manager.state.present_chars, rng_seed=self._get_turn_seed())
+        evaluator = ConditionEvaluator(self.state_manager.state, rng_seed=self._get_turn_seed())
         available_choices = []
 
         active_choices = event_choices if event_choices else node.choices
@@ -875,7 +874,7 @@ class GameEngine:
 
     def _get_state_summary(self) -> dict[str, Any]:
         state = self.state_manager.state
-        evaluator = ConditionEvaluator(state, state.present_chars, rng_seed=self._get_turn_seed())
+        evaluator = ConditionEvaluator(state, rng_seed=self._get_turn_seed())
 
         summary_meters = {}
         for char_id, meter_values in state.meters.items():

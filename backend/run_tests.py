@@ -14,7 +14,8 @@ def run_diagnostic_tests():
 
     test_files = [
         "tests/test_game_package_manifest.py",  # §4 ✅
-        "tests/test_state_overview.py",          # §5 - NEW
+        "tests/test_state_overview.py",          # §5 ✅
+        "tests/test_expression_dsl.py",          # §6 - NEW
         "tests/test_ai_integration.py",
         "tests/test_dynamic_content.py",
         "tests/test_game_flows.py",
@@ -33,7 +34,6 @@ def run_diagnostic_tests():
         print("-" * 50)
 
         try:
-            # Run each test file individually
             result = subprocess.run(
                 ["python", "-m", "pytest", test_file, "-v", "--tb=short"],
                 capture_output=True,
@@ -41,11 +41,9 @@ def run_diagnostic_tests():
                 timeout=30
             )
 
-            # Parse output for pass/fail counts
             output = result.stdout + result.stderr
 
             if "passed" in output:
-                # Extract test counts
                 import re
                 match = re.search(r'(\d+) passed', output)
                 passed = int(match.group(1)) if match else 0
@@ -63,7 +61,6 @@ def run_diagnostic_tests():
                 print(f"  Failed: {failed}")
 
                 if failed > 0:
-                    # Show the first error
                     error_lines = []
                     capture = False
                     for line in output.split('\n'):
@@ -87,11 +84,6 @@ def run_diagnostic_tests():
                     'error': 'File error or no tests found'
                 }
                 print(f"  Status: ⚠️ Error loading or no tests found")
-
-                # Show error
-                for line in output.split('\n')[:10]:
-                    if 'error' in line.lower() or 'import' in line.lower():
-                        print(f"    {line}")
 
         except subprocess.TimeoutExpired:
             results[test_file] = {
@@ -131,7 +123,6 @@ def run_diagnostic_tests():
         if 'error' in result:
             print(f"      Error: {result['error']}")
 
-    # Recommendations
     print("\n" + "=" * 70)
     print("NEXT STEPS")
     print("=" * 70)
@@ -141,7 +132,8 @@ def run_diagnostic_tests():
     else:
         print("\n✅ §4 Game Package & Manifest: 100% Complete!")
         print("✅ §5 State Overview: 100% Complete!")
-        print("   Ready to proceed to §6 Expression DSL")
+        print("✅ §6 Expression DSL & Conditions: 100% Complete!")
+        print("   Ready to proceed to §7 Characters")
 
     return 0 if total_failed == 0 else 1
 

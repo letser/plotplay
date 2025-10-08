@@ -35,7 +35,7 @@ class ModifierManager:
         all_character_ids = list(state.meters.keys())
 
         for char_id in all_character_ids:
-            evaluator = ConditionEvaluator(state, state.present_chars, rng_seed=rng_seed)
+            evaluator = ConditionEvaluator(state, rng_seed=rng_seed)
 
             if char_id not in state.modifiers:
                 state.modifiers[char_id] = []

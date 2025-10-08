@@ -26,7 +26,7 @@ class ArcManager:
         """
         newly_entered_stages = []
         newly_exited_stages = []
-        evaluator = ConditionEvaluator(state, state.present_chars, rng_seed=rng_seed)
+        evaluator = ConditionEvaluator(state, rng_seed=rng_seed)
 
         for arc in self.game_def.arcs:
             current_stage_id = state.active_arcs.get(arc.id)
