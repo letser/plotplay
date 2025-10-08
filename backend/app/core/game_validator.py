@@ -32,6 +32,7 @@ class GameValidator:
         self.location_ids: set[str] = {
             loc.id for zone in self.game.zones for loc in zone.locations
         }
+        print(self.game.characters)
         self.outfit_ids: set[str] = {
             outfit.id
             for char in self.game.characters

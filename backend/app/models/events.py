@@ -32,7 +32,7 @@ class Event(BaseModel):
     category: str | None = None
     scope: Literal["global", "zone", "location", "node"] = "global"
     location: str | None = None
-    trigger: EventTrigger | dict[str, Any] | None = None
+    trigger: EventTrigger | None = None
     narrative: str | None = None
     choices: list[Choice] = Field(default_factory=list)
     effects: list[AnyEffect] = Field(default_factory=list)

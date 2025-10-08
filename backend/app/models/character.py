@@ -58,7 +58,7 @@ class Outfit(BaseModel):
     id: str
     name: str
     tags: list[str] = Field(default_factory=list)
-    layers: dict[str, ClothingLayer | dict[str, Any]]
+    layers: dict[str, ClothingLayer]
     unlock_when: str | None = None
 
 
@@ -124,15 +124,15 @@ class Character(BaseModel):
     tags: list[str] = Field(default_factory=list)
     dialogue_style: str | None = None
     author_notes: str | None = None
-    meters: dict[str, Meter | dict[str, Any]] | None = None
-    flags: dict[str, Flag] | None = None # <-- ADDED THIS LINE
+    meters: dict[str, Meter] | None = None
+    flags: dict[str, Flag] | None = None
 
     inventory: dict[str, int] | None = None
-    personality: Personality | dict[str, Any] | None = None
+    personality: Personality | None = None
     background: str | None = None
-    appearance: Appearance | dict[str, Any] | None = None
-    wardrobe: Wardrobe | dict[str, Any] | None = None
-    behaviors: Behaviors | list[dict] | dict[str, Any] | None = None
+    appearance: Appearance | None = None
+    wardrobe: Wardrobe | None = None
+    behaviors: Behaviors | None = None
     schedule: Schedule | list[Schedule] | None = None
     movement: MovementWillingness | None = None
 
