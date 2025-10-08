@@ -15,12 +15,12 @@ def run_diagnostic_tests():
     test_files = [
         "tests/test_game_package_manifest.py",  # §4 ✅
         "tests/test_state_overview.py",          # §5 ✅
-        "tests/test_expression_dsl.py",          # §6 - NEW
+        "tests/test_expression_dsl.py",          # §6 ✅
+        "tests/test_characters.py",              # §7 - NEW
         "tests/test_ai_integration.py",
         "tests/test_dynamic_content.py",
         "tests/test_game_flows.py",
         "tests/test_effects.py",
-        "tests/test_character_fields.py",
     ]
 
     print("=" * 70)
@@ -124,7 +124,7 @@ def run_diagnostic_tests():
             print(f"      Error: {result['error']}")
 
     print("\n" + "=" * 70)
-    print("NEXT STEPS")
+    print("PROGRESS")
     print("=" * 70)
 
     if total_failed > 0:
@@ -133,7 +133,8 @@ def run_diagnostic_tests():
         print("\n✅ §4 Game Package & Manifest: 100% Complete!")
         print("✅ §5 State Overview: 100% Complete!")
         print("✅ §6 Expression DSL & Conditions: 100% Complete!")
-        print("   Ready to proceed to §7 Characters")
+        print("✅ §7 Characters: 100% Complete!")
+        print("   Ready to proceed to §8 Meters")
 
     return 0 if total_failed == 0 else 1
 
