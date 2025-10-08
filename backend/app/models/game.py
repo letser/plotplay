@@ -32,6 +32,7 @@ class MetaConfig(BaseModel):
     nsfw_allowed: bool = False
     content_rating: ContentRating = ContentRating.MATURE
     tags: list[str] = Field(default_factory=list)
+    license: str | None = None
 
 
 class StartConfig(BaseModel):

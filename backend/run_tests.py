@@ -13,7 +13,7 @@ def run_diagnostic_tests():
     """Run tests individually to identify specific failures."""
 
     test_files = [
-        "tests/test_loader_and_models.py",
+        "tests/test_game_package_manifest.py",
         "tests/test_core_systems.py",
         "tests/test_ai_integration.py",
         "tests/test_dynamic_content.py",

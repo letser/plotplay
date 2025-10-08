@@ -81,6 +81,13 @@ class GameValidator:
 
     def _validate_nodes(self):
         """Validates all references within the node list."""
+
+        # First validate that all nodes have unique IDs
+        if len(self.node_ids) != len(self.game.nodes):
+            self.errors.append(
+                f"[Nodes] > Duplicate node IDs found. Please make sure all node IDs are unique."
+            )
+
         for node in self.game.nodes:
             # Validate present_characters
             for char_id in node.present_characters:
