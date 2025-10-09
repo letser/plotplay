@@ -57,8 +57,10 @@ class Outfit(BaseModel):
     """Character outfit definition."""
     id: str
     name: str
+    description: str | None = None
     tags: list[str] = Field(default_factory=list)
     layers: dict[str, ClothingLayer]
+    locked: bool = False
     unlock_when: str | None = None
 
 

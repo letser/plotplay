@@ -606,7 +606,7 @@ class GameEngine:
                         f"Transition in node '{current_node.id}' points to non-existent node '{transition.to}'.")
                     continue
 
-                # --- New Logic: Check for Ending Unlock ---
+                # Check for Ending Unlock
                 if target_node.type == NodeType.ENDING:
                     if not target_node.ending_id or target_node.ending_id not in self.state_manager.state.unlocked_endings:
                         self.logger.info(

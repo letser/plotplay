@@ -20,7 +20,8 @@ def run_diagnostic_tests():
         "tests/test_meters.py",                  # §8 ✅ 100%
         "tests/test_flags.py",                   # §9 ✅ 100%
         "tests/test_modifiers.py",               # §10 ✅ 100%
-        "tests/test_inventory_items.py",         # §11 ✅ 100% NEW
+        "tests/test_inventory_items.py",         # §11 ✅ 100%
+        "tests/test_clothing_wardrobe.py",       # §12 ✅ 100% NEW
         "tests/test_ai_integration.py",
         "tests/test_dynamic_content.py",
         "tests/test_game_flows.py",
@@ -142,7 +143,9 @@ def run_diagnostic_tests():
         print("✅ §9 Flags: 100% Complete!")
         print("✅ §10 Modifiers: 100% Complete!")
         print("✅ §11 Inventory & Items: 100% Complete!")
-        print("\n📍 Ready to proceed to §12 Clothing & Wardrobe")
+        print("✅ §12 Clothing & Wardrobe: 100% Complete!")
+        print("\n📍 AMAZING PROGRESS! 9 sections complete!")
+        print("   Next up: §13 Effects or other remaining sections")
 
     return 0 if total_failed == 0 else 1
 
