@@ -913,57 +913,5 @@ def test_turn_count_tracking(minimal_game_def):
 
     print("✅ Turn count tracking works")
 
-
-# =============================================================================
-# Summary Test
-# =============================================================================
-
-def test_section_5_complete_coverage():
-    """
-    Meta-test to verify we've covered all aspects of §5.
-    """
-    covered_aspects = [
-        "✅ §5 - State as single source of truth",
-        "✅ §5 - State is author-driven",
-        "✅ §5 - State is validated",
-        "✅ §5 - State is dynamic",
-        "✅ §5 - Complete initialization (all components)",
-        "✅ §5 - Meters initialization (player + template)",
-        "✅ §5 - Character-specific meter overrides",
-        "✅ §5 - Inventory initialization",
-        "✅ §5 - Flags initialization (global + character-scoped)",
-        "✅ §5 - Clothing states initialization",
-        "✅ §5 - Discovered locations initialization",
-        "✅ §5 - Time initialization (slots mode)",
-        "✅ §5 - Time initialization (clock mode)",
-        "✅ §5 - Time initialization with calendar (weekday)",
-        "✅ §5 - State serialization (to_dict)",
-        "✅ §5 - Timestamps (created_at, updated_at)",
-        "✅ §5 - Location privacy tracking",
-        "✅ §5 - Present characters tracking",
-        "✅ §5 - Modifiers tracking",
-        "✅ §5 - Cooldowns tracking",
-        "✅ §5 - Actions per slot tracking",
-        "✅ §5 - Visited nodes tracking",
-        "✅ §5 - Narrative history tracking",
-        "✅ §5 - Memory log tracking",
-        "✅ §5 - Unlocked outfits tracking",
-        "✅ §5 - Unlocked actions tracking",
-        "✅ §5 - Unlocked endings tracking",
-        "✅ §5 - Active arcs tracking",
-        "✅ §5 - Completed milestones tracking",
-        "✅ §5 - Turn count tracking"
-    ]
-
-    print("\n" + "=" * 70)
-    print("§5 STATE OVERVIEW - COVERAGE COMPLETE")
-    print("=" * 70)
-    for aspect in covered_aspects:
-        print(aspect)
-    print("=" * 70)
-
-    assert True
-
-
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

@@ -781,53 +781,5 @@ def test_character_meters_in_game_state(tmp_path: Path):
 
     print("✅ Character meters in game state work")
 
-
-# =============================================================================
-# Summary Test
-# =============================================================================
-
-def test_section_7_complete_coverage():
-    """
-    Meta-test to verify we've covered all aspects of §7.
-    """
-    covered_aspects = [
-        "✅ §7.1 - Character definition and purpose",
-        "✅ §7.2 - Required fields (id, name, age, gender)",
-        "✅ §7.2 - Optional identity fields (description, tags, pronouns, role)",
-        "✅ §7.2 - dialogue_style field",
-        "✅ §7.2 - author_notes field",
-        "✅ §7.2 - Per-character meters (overrides)",
-        "✅ §7.2 - Character-scoped flags (prefixed)",
-        "✅ §7.2 - Behavior gates (when, when_any, when_all)",
-        "✅ §7.2 - Behavior refusals (generic, low_trust, wrong_place)",
-        "✅ §7.2 - Complete behaviors system",
-        "✅ §7.2 - Schedule (time-based location)",
-        "✅ §7.2 - Schedule with complex conditions",
-        "✅ §7.2 - Movement willing_zones",
-        "✅ §7.2 - Movement willing_locations",
-        "✅ §7.2 - Movement refusal text",
-        "✅ §7.2 - Per-character inventory",
-        "✅ §7.2 - Wardrobe (basic reference)",
-        "✅ §7.3 - Runtime state integration",
-        "✅ §7.4 - Complete character example",
-        "✅ §7.4 - Player character special case",
-        "✅ §7.5 - Age validation (18+ enforcement)",
-        "✅ §7.5 - NSFW characters with gates",
-        "✅ §7.5 - Loading real game characters",
-        "✅ §7   - Character meters in game state",
-        "✅ §7   - Inventory initialization in state",
-        "✅ §7   - Character-scoped flags in state"
-    ]
-
-    print("\n" + "=" * 70)
-    print("§7 CHARACTERS - COVERAGE COMPLETE")
-    print("=" * 70)
-    for aspect in covered_aspects:
-        print(aspect)
-    print("=" * 70)
-
-    assert True
-
-
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

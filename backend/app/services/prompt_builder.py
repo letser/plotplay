@@ -260,31 +260,26 @@ class PromptBuilder:
         """Get the threshold label for a meter value."""
         # Check character-specific meter thresholds
         char_def = self.characters_map.get(char_id)
+        meter_def = None
+
         if char_def and char_def.meters and meter_name in char_def.meters:
             meter_def = char_def.meters[meter_name]
-            if meter_def.thresholds:
-                for threshold_value in sorted(meter_def.thresholds.keys(), reverse=True):
-                    if value >= threshold_value:
-                        return meter_def.thresholds[threshold_value]
 
         # Check template meter thresholds
         if char_id != "player":
             template_meters = self.game_def.meters.get("character_template", {})
             if meter_name in template_meters:
                 meter_def = template_meters[meter_name]
-                if meter_def.thresholds:
-                    for threshold_value in sorted(meter_def.thresholds.keys(), reverse=True):
-                        if value >= threshold_value:
-                            return meter_def.thresholds[threshold_value]
         else:
             # Check player meters
             player_meters = self.game_def.meters.get("player", {})
             if meter_name in player_meters:
                 meter_def = player_meters[meter_name]
-                if meter_def.thresholds:
-                    for threshold_value in sorted(meter_def.thresholds.keys(), reverse=True):
-                        if value >= threshold_value:
-                            return meter_def.thresholds[threshold_value]
+
+        if meter_def is not None and meter_def.thresholds:
+            threshold_value = self._get_threshold_name(value, meter_def.thresholds)
+            if threshold_value is not None:
+                return threshold_value
 
         # Default labels based on percentage
         if value >= 80:
@@ -297,6 +292,16 @@ class PromptBuilder:
             return "low"
         else:
             return "very low"
+
+    @staticmethod
+    def _get_threshold_name(value: int, thresholds: dict[str, list[int]]) -> str | None:
+        """Get the threshold name for a meter value."""
+        for threshold_value in sorted(thresholds.keys(), reverse=True):
+            threshold_range = thresholds[threshold_value]
+            if isinstance(threshold_range, list) and len(threshold_range) == 2:
+                if threshold_range[0] <= value <= threshold_range[1]:
+                    return threshold_value
+        return None
 
     def _build_character_cards(self, state: GameState, rng_seed: int | None = None) -> str:
         """Constructs the 'character card' summaries for the prompt."""

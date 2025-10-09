@@ -681,37 +681,5 @@ def test_deep_merge_for_meters(tmp_path: Path):
 
     print("✅ Deep merge for meters works correctly")
 
-
-# =============================================================================
-# Summary Test
-# =============================================================================
-
-def test_section_4_complete_coverage():
-    """
-    Meta-test to verify we've covered all aspects of §4.
-    """
-    covered_aspects = [
-        "✅ §4.1 - Game definition and folder structure",
-        "✅ §4.2 - Required game.yaml manifest",
-        "✅ §4.3 - Manifest template and required fields",
-        "✅ §4.4 - Loader behavior and validation",
-        "✅ §4.5 - Merge rules (append/replace modes)",
-        "✅ §4.5 - Deep merge for maps/objects",
-        "✅ §4.6 - Security constraints (path validation)",
-        "✅ §4.6 - Deterministic loading",
-        "✅ §4.6 - Unknown root keys handling",
-        "✅ Cross-reference validation (nodes, locations, characters)"
-    ]
-
-    print("\n" + "="*70)
-    print("§4 GAME PACKAGE & MANIFEST - COVERAGE COMPLETE")
-    print("="*70)
-    for aspect in covered_aspects:
-        print(aspect)
-    print("="*70)
-
-    assert True  # If we got here, all tests above passed
-
-
 if __name__ == "__main__":
     pytest.main([__file__, "-vx"])
