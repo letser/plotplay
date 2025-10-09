@@ -14,10 +14,11 @@ def run_diagnostic_tests():
 
     test_files = [
         "tests/test_game_package_manifest.py",  # §4 ✅ 100%
-        "tests/test_state_overview.py",          # §5 ✅ 100%
-        "tests/test_expression_dsl.py",          # §6 ✅ 100%
-        "tests/test_characters.py",              # §7 ✅ 100%
-        "tests/test_meters.py",                  # §8 ✅ 100%
+        "tests/test_state_overview.py",         # §5 ✅ 100%
+        "tests/test_expression_dsl.py",         # §6 ✅ 100%
+        "tests/test_characters.py",             # §7 ✅ 100%
+        "tests/test_meters.py",                 # §8 ✅ 100%
+        "tests/test_flags.py",                  # §9 ✅ 100%
         "tests/test_ai_integration.py",
         "tests/test_dynamic_content.py",
         "tests/test_game_flows.py",
@@ -136,6 +137,7 @@ def run_diagnostic_tests():
         print("✅ §6 Expression DSL & Conditions: 100% Complete!")
         print("✅ §7 Characters: 100% Complete!")
         print("✅ §8 Meters: 100% Complete!")
+        print("✅ §9 Flags: 100% Complete!")
         print("\n📍 Ready to proceed to §9 Flags")
 
     return 0 if total_failed == 0 else 1
