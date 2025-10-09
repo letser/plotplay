@@ -32,8 +32,8 @@ def main():
         "tests/test_clothing_wardrobe.py",  # §12 - Clothing & Wardrobe
 
         # Effects & Actions
-        "tests/test_effects.py",  # §13 - Effects ✨ COMPLETE
-        # "tests/test_actions.py",              # §14 - Actions (TODO)
+        "tests/test_effects.py",  # §13 - Effects ✅ COMPLETE
+        "tests/test_actions.py",  # §14 - Actions ✅ COMPLETE
 
         # World & Movement
         # "tests/test_locations_zones.py",      # §15 - Locations & Zones (TODO)

@@ -91,18 +91,20 @@ class StateManager:
 
         # 2. Initialize Meters for player and NPCs
         if self.game_def.meters:
+            # Build list of meters for player
             if "player" in self.game_def.meters:
-                state.meters["player"] = {mid: mdef.default for mid, mdef in self.game_def.meters["player"].items()}
+                state.meters["player"] = {meter_id: meter_def.default for meter_id, meter_def in self.game_def.meters["player"].items()}
 
+            # Build meters for characters from the character template and apply overrides
             for char in self.game_def.characters:
                 if char.id != "player":
                     state.meters[char.id] = {}
                     if "character_template" in self.game_def.meters:
-                        for mid, mdef in self.game_def.meters["character_template"].items():
-                            state.meters[char.id][mid] = mdef.default
+                        for meter_id, meter_def in self.game_def.meters["character_template"].items():
+                            state.meters[char.id][meter_id] = meter_def.default
                     if char.meters:
-                        for mid, mdef in char.meters.items():
-                            state.meters[char.id][mid] = mdef.default
+                        for meter_id, meter_def in char.meters.items():
+                            state.meters[char.id][meter_id] = meter_def.default
 
         # 3. Initialize Inventories
         for char in self.game_def.characters:

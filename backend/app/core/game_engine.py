@@ -1041,18 +1041,35 @@ class GameEngine:
 
     def _get_meter_def(self, char_id: str, meter_id: str) -> Any | None:
         """Helper to find the definition for a specific meter."""
-        if char_id == "player" and self.game_def.meters and "player" in self.game_def.meters:
-            return self.game_def.meters["player"].get(meter_id)
+        # For player get meter definition from the player's section
+        if char_id == "player":
+            if self.game_def.meters and "player" in self.game_def.meters:
+                return self.game_def.meters["player"].get(meter_id)
+            else:
+                return None
 
+        # For character get meter definition from the character_template
+        meter_def = None
+        if self.game_def.meters and "character_template" in self.game_def.meters:
+            meter_def = self.game_def.meters["character_template"].get(meter_id, None)
+
+        # Also check the character's override
+        meter_override = None
         char_def = self.characters_map.get(char_id)
         if char_def and char_def.meters:
-            if meter_def := char_def.meters.get(meter_id):
-                return meter_def
+            meter_override = char_def.meters.get(meter_id, None)
 
-        if self.game_def.meters and "character_template" in self.game_def.meters:
-            return self.game_def.meters["character_template"].get(meter_id)
-
-        return None
+        # Return exiting definition or build merged one
+        if meter_def and meter_override is None:
+            return meter_def
+        elif meter_override and meter_def is None:
+            return meter_override
+        elif meter_def and meter_override:
+            patch = meter_override.model_dump(exclude_unset=True, exclude_none=True, exclude_defaults=True)
+            merged_def = meter_def.model_copy(update=patch)
+            return merged_def
+        else:
+            return None
 
     def _calculate_weekday(self) -> str | None:
         """Calculate the current weekday based on game day and calendar configuration."""
