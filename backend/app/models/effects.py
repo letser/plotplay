@@ -4,13 +4,13 @@ PlotPlay Game Models - Complete game definition structures.
 ============== Effects System ==============
 
 """
-from typing import Literal, ForwardRef
+from typing import Literal, ForwardRef, Annotated, Union
 from pydantic import BaseModel, Field
 
 class Effect(BaseModel):
     """Base effect structure."""
-    type: str
-    when: str | None = None
+    type: Literal["effect"] = "effect"
+    when: str = 'always'
 
 class MeterChangeEffect(Effect):
     """Change a meter value."""
@@ -96,21 +96,13 @@ class RandomEffect(Effect):
     type: Literal["random"] = "random"
     choices: list[RandomChoice] = Field(default_factory=list)
 
-AnyEffect = (
-    MeterChangeEffect |
-    FlagSetEffect |
-    InventoryChangeEffect |
-    ClothingChangeEffect |
-    MoveToEffect |
-    AdvanceTimeEffect |
-    GotoNodeEffect |
-    UnlockEffect |
-    ApplyModifierEffect |
-    RemoveModifierEffect |
-    ConditionalEffect |
-    RandomEffect |
-    Effect  # Fallback for custom effects
-)
+AnyEffect = Annotated[
+    Union[MeterChangeEffect, FlagSetEffect, InventoryChangeEffect, ClothingChangeEffect,
+    MoveToEffect, AdvanceTimeEffect, GotoNodeEffect, UnlockEffect, ApplyModifierEffect,
+    RemoveModifierEffect, ConditionalEffect, RandomEffect, Effect],
+    Field(discriminator="type")
+    ]
+
 
 ConditionalEffect.model_rebuild()
 RandomChoice.model_rebuild()

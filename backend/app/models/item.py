@@ -6,7 +6,7 @@ PlotPlay Game Models - Complete game definition structures.
 
 from typing import Literal
 from pydantic import BaseModel, Field
-from .effects import Effect
+from .effects import AnyEffect
 
 
 class Item(BaseModel):
@@ -23,9 +23,9 @@ class Item(BaseModel):
     consumable: bool | None = None
     target: Literal["player", "character", "any"] | None = None
     use_text: str | None = None
-    effects_on_use: list[Effect] = Field(default_factory=list)
+    effects_on_use: list[AnyEffect] = Field(default_factory=list)
     can_give: bool | None = None
-    gift_effects: list[Effect] = Field(default_factory=list)
+    gift_effects: list[AnyEffect] = Field(default_factory=list)
     unlocks: dict[str, str] | None = None
     slots: list[str] | None = None
     stat_mods: dict[str, int] | None = None
