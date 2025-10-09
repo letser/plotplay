@@ -86,8 +86,16 @@ class StateManager:
 
         state.current_node = self.game_def.start.node
         state.location_current = self.game_def.start.location['id']
-        state.location_privacy = LocationPrivacy.LOW
         state.zone_current = self.game_def.start.location['zone']
+        state.location_privacy = LocationPrivacy.LOW
+        # Calculating location privacy
+        for zone in self.game_def.zones:
+            if zone.id == state.zone_current:
+                for location in zone.locations:
+                    if location.id == state.location_current:
+                        state.location_privacy = location.privacy
+                        break
+                break
 
         # 2. Initialize Meters for player and NPCs
         if self.game_def.meters:

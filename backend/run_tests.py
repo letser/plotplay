@@ -36,7 +36,7 @@ def main():
         "tests/test_actions.py",  # §14 - Actions ✅ COMPLETE
 
         # World & Movement
-        # "tests/test_locations_zones.py",      # §15 - Locations & Zones (TODO)
+        "tests/test_locations_zones.py",  # §15 - Locations & Zones ✅ COMPLETE
         # "tests/test_movement.py",             # §16 - Movement Rules (TODO)
         # "tests/test_time_calendar.py",        # §17 - Time & Calendar (TODO)
 
