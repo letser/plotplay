@@ -738,7 +738,7 @@ but don’t invent hard state changes by themselves.
 
   # --- Activation ---
   when: "<expr>"             # OPTIONAL. Auto-activation condition (evaluated each turn).
-  duration_default_min: <int># OPTIONAL. Default runtime duration in minutes when applied without explicit duration.
+  duration_default_min: <int> # OPTIONAL. Default runtime duration in minutes when applied without explicit duration.
 
   # --- Appearance & Behavior overlays (soft influence) ---
   appearance:                # OPTIONAL. Small deltas for cards/descriptions; never hard state edits.

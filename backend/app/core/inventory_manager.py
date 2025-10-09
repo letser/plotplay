@@ -45,6 +45,16 @@ class InventoryManager:
 
     def apply_effect(self, effect: InventoryChangeEffect, state: GameState):
         """Applies a single inventory change effect to the state."""
+
+        # Ignore invalid item references
+        if effect.item not in self.item_defs:
+            return
+
+        # Ignore invalid owner references
+        existent_character = effect.owner in self.game_def.characters or effect.owner == "player"
+        if not existent_character:
+            return
+
         owner_inventory = state.inventory.setdefault(effect.owner, {})
         current_count = owner_inventory.get(effect.item, 0)
 

@@ -732,11 +732,24 @@ class GameEngine:
 
     def _apply_move_to(self, effect: MoveToEffect):
         """Applies a move_to effect and updates character presence."""
+
+        # Ignore unknown or locked locations
+        if effect.location not in self.state_manager.state.discovered_locations:
+            return
+
+        # Collect characters provided by effect from the current location
+        chars_to_move = [char for char in effect.with_characters if char in self.state_manager.state.present_chars]
+
         self.state_manager.state.location_current = effect.location
         self.state_manager.state.location_privacy = self._get_location_privacy(effect.location)
+
         self._update_npc_presence()
-        # After moving, immediately check the destination node for characters
+
+        # Force characters provided by effect to be in the current location
         current_node = self._get_current_node()
+        current_node.present_characters.extend(chars_to_move)
+
+        # After moving, immediately check the destination node for characters
         if current_node.present_characters:
             self.state_manager.state.present_chars = [
                 char for char in current_node.present_characters if char in self.characters_map
@@ -749,6 +762,11 @@ class GameEngine:
             return
 
         meter_def = self._get_meter_def(effect.target, effect.meter)
+
+        # Just exit if the meter does not exist
+        if meter_def is None:
+            return
+
         value_to_apply = effect.value
         op_to_apply = effect.op
 
@@ -801,7 +819,8 @@ class GameEngine:
             target_meters[effect.meter] = new_value
 
     def _apply_flag_set(self, effect: FlagSetEffect):
-        self.state_manager.state.flags[effect.key] = effect.value
+        if effect.key in self.state_manager.state.flags:
+            self.state_manager.state.flags[effect.key] = effect.value
 
     def _apply_goto_node(self, effect: GotoNodeEffect):
         if effect.node in self.nodes_map:

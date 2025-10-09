@@ -7,13 +7,14 @@ PlotPlay Game Models - Complete game definition structures.
 from typing import Literal
 from pydantic import BaseModel, Field
 from .effects import AnyEffect
+from .enums import ItemCategory
 
 
 class Item(BaseModel):
     """Item definition."""
     id: str
     name: str
-    category: Literal["consumable", "equipment", "key", "gift", "trophy", "misc"]
+    category: ItemCategory
     description: str | None = None
     tags: list[str] = Field(default_factory=list)
     icon: str | None = None

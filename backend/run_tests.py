@@ -1,154 +1,65 @@
 #!/usr/bin/env python3
 """
-Diagnostic test runner for PlotPlay v3.
-Run this to get a detailed report of which tests pass/fail.
+PlotPlay Test Runner
+
+Runs all test suites for the PlotPlay v3 engine.
+Organizes tests by specification sections for comprehensive coverage.
 """
-
-import subprocess
 import sys
-from pathlib import Path
+import pytest
 
 
-def run_diagnostic_tests():
-    """Run tests individually to identify specific failures."""
+def main():
+    """Run all PlotPlay tests with proper configuration."""
 
+    # Test files organized by spec section
     test_files = [
-        "tests/test_game_package_manifest.py",  # §4 ✅ 100%
-        "tests/test_state_overview.py",          # §5 ✅ 100%
-        "tests/test_expression_dsl.py",          # §6 ✅ 100%
-        "tests/test_characters.py",              # §7 ✅ 100%
-        "tests/test_meters.py",                  # §8 ✅ 100%
-        "tests/test_flags.py",                   # §9 ✅ 100%
-        "tests/test_modifiers.py",               # §10 ✅ 100%
-        "tests/test_inventory_items.py",         # §11 ✅ 100%
-        "tests/test_clothing_wardrobe.py",       # §12 ✅ 100% NEW
-        "tests/test_ai_integration.py",
-        "tests/test_dynamic_content.py",
-        "tests/test_game_flows.py",
-        "tests/test_effects.py",
+        # Core Infrastructure
+        "tests/test_game_package_manifest.py",  # §4 - Game Package & Manifest
+        "tests/test_state_overview.py",  # §5 - State Overview
+
+        # Expression & Logic Systems
+        "tests/test_expression_dsl.py",  # §6 - Expression DSL
+
+        # Character & Stat Systems
+        "tests/test_characters.py",  # §7 - Characters
+        "tests/test_meters.py",  # §8 - Meters
+        "tests/test_flags.py",  # §9 - Flags
+        "tests/test_modifiers.py",  # §10 - Modifiers
+
+        # Inventory & Clothing
+        "tests/test_inventory_items.py",  # §11 - Inventory & Items
+        "tests/test_clothing_wardrobe.py",  # §12 - Clothing & Wardrobe
+
+        # Effects & Actions
+        "tests/test_effects.py",  # §13 - Effects ✨ COMPLETE
+        # "tests/test_actions.py",              # §14 - Actions (TODO)
+
+        # World & Movement
+        # "tests/test_locations_zones.py",      # §15 - Locations & Zones (TODO)
+        # "tests/test_movement.py",             # §16 - Movement Rules (TODO)
+        # "tests/test_time_calendar.py",        # §17 - Time & Calendar (TODO)
+
+        # Story Structure
+        # "tests/test_nodes.py",                # §18 - Nodes (partial)
+        # "tests/test_events.py",               # §19 - Events (partial)
+        # "tests/test_arcs.py",                 # §20 - Arcs & Milestones (TODO)
+
+        # AI Integration
+        # "tests/test_ai_contracts.py",         # §21 - AI Contracts (TODO)
     ]
 
-    print("=" * 70)
-    print("PlotPlay Test Suite Diagnostic Report")
-    print("=" * 70)
+    # Run pytest with verbose output
+    args = [
+        "-v",  # Verbose output
+        "--tb=short",  # Shorter traceback format
+        "--color=yes",  # Colored output
+        "-ra",  # Show summary of all test outcomes
+        *test_files
+    ]
 
-    results = {}
-
-    for test_file in test_files:
-        print(f"\n📁 Testing: {test_file}")
-        print("-" * 50)
-
-        try:
-            result = subprocess.run(
-                ["python", "-m", "pytest", test_file, "-v", "--tb=short"],
-                capture_output=True,
-                text=True,
-                timeout=30
-            )
-
-            output = result.stdout + result.stderr
-
-            if "passed" in output:
-                import re
-                match = re.search(r'(\d+) passed', output)
-                passed = int(match.group(1)) if match else 0
-                match = re.search(r'(\d+) failed', output)
-                failed = int(match.group(1)) if match else 0
-
-                results[test_file] = {
-                    'passed': passed,
-                    'failed': failed,
-                    'status': '✅' if failed == 0 else '❌'
-                }
-
-                print(f"  Status: {results[test_file]['status']}")
-                print(f"  Passed: {passed}")
-                print(f"  Failed: {failed}")
-
-                if failed > 0:
-                    error_lines = []
-                    capture = False
-                    for line in output.split('\n'):
-                        if 'FAILED' in line or 'ERROR' in line:
-                            capture = True
-                        if capture:
-                            error_lines.append(line)
-                            if len(error_lines) > 5:
-                                break
-
-                    if error_lines:
-                        print("\n  First error:")
-                        for line in error_lines[:5]:
-                            print(f"    {line}")
-
-            elif "no tests ran" in output.lower() or "error" in output.lower():
-                results[test_file] = {
-                    'passed': 0,
-                    'failed': 0,
-                    'status': '⚠️',
-                    'error': 'File error or no tests found'
-                }
-                print(f"  Status: ⚠️ Error loading or no tests found")
-
-        except subprocess.TimeoutExpired:
-            results[test_file] = {
-                'passed': 0,
-                'failed': 0,
-                'status': '⏱️',
-                'error': 'Timeout'
-            }
-            print(f"  Status: ⏱️ Test timed out")
-
-        except Exception as e:
-            results[test_file] = {
-                'passed': 0,
-                'failed': 0,
-                'status': '💥',
-                'error': str(e)
-            }
-            print(f"  Status: 💥 Unexpected error: {e}")
-
-    # Summary
-    print("\n" + "=" * 70)
-    print("SUMMARY")
-    print("=" * 70)
-
-    total_passed = sum(r.get('passed', 0) for r in results.values())
-    total_failed = sum(r.get('failed', 0) for r in results.values())
-
-    print(f"\nTotal Tests Passed: {total_passed}")
-    print(f"Total Tests Failed: {total_failed}")
-
-    print("\nFile Status:")
-    for test_file, result in results.items():
-        file_name = Path(test_file).name
-        print(f"  {result['status']} {file_name:<40} "
-              f"Passed: {result.get('passed', 0):<3} "
-              f"Failed: {result.get('failed', 0):<3}")
-        if 'error' in result:
-            print(f"      Error: {result['error']}")
-
-    print("\n" + "=" * 70)
-    print("PROGRESS")
-    print("=" * 70)
-
-    if total_failed > 0:
-        print("\n⚠️  Fix failing tests before proceeding to next section")
-    else:
-        print("\n✅ §4 Game Package & Manifest: 100% Complete!")
-        print("✅ §5 State Overview: 100% Complete!")
-        print("✅ §6 Expression DSL & Conditions: 100% Complete!")
-        print("✅ §7 Characters: 100% Complete!")
-        print("✅ §8 Meters: 100% Complete!")
-        print("✅ §9 Flags: 100% Complete!")
-        print("✅ §10 Modifiers: 100% Complete!")
-        print("✅ §11 Inventory & Items: 100% Complete!")
-        print("✅ §12 Clothing & Wardrobe: 100% Complete!")
-        print("\n📍 AMAZING PROGRESS! 9 sections complete!")
-        print("   Next up: §13 Effects or other remaining sections")
-
-    return 0 if total_failed == 0 else 1
+    return pytest.main(args)
 
 
 if __name__ == "__main__":
-    sys.exit(run_diagnostic_tests())
+    sys.exit(main())

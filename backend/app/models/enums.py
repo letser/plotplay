@@ -34,3 +34,11 @@ class ContentRating(StrEnum):
     TEEN = "teen"
     MATURE = "mature"
     EXPLICIT = "explicit"
+
+class ItemCategory(StrEnum):
+    CONSUMABLE = "consumable"
+    EQUIPMENT = "equipment"
+    KEY = "key"
+    GIFT = "gift"
+    TROPHY = "trophy"
+    MISC = "misc"
