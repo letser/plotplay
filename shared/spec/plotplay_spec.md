@@ -1574,7 +1574,7 @@ time:
   calendar:
     epoch: "2025-01-01"          # Narrative start date
     week_days: ["monday","tuesday","wednesday","thursday","friday","saturday","sunday"]
-    start_day_index: 2           # Day of week index at epoch start
+    start_day: "tuesday"         # Day of week at epoch start
     weeks_enabled: <bool>        # Enable week-based schedules
 
   # --- Starting point ---

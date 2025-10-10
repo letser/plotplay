@@ -69,20 +69,22 @@ class StateManager:
 
     def __init__(self, game_def: GameDefinition):
         self.game_def = game_def
-        self.state: GameState = self._initialize_state()
+        self.state = GameState()
+        self._initialize_state()
 
-    def _initialize_state(self) -> GameState:
+    def _initialize_state(self):
         """Create the initial game state from the GameDefinition."""
-        state = GameState()
+        state = self.state
 
         # 1. Initialize Time and Location from the manifest
         time_start = self.game_def.time.start
         state.day = time_start.day
+
         state.time_slot = time_start.slot
         if self.game_def.time.mode in ("hybrid", "clock"):
             state.time_hhmm = time_start.time
         if self.game_def.time.calendar and self.game_def.time.calendar.enabled:
-            state.weekday = self._calculate_initial_weekday()
+            state.weekday = self.calculate_weekday()
 
         state.current_node = self.game_def.start.node
         state.location_current = self.game_def.start.location['id']
@@ -150,8 +152,6 @@ class StateManager:
         state.created_at = datetime.now(UTC)
         state.updated_at = datetime.now(UTC)
 
-        return state
-
     def apply_effects(self, effects: list[AnyEffect]) -> None:
         """Apply a list of effects to the current state."""
         # This will be implemented in more detail in the GameEngine.
@@ -159,11 +159,22 @@ class StateManager:
             print(f"Applying effect: {effect.type}")
             pass
 
-    def _calculate_initial_weekday(self) -> str | None:
-        """Calculate the weekday for Day 1 based on calendar configuration."""
-        calendar = self.game_def.time.calendar
-        if not calendar or not calendar.enabled:
+    def calculate_weekday(self) -> str | None:
+        """Calculate the current weekday based on game day and calendar configuration."""
+        if not self.game_def.time.calendar or not self.game_def.time.calendar.enabled:
             return None
 
-        # Day 1 starts on the configured start_day
-        return calendar.start_day
+        calendar = self.game_def.time.calendar
+        week_days = calendar.week_days
+
+        # Find the index of the start day
+        try:
+            start_index = week_days.index(calendar.start_day)
+        except ValueError:
+            return None
+
+        # Calculate the current weekday index
+        # (day - 1) because Day 1 should map to start_day
+        current_index = (self.state.day - 1 + start_index) % len(week_days)
+
+        return week_days[current_index]

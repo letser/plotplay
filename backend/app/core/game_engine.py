@@ -477,7 +477,7 @@ class GameEngine:
         if state.day > original_day:
             day_advanced = True
             # Recalculate weekday when day changes
-            self.state_manager.state.weekday = self._calculate_weekday()
+            self.state_manager.state.weekday = self.state_manager.calculate_weekday()
             self.logger.info(
                 f"Day advanced to {self.state_manager.state.day}, weekday is {self.state_manager.state.weekday}")
 
@@ -1070,27 +1070,6 @@ class GameEngine:
             return merged_def
         else:
             return None
-
-    def _calculate_weekday(self) -> str | None:
-        """Calculate the current weekday based on game day and calendar configuration."""
-        if not self.game_def.time.calendar or not self.game_def.time.calendar.enabled:
-            return None
-
-        calendar = self.game_def.time.calendar
-        week_days = calendar.week_days
-
-        # Find the index of the start day
-        try:
-            start_index = week_days.index(calendar.start_day)
-        except ValueError:
-            self.logger.warning(f"Invalid start_day '{calendar.start_day}' not in week_days")
-            return None
-
-        # Calculate the current weekday index
-        # (day - 1) because Day 1 should map to start_day
-        current_index = (self.state_manager.state.day - 1 + start_index) % len(week_days)
-
-        return week_days[current_index]
 
     def _get_turn_seed(self) -> int:
         """Generate a deterministic seed for the current turn."""

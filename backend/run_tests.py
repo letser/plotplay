@@ -1,64 +1,57 @@
 #!/usr/bin/env python3
 """
 PlotPlay Test Runner
-
-Runs all test suites for the PlotPlay v3 engine.
-Organizes tests by specification sections for comprehensive coverage.
+Runs all tests in the backend/tests directory.
 """
+
 import sys
 import pytest
 
 
 def main():
-    """Run all PlotPlay tests with proper configuration."""
+    """Run all PlotPlay tests."""
 
-    # Test files organized by spec section
+    # Test files to run in order
     test_files = [
-        # Core Infrastructure
-        "tests/test_game_package_manifest.py",  # §4 - Game Package & Manifest
-        "tests/test_state_overview.py",  # §5 - State Overview
-
-        # Expression & Logic Systems
-        "tests/test_expression_dsl.py",  # §6 - Expression DSL
-
-        # Character & Stat Systems
-        "tests/test_characters.py",  # §7 - Characters
-        "tests/test_meters.py",  # §8 - Meters
-        "tests/test_flags.py",  # §9 - Flags
-        "tests/test_modifiers.py",  # §10 - Modifiers
-
-        # Inventory & Clothing
-        "tests/test_inventory_items.py",  # §11 - Inventory & Items
-        "tests/test_clothing_wardrobe.py",  # §12 - Clothing & Wardrobe
-
-        # Effects & Actions
-        "tests/test_effects.py",  # §13 - Effects ✅ COMPLETE
-        "tests/test_actions.py",  # §14 - Actions ✅ COMPLETE
-
-        # World & Movement
-        "tests/test_locations_zones.py",  # §15 - Locations & Zones ✅ COMPLETE
-        # "tests/test_movement.py",             # §16 - Movement Rules (TODO)
-        # "tests/test_time_calendar.py",        # §17 - Time & Calendar (TODO)
-
-        # Story Structure
-        # "tests/test_nodes.py",                # §18 - Nodes (partial)
-        # "tests/test_events.py",               # §19 - Events (partial)
-        # "tests/test_arcs.py",                 # §20 - Arcs & Milestones (TODO)
-
-        # AI Integration
-        # "tests/test_ai_contracts.py",         # §21 - AI Contracts (TODO)
+        "tests/test_game_package_manifest.py",  # §4
+        "tests/test_state_overview.py",  # §5
+        "tests/test_expression_dsl.py",  # §6
+        "tests/test_characters.py",  # §7
+        "tests/test_meters.py",  # §8
+        "tests/test_flags.py",  # §9
+        "tests/test_modifiers.py",  # §10
+        "tests/test_inventory_items.py",  # §11
+        "tests/test_clothing_wardrobe.py",  # §12
+        "tests/test_effects.py",  # §13
+        "tests/test_actions.py",  # §14
+        "tests/test_locations_zones.py",  # §15
+        "tests/test_movement.py",  # §16 ⚠️ ~70% (CRITICAL)
+        "tests/test_time_calendar.py",  # §17 ✅ NEW
+        # "tests/test_nodes.py",                # §18 - TODO
+        # "tests/test_events.py",               # §19 - Partial
+        # "tests/test_arcs.py",                 # §20 - TODO
+        # "tests/test_ai_contracts.py",         # §21 - TODO
+        "tests/test_game_flows.py",
+        "tests/test_ai_integration.py",
     ]
+
+    print("=" * 70)
+    print("PLOTPLAY TEST SUITE")
+    print("=" * 70)
+    print(f"Running {len(test_files)} test files...\n")
 
     # Run pytest with verbose output
-    args = [
-        "-v",  # Verbose output
-        "--tb=short",  # Shorter traceback format
-        "--color=yes",  # Colored output
-        "-ra",  # Show summary of all test outcomes
-        *test_files
-    ]
+    args = ["-v", "--tb=short", "--color=yes"] + test_files
+    exit_code = pytest.main(args)
 
-    return pytest.main(args)
+    print("\n" + "=" * 70)
+    if exit_code == 0:
+        print("✅ ALL TESTS PASSED")
+    else:
+        print("❌ SOME TESTS FAILED")
+    print("=" * 70)
+
+    return exit_code
 
 
 if __name__ == "__main__":

@@ -42,3 +42,8 @@ class ItemCategory(StrEnum):
     GIFT = "gift"
     TROPHY = "trophy"
     MISC = "misc"
+
+class TransportModes(StrEnum):
+    WALK = "walk"
+    BUS = "bus"
+    CAR = "car"
