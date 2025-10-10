@@ -26,11 +26,11 @@ def main():
         "tests/test_actions.py",  # §14
         "tests/test_locations_zones.py",  # §15
         "tests/test_movement.py",  # §16 ⚠️ ~70% (CRITICAL)
-        "tests/test_time_calendar.py",  # §17 ✅ NEW
-        # "tests/test_nodes.py",                # §18 - TODO
-        # "tests/test_events.py",               # §19 - Partial
-        # "tests/test_arcs.py",                 # §20 - TODO
-        # "tests/test_ai_contracts.py",         # §21 - TODO
+        "tests/test_time_calendar.py",  # §17
+        "tests/test_nodes.py",  # §18
+        "tests/test_events.py",  # §19 ⚠️ ~95%
+        "tests/test_arcs.py",  # §20
+        "tests/test_ai_contracts.py",  # §21
         "tests/test_game_flows.py",
         "tests/test_ai_integration.py",
     ]
