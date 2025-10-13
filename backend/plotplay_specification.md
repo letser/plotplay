@@ -16,11 +16,10 @@
 12. [Effects](#12-effects)
 13. [Modifiers](#13-modifiers)  
 14. [Actions](#14-actions)
-16. [Movement Rules](#16-movement-rules)  
-18. [Nodes](#18-nodes)  
-19. [Events](#19-events)  
-20. [Arcs & Milestones](#20-arcs--milestones)  
-21. [AI Contracts (Writer & Checker)](#21-ai-contracts-writer--checker)  
+15. [Nodes](#15-nodes)  
+16. [Events](#16-events)  
+17. [Arcs & Milestones](#17-arcs--milestones)  
+18. [AI Contracts (Writer & Checker)](#18-ai-contracts-writer--checker)  
 
 ---
 
@@ -1100,8 +1099,9 @@ The Checker may also emit effects as JSON deltas, which are merged into the same
 Applies a change to a meter.
 ```yaml
 # Modify meter value  
-  type: meter_change
-  target: "player | <npc_id>"
+- type: meter_change
+  # ... common fields
+  target: "player|<npc_id>"   # REQUIRED. Effect target. 
   meter: "<meter_id>"
   op: "add | subtract | set | multiply | divide"
   value: <int>
@@ -1113,6 +1113,7 @@ Changes a flag value.
 ```yaml
 # Set flag
 - type: flag_set
+  # ... common fields
   key: "<flag_key>"
   value: true | false | number | string
 ```
@@ -1121,28 +1122,31 @@ Changes a flag value.
 ```yaml
 # Add item to inventory
 - type: inventory_add
-  owner: "player | <npc_id>"
+  # ... common fields
+  target: "player|<npc_id>"   # REQUIRED. Effect target. Ignored for the flag_set
   item_type: "item | outfit | clothing" # OPTIONAL. Default: "item". Type of the item
   item: "<item_id>"
   count: <int>                   # OPTIONAL. Default: 1.
 
 # Remove item from inventory
 - type: inventory_remove
-  owner: "player | <npc_id>"
+  # ... common fields
+  target: "player|<npc_id>"   # REQUIRED. Effect target. Ignored for the flag_set
   item_type: "item | outfit | clothing" # OPTIONAL. Default: "item". Type of the item
   item: "<item_id>"
   count: <int>                  # OPTIONAL. Default: 1.
 
 # Take item from the current location; checks availability 
 - type: inventory_take
-  owner: "player | <npc_id>"
+  # ... common fields
+  target: "player|<npc_id>"   # REQUIRED. Effect target. Ignored for the flag_set
   item_type: "item | outfit | clothing" # OPTIONAL. Default: "item". Type of the item
   item: "<item_id>"
   count: <int>                   # OPTIONAL. Default: 1.
 
 # Drops item at the current location inventory
 - type: inventory_drop
-  owner: "player | <npc_id>"
+  # ... common fields
   item_type: "item | outfit | clothing" # OPTIONAL. Default: "item". Type of the item
   item: "<item_id>"
   count: <int>                  # OPTIONAL. Default: 1.
@@ -1152,66 +1156,74 @@ Changes a flag value.
 ````yaml
 # Puts an item from the wardrobe on
 - type: clothing_put_on
-  character: "player | <npc_id>"   # REQUIRED.
-  item: "<item_id>"       # REQUIRED. Clothing item will occupy corresponding slot(s).
+  # ... common fields
+  target: "player|<npc_id>"   # REQUIRED. Effect target. Ignored for the flag_set
+  item: "<item_id>"           # REQUIRED. Clothing item will occupy corresponding slot(s).
   condition: "intact | displaced | opened | removed" # OPTIONAL. Default: taken from the item or intact.
 
 # Takes an item off and keeps it in the wardrobe 
 - type: clothing_take_off
-  character: "player | <npc_id>"   # REQUIRED.
-  item: "<item_id>"       # REQUIRED. 
+  # ... common fields
+  target: "player|<npc_id>"   # REQUIRED. Effect target. Ignored for the flag_set
+  item: "<item_id>"           # REQUIRED. 
 
 # Applies condition to item  
 - type: clothing_item_condition
-  character: "player | <npc_id>"   # REQUIRED.
-  item: "<item_id>"       # REQUIRED. 
+  # ... common fields
+  target: "player|<npc_id>"   # REQUIRED. Effect target. Ignored for the flag_set
+  item: "<item_id>"           # REQUIRED. 
   condition: "intact | displaced | opened | removed" # REQUIRED.
 
 # Applies condition to the item that occupies the slot
 - type: clothing_slot_condition
-  character: "player | <npc_id>"   # REQUIRED.
-  slot: "<slot_id>"       # REQUIRED. 
+  # ... common fields
+  target: "player|<npc_id>"   # REQUIRED. Effect target. Ignored for the flag_set
+  slot: "<slot_id>"           # REQUIRED. 
   condition: "intact | displaced | opened | removed" # REQUIRED.
 
 # Puts on all items from te outfit 
 - type: outfit_put_on
-  character: "player | <npc_id>"   # REQUIRED.
-  item: "<outfit_id>"     # REQUIRED. 
+  # ... common fields
+  target: "player|<npc_id>"   # REQUIRED. Effect target. Ignored for the flag_set
+  item: "<outfit_id>"         # REQUIRED. 
 
 # Takes off all items from the outfit  
 - type: outfit_take_off
-  character: "player | <npc_id>"   # REQUIRED.
-  item: "<outfit_id>"              # REQUIRED.
-
-
+  # ... common fields
+  target: "player|<npc_id>"    # REQUIRED. Effect target. Ignored for the flag_set
+  item: "<outfit_id>"          # REQUIRED.
 ````
-> Engine enforces privacy + consent; disallowed changes are ignored and logged
 
 #### Movement & Time
 ```yaml
 # Local movement from the current location in a specified direction  
 - type: move
+  # ... common fields
   direction: "n | s | w | e | nw | ne | sw | se | u | d"  # REQUIRED. Cardinal directions and up/down.
             # Also allows full values north, south, etc. 
   with_characters: ["<npc_id>", ...]   # consent checked
 
 # Local movement within a zone to a location 
 - type: move_to
+  # ... common fields
   location: "<location_id>"             # REQUIRED. Target location in the same zone
   with_characters: ["<npc_id>", ...]    # OPTIONAL.  
 
 # Global movement between zones  
 - type: travel_to
+  # ... common fields
   location: "<location_id>"             # REQUIRED. Target location in another zone.
   method: "<method_id>"                 # REQUIRED. Method to travel with. 
   with_characters: ["<npc_id>", ...]    # OPTIONAL.   
 
 # Time advancement
 - type: advance_time
+  # ... common fields
   minutes: <int>                        # REQUIRED. Minutes to advance.
 
 # Time advancement for slot mode
 - type: advance_slot
+  # ... common fields
   slots: <int>                          # REQUIRED.
 ```
 
@@ -1219,6 +1231,7 @@ Changes a flag value.
 ```yaml
 # Switches game to a specified node 
 - type: goto_node
+  # ... common fields
   node: "<node_id>"
 
 # Combined effect with complex conditions
@@ -1231,12 +1244,30 @@ Changes a flag value.
 
 # Random effect applies one of different sets of effects based on random value with defined weights (%) 
 - type: random
+  # ... common fields
   choices:
     - weight: <int>
       effects: [ <effects...> ]
     - weight: <int>
       effects: [ <effects...> ]
 ```
+#### Modifiers
+```yaml
+# Applies a modifier
+- type: apply_modifier
+  # ... common fields
+  target: "player|<npc_id>"    # REQUIRED. Effect target. Ignored for the flag_set
+  modifier_id: "<modifier_id>" # REQUIRED.  
+  duration: <int>              # OPTIONAL. Duration override
+
+# Removes a modifier
+- type: remove_modifier
+  # ... common fields
+  target: "player|<npc_id>"    # REQUIRED. Effect target. Ignored for the flag_set
+  modifier_id: "<modifier_id>" # REQUIRED.  
+```
+
+
 #### Unlocks & Utilities
 ```yaml
 # Unlocks an item
@@ -1314,163 +1345,129 @@ Changes a flag value.
 
 ## 13. Modifiers
 
-### 10.1. Definition
+### Purpose & Template 
 A **modifier** is a named, (usually) temporary state that overlays appearance/behavior rules 
 without directly rewriting canonical facts. Think **aroused**, **drunk**, **injured**, **tired**.
 Modifiers can auto-activate from conditions, be applied/removed by effects, stack or exclude each other, 
 and may carry a default duration. They influence gates, dialogue tone, and presentation 
 but don’t invent hard state changes by themselves.
 
-> Modifiers live in a game definition and appear in runtime state only when active.
+
+**Activation**: a modifier can be **auto-activated** by `when` each turn, or explicitly applied via an effect.
 
 ```yaml
-# Single Modifier Definition (template)
-# Place under: modifier_system.library.<modifier_id>
+# Modifier Template
+# Place under: modifiers.library
 
 <modifier_id>:
   # --- Identity ---
-  group: "<string>"          # OPTIONAL but recommended. Category for stacking/exclusions (e.g., "intoxication", "emotional").
-  tags: ["<string>", ...]    # OPTIONAL. Freeform labels for tools/search.
+  group: "<string>"             # OPTIONAL but recommended. Category for stacking/exclusions (e.g., "intoxication", "emotional").
+  priority: <int>               # OPTIONAL. Priority within a group (see below).
 
   # --- Activation ---
-  when: "<expr>"             # OPTIONAL. Auto-activation condition (evaluated each turn).
-  duration_default_min: <int> # OPTIONAL. Default runtime duration in minutes when applied without explicit duration.
+  when: "<expr>"                # OPTIONAL. Auto-activation condition (evaluated each turn).
+  when_all: "<expr>"            # OPTIONAL. Auto-activation condition (evaluated each turn).
+  when_any: "<expr>"            # OPTIONAL. Auto-activation condition (evaluated each turn).
+  duration: <int>               # OPTIONAL. Default runtime duration in minutes/actions when applied without explicit duration.
 
   # --- Appearance & Behavior overlays (soft influence) ---
-  appearance:                # OPTIONAL. Small deltas for cards/descriptions; never hard state edits.
-    <key>: <string>          # e.g., cheeks: "flushed", eyes: "glossy"
-
-  behavior:                  # OPTIONAL. Biases for Writer/engine heuristics (not mandatory to render).
-    dialogue_style: "<string>"   # e.g., "breathless", "slurred"
-    inhibition: <int>            # integer bias; engine/tooling interpret consistently
-    coordination: <int>          # integer bias
-    # adds other numeric/text knobs as your game defines
+  appearance: ["<string", ...]  # OPTIONAL. Small deltas for cards/descriptions; never hard state edits.
+                                #  "cheeks flushed", "eyes glossy"
+  dialogue_style: "<string>"    # OPTIONAL, Overrides dialogue style, e.g., "breathless", "slurred"
 
   # --- Safety & Gates (hard constraints) ---
-  safety:                    # OPTIONAL. Hard limits that the engine enforces.
-    disallow_gates: ["<gate_id>", ...]  # e.g., forbid "accept_sex" while drunk
-    allow_gates: ["<gate_id>", ...]     # rarely used; prefer arcs/gates unless tightly controlled
+  disallow_gates: ["<gate_id>", ...]  # OPTIONAL. Gates to disable, e.g., forbid "accept_sex" while drunk
+  allow_gates: ["<gate_id>", ...]     # OPTIONAL. GAtes to force. Rarely used; prefer arcs/gates unless tightly controlled
 
   # --- Systemic Rules ---
-  clamp_meters:              # OPTIONAL. Enforce temporary boundaries on meters while active.
+  clamp_meters:                 # OPTIONAL. Enforce temporary boundaries on meters while active.
     <meter_id>: { min: <int>, max: <int> } # e.g., arousal: { max: 60 }
 
   # --- One-shot hooks (optional sugar) ---
-  entry_effects:             # OPTIONAL. Apply once when the modifier becomes active.
-    - { type: <effect_type>, ... }
-  exit_effects:              # OPTIONAL. Apply once when it ends.
-
-  # --- Author notes ---
-  description: "<string>"    # OPTIONAL. Short guidance for authors/tools. Not shown to players.
-
+  on_entry: [<effect>, ... ]    # OPTIONAL. Apply once when the modifier becomes active.
+  on_exit:  [<effect>, ... ]    # OPTIONAL. Apply once when it ends.
 ```
-### 10.2. System-Level Controls (where these live)
-Defined once under **modifier_system**, not per modifier:
-```yaml
-modifier_system:
-  stacking:
-    default: "highest"             # how multiple modifiers in the same group combine: highest|additive|multiplicative
-    per_group:
-      intoxication: "highest"
-      emotional: "additive"
+### Modifiers Node & Stacking Rules 
 
-  exclusions:
-    - group: "intoxication"        # only one intoxication modifier can be active at a time
-      exclusive: true
-
-  priority:
-    groups:
-      - name: "status"             # evaluation/rendering priority
-        priority: 100
-        members: ["unconscious","paralyzed"]
-```
-### 10.3. Constraints & Notes
-- **Source of truth**: modifiers overlay behavior/appearance; use **effects** if you need concrete state changes (meters, flags, clothing).
-- **Activation**: a modifier can be **auto-activated** by `when` each turn, or explicitly applied via an effect:
-```yaml
-- type: apply_modifier
-  character: "<npc_id>|player"
-  modifier_id: "<modifier_id>"
-  duration_min: <int>     # optional override
+All modifiers are defined under the `modifiers` node together with stacking rules.  
+Stacking rules define how multiple modifiers of the same group applied:
+- All modifiers of the same group are sorted by priority (highest first). 
+Modifiers with the same priority are applied in the order they defined.
+- If multiple modifiers of the same group is about to be applied, the engine decides what to do 
+based on the `stacking` parameter:
+   - `highest` - the highest priority modifier is applied. Any other active modifiers of the same group are removed.
+   - `lowest` - the lowest priority modifier is applied. Any other active modifiers of the same group are removed.
+   - `all` - all modifiers that are not currently active applied.
  
-```
-Remove with:
 ```yaml
-- type: remove_modifier
-  character: "<npc_id>|player"
-  modifier_id: "<modifier_id>"
+# Modifiers definition
+# In game manifest (top level)
+modifiers:
+  stacking:                                   # OPTIONAL. Stacking rules
+     - <group_name>: "highest|lowest|all"         # REQUIRED. List of staking options for groups 
+  library: { <modifier>, ... }                # REQUIRED. Modifiers definition                
 ```
-- **Duration**: ticks down in minutes/turns depending on your time mode; expires → runs exit_effects (if any).
-- **Stacking**: group strategy decides how same-group modifiers combine; use exclusions to forbid coexistence.
-- **Safety**: safety.disallow_gates always wins; the engine blocks those actions even if prose suggests them.
-- **Determinism**: evaluation happens in the standard turn order (after safety checks, before/after effects as specified in your engine), ensuring replayable outcomes.
 
-### 10.4. Examples
+### Examples
 ```yaml
-modifier_system:
+modifiers:
   library:
     aroused:
       group: "emotional"
       when: "meters.{character}.arousal >= 40"
-      appearance: { cheeks: "flushed" }
-      behavior:
-        dialogue_style: "breathless"
-        inhibition: -1
-      description: "Heightened desire; softens refusals but doesn’t bypass consent."
+      appearance: { "cheeks flushed" }
+      dialogue_style: "breathless"
 
     drunk:
       group: "intoxication"
-      duration_default_min: 120
-      appearance: { eyes: "glossy" }
-      behavior: { inhibition: -3, coordination: -2 }
-      safety:
-        disallow_gates: ["accept_sex"]   # hard stop while intoxicated
-      description: "Impaired judgment/coordination; blocks sex gates."
+      duration: 120
+      appearance: { "eyes glossy" }
+      disallow_gates: ["accept_sex"]   # hard stop while intoxicated
 
     injured_light:
       group: "status"
-      duration_default_min: 240
-      behavior: { coordination: -1 }
-      entry_effects:
+      duration: 240
+      on_entry:
         - { type: meter_change, target: "player", meter: "energy", op: "subtract", value: 10 }
-      exit_effects:
+      on_exit:
         - { type: flag_set, key: "injury_healed", value: true }
-      description: "Minor injury; drains energy and slows actions."
-
 ```
 ---
 
 ## 14. Actions
 
-### 14.1. Definition
+### Purpose & Template
 
-An Action is a globally defined, reusable player choice that can be unlocked through effects. 
+An **action** is a globally defined, reusable player choice that can be unlocked through effects. 
 Unlike node-based `choices` which are tied to a specific scene, 
 unlocked actions can become available to the player in any context, provided their conditions are met. 
 This allows for character growth and new abilities that persist across the game.
 
-Actions are defined in a top-level `actions` list, typically in an `actions.yaml` file.
+Actions are defined in a top-level `actions` node.
 
-
-### 14.2. Action Template
 
 ```yaml
-# Action definition lives under: actions: [ ... ]
-- id: "<string>"                  # REQUIRED. Unique stable ID for unlocking.
-  prompt: "<string>"              # REQUIRED. The text shown to the player.
-  category: "<string>"            # OPTIONAL. UI hint (e.g., "conversation", "romance").
-  conditions: "<expr>"            # OPTIONAL. Expression DSL. Action is only available if true.
-  effects: [ <effects...> ]       # OPTIONAL. Effects applied when the action is chosen.
+# Actions definition
+# In game manifest (top level)
+actions:
+  <action_id>:                    # REQUIRED. UniqueID for unlocking.
+    prompt: "<string>"            # REQUIRED. The text shown to the player.
+    category: "<string>"          # OPTIONAL. UI hint (e.g., "conversation", "romance").
+    when: "<expr>"                # OPTIONAL. Expression DSL. Action is only available if true.
+    when_all: "<expr>"            # OPTIONAL. Expression DSL. Action is only available if true.
+    when_any: "<expr>"            # OPTIONAL. Expression DSL. Action is only available if true.
+    effects: [ <effect>, ... ]    # OPTIONAL. Effects applied when the action is chosen.
 ```
-### 14.3. Example
+### Example
 
 ```yaml
 # actions.yaml
+
 actions:
   - id: "deep_talk_emma"
     prompt: "Ask Emma about her family"
     category: "conversation"
-    conditions: "npc_present('emma') and meters.emma.trust >= 60"
+    when: "npc_present('emma') and meters.emma.trust >= 60"
     effects:
       - type: "meter_change"
         target: "emma"
@@ -1481,7 +1478,6 @@ actions:
         key: "emma_opened_up"
         value: true
 ```
-
 ---
 
 
