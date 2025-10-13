@@ -11,15 +11,11 @@
 7. [Economy System](#7-economy-system)
 8. [Inventory & Items](#8-inventory--items)
 9. [Clothing System](#9-clothing-system)
-10. [Characters](#10-characters)  
-
-10. [Gates](#8-gates)
-9. [Outfits](#9-outfits)
-10. [Modifiers](#10-modifiers)  
-12. [Clothing & Wardrobe](#12-clothing--wardrobe)  
-13. [Effects](#13-effects)  
+10. [Locations & Zones](#10-locations--zones)  
+11. [Characters](#11-characters)  
+12. [Effects](#12-effects)
+13. [Modifiers](#13-modifiers)  
 14. [Actions](#14-actions)
-15. [Locations & Zones](#15-locations--zones)  
 16. [Movement Rules](#16-movement-rules)  
 18. [Nodes](#18-nodes)  
 19. [Events](#19-events)  
@@ -719,7 +715,9 @@ Outfits predefine clothing items to slots and populate corresponding items once 
 Outfits can be worn either as a single unit and add all items to the character's inventory, 
 or require a character to have/acquire all required items to be applied. Outfits just populate items into slots,
 so individual items can be changed or removed as a set of items. Each clothing item has own status and can be 
-intact, opened, displaced. The two latter ones allow revealing items from underneath slots.     
+`intact`, `opened`, `displaced`, `removed`. 
+`displaced` and `opened` allow revealing items from underneath slots.
+`removed` means that the item is removed but still present in the inventory and can be worn again by changing its condition.
 
 
 Both clothing items and outfits act like inventory items and can be bought, given, apply effects, etc. 
@@ -748,12 +746,12 @@ items:
     name: "<string>"               # REQUIRED. Display name.
     value: <int>                   # OPTIONAL. Shop price; non-negative.
     slot: "<string>"               # REQUIRED. Which slot this occupies.
-    condition: "intact|opened|displaced"  # OPTIONAL. "intact" | "opened" | "displaced". Default: "intact"
+    condition: "intact|opened|displaced|removed"  # OPTIONAL. Default: "intact"
     description:                   # REQUIRED. Narrative description.
       intact: "<string>"           # REQUIRED. Description of the intact item.
       opened: "<string>"           # OPTIONAL. Description of the opened item.
       displaced: "<string>"        # OPTIONAL. Description of the displaced item.
-    occupies: ["<slot>", ...]     # REQUIRED. Which slots item occupies. Items like dresses that use multiple slots.
+    occupies: ["<slot>", ...]     # REQUIRED. Which slot item occupies? Items like dresses that use multiple slots.
     conceals: ["<slot>", ...]     # OPTIONAL. Which slots this hides when intact.
     can_open: <bool>              # OPTIONAL. Default: false. Can be opened/unfastened?
     # --- Locking ---
@@ -799,6 +797,11 @@ The world model is hierarchical:
 - **Zones**: broad narrative areas (e.g., Campus, Downtown).
 - **Locations**: discrete places within zones (e.g., Library, Dorm Room).
 
+ 
+the zones must be listed twice.
+
+Locations define connections, each location lists zones it is connected to.
+
 Locations carry **privacy levels** (public → private), **discovery state**, **access rules**, and **connections**.
 Zones may define **transport options** and **events** tied to entering or exploring.
 
@@ -806,231 +809,125 @@ This model allows authored content to target specific areas and the engine to en
 for **movement**, **privacy**, **discovery**, and **NPC willingness**.
 
 ### Zone template
+Zones have unique id, name, and define locations within a zone, access rules, and connections, each zone lists zones it is connected to. 
+Connections are one way links, so for bidirectional connection between two zones, each one must refer another one.
+If there are no connections provides then it is possible to travel between any zone based on visibility and access rules.
+
 ```yaml
 # Zone definition
 # Place under the top level zones node 
 
 <zone_id>:                        # REQUIRED. Unique stable zone ID.
-  name: "<string>"                # REQUIRED. Display name.
-  discovered: <bool>              # OPTIONAL. Default false.
-  accessible: <bool>              # OPTIONAL. Default true.
-  tags: ["<string>", ...]         # OPTIONAL. Semantic classification ("urban","safe").
-  privacy: "low|medium|high"      # low | medium | high (default: low)
-
-  # --- Transport & travel ---
-  transport_connections:          # OPTIONAL. Travel routes between zones.
-    - to: "<zone_id>"
-      methods: ["bus","car","walk"]
-      distance: <int>             # narrative distance (time cost multiplier)
-
-  # --- Inline locations (see below) ---
-  locations: [ ... ]
-
-```
-### 15.3. Location template
-```yaml
-# Location definition lives under: zones[].locations[]
-- id: "<string>"                  # REQUIRED. Unique stable location ID (zone-local).
-  name: "<string>"                # REQUIRED. Display name.
-  type: "<string>"                # OPTIONAL. "public","private","special". For author use.
-  privacy: "<enum>"               # REQUIRED. none | low | medium | high
-  discovered: <bool>              # OPTIONAL. Default false.
-  hidden_until_discovered: <bool> # OPTIONAL. Default false (UI hint).
-  tags: ["<string>", ...]         # OPTIONAL. Narrative classification.
+  name: "<string>"                       # REQUIRED. Display name.
+  description: "<string>"                # OPTIONAL. Short description to show in UI and pass to Writer. 
+  privacy: "low|medium|high"             # low | medium | high (default: low)
 
   # --- Access & discovery ---
-  discovery_conditions:           # OPTIONAL. Expressions; if true, location is revealed.
-    - "<expr>"
-  access:
-    locked: <bool>                # OPTIONAL. Default false.
-    unlocked_when: "<expr>"       # OPTIONAL. Expression DSL. If true, the location is unlocked.
+  access:                         # OPTIONAL. Access rules.
+    discovered: <bool>                   # OPTIONAL. Default false.
+    hidden_until_discovered: <bool>      # OPTIONAL. Default false.
+    discovered_when: "<expr>"            # OPTIONAL. Expressions; if true, then revealed.
+    locked: <bool>                       # OPTIONAL. Default false.
+    unlocked_when: "<expr>"              # OPTIONAL. Expression DSL. If true, then unlocked.
 
-  # --- Connections (intra-zone travel) ---
-  connections:
-    - to: "<location_id>"         # target location in the same zone
-      type: "<enum>"              # door | street | path | teleport
-      distance: "<enum>"          # immediate | short | medium | long
-      bidirectional: <bool>=true
+  # --- Transport & travel ---
+  connections:                    # OPTIONAL. Travel routes between zones.
+    - to: ["<zone_id>|all", ...]        # Connects to specified zones, shortcut 'all' means all zones. 
+      except: ["<zone_id>", ...]        # OPTIONAL. Excludes zone from the connection if to='all'.
+      methods: ["bus|car|walk", ...]    # OPTIONAL. Transport methods for the link. See the Movement Rules for details 
+      distance: <int>                   # OPTIONAL. Distance to calculate time and cost. See the Movement Rules for details.
 
-  # --- Features (sub-areas, optional) ---
-  features: ["<string>", ...]     # e.g., "bed","desk","stage"
-
-  # --- Events (optional) ---
-  events:
-    on_first_enter:
-      narrative: "<string>"
-      effects: [ <effects...> ]
+  # --- Inline locations (see below) ---
+  locations: { ... }
+  
+  # --- Entrances and exits ---
+  entrances: ["<location_id>"]    # OPTIONAL. List of locations that allow entering a zone. Not set = enter any location.
+  exits: ["<location_id>"]        # OPTIONAL. List of locations that allow exiting a zone. Not set = exit from any location.
+  
 
 ```
-### 15.4. Runtime State (excerpt)
+### Location template
+Locations are similar to zones with some differences:
+- Connections have another system of connections which allows step by step movibg between locations 
+using cardinal direction and up/down between floors.
+- Connections may be locked with conditional unlock (e.g., a closed door requires a key)
+- Locations have own inventory which defines all present items with option to collect items.
+- Dropped items may be added to a location's inventory. 
+
+```yaml
+# Location definition lives under: zones[].locations[]
+<location_id>:                    # REQUIRED. Unique stable zone ID.
+  name: "<string>"                # REQUIRED. Display name.
+  description: "<string>"         # OPTIONAL. Short description to show in UI and pass to Writer. 
+  privacy: "low|medium|high"             # low | medium | high (default: low)
+
+  # --- Access & discovery ---
+  access:                         # OPTIONAL. Access rules.
+    discovered: <bool>                   # OPTIONAL. Default false.
+    hidden_until_discovered: <bool>      # OPTIONAL. Default false.
+    discovered_when: "<expr>"            # OPTIONAL. Expressions; if true, then revealed.
+    locked: <bool>                       # OPTIONAL. Default false.
+    unlocked_when: "<expr>"              # OPTIONAL. Expression DSL. If true, then unlocked.
+
+  # --- Connections (intra-zone travel) ---
+  connections:                    # OPTIONAL. Connection to adjacent locations 
+    - to: "<location_id>"         # REQUIRED. Target location in the same zone
+      description: "<string>"         # OPTIONAL. Short description to show in UI and pass to Writer. 
+      direction: "n|s|w|e|nw|ne|sw|se|u|d"   # REQUIRED. Cardinal directions and up/down.
+      locked: <bool>                       # OPTIONAL. Default false.
+      unlocked_when: "<expr>"              # OPTIONAL. Expression DSL. If true, then unlocked.
+  # --- Inventory ---
+  inventory:                      # OPTIONAL. Items present in location locations
+    - item: "<item_id>"                 # REQUIRED. Item ID.
+      count: <int>|null                 # REQUIRED. Count or null for infinite.
+      replenish: <bool>                 # OPTIONAL. Regenerates? Default: false.
+      discovered: <bool>                # OPTIONAL. Discovered and visible? Default: true.
+      discovered_when: "<expr>"         # OPTIONAL. Condition to reveal.
+
+```
+### Runtime State (excerpt)
 ```yaml
 state.location:
   zone: "<zone_id>"
   id: "<location_id>"
   privacy: "<enum>"          # carried into consent checks
 ```
-### 15.5. Discovery & Privacy
 
-- **Discovery**: locations are hidden until flagged; `hidden_until_discovered: true` keeps them invisible in UI until unlocked.
-- **Privacy levels:**
-  - none → public square, no intimacy possible
-  - low → casual public (library)
-  - medium → semi-private (park at night)
-  - high → private rooms, intimacy is allowed
-- Privacy influences which **gates** can pass (e.g., `accept_kiss` in medium+, `accept_sex` only in high).
-
-### 15.6. Example
+### Example
 ```yaml
-zones:
-  - id: "campus"
-    name: "University Campus"
-    discovered: true
-    properties: { size: "large", security: "medium", privacy: "low" }
-    transport_connections:
-      - to: "downtown"
-        methods: ["bus","walk"]
-        distance: 2
-    locations:
-      - id: "dorm_room"
-        name: "Your Dorm Room"
-        type: "private"
-        privacy: "high"
-        discovered: true
-        access:
-          locked: true
-          unlock_methods: [{ item: "dorm_key" }]
-        connections:
-          - to: "dorm_hallway"
-            type: "door"
-            distance: "immediate"
-            bidirectional: true
-        features: ["bed","desk"]
-
-      - id: "library"
-        name: "Campus Library"
-        type: "public"
-        privacy: "low"
-        discovered: true
-        connections:
-          - to: "courtyard"
-            type: "path"
-            distance: "short"
-
+# TODO add examples
 ```
-
-### 15.7. Authoring Guidelines
-- Always give each zone at least one **safe fallback location** (prevents dead-ends).
-- Tag high-privacy locations carefully; they gate NSFW actions.
-- Use unlock_methods for keys/invitations instead of flags where possible (keeps fiction grounded).
-- Keep **connections** simple — only model meaningful travel steps.
-- Inline **features** are narrative aids, not separate locations.
-
----
-
-## 16. Movement Rules
-
-### 16.1. Definition
+### Movement
 The **movement system** governs how the player (and companions) travel between locations and zones. 
-Movement consumes **time** and may cost **energy**, requires **access conditions** to be met, 
+Movement consumes **time** , requires **access conditions** to be met, 
 and checks **NPC consent** when traveling with companions.
-- **Local movement**: moving between locations inside the same zone.
-- **Zone travel**: moving between different zones (campus → downtown).
-- **Companions**: NPC willingness depends on trust/attraction/gates.
-- **Restrictions**: unconscious state, low energy, or locked access block travel.
+- **Local**: moving between locations inside the same zone consumes **base_time**:
+  - in `time/hybrid` modes `base_time` means minutes for one movement;
+  - in the `slots` mode `base_time` means number of actions for movement;
+  - `base_time = 0` means immediate movement which does not consume time or actions. 
+- **Zone travel**: moving between different zones consumes time based on distance and travel method:
+  - Definition of methods provides own `base_time` for each method which means time to travel one unit of distance;
+  - Connections between zones define distance and available travel methods;
+  - The final travel time is calculated as `base_time * distance` for each method;
+  - For `slots` mode base time is the number of actions for movement.
+- **Companions**: NPC willingness depends on trust/attraction/gates and defined for each character.
 
 ```yaml
-movement:
-  # --- Local movement within a zone ---
-  local:
-    base_time: <int>              # REQUIRED. Minutes consumed for immediate move.
-    distance_modifiers:           # OPTIONAL. Time multipliers by connection distance.
-      immediate: 0
-      short: 1
-      medium: 3
-      long: 5
 
-  # --- Zone-to-zone travel ---
-  zone_travel:
-    requires_exit_point: <bool>   # OPTIONAL. Default false. If true, must reach the exit node first.
-    time_formula: "<expr>"        # REQUIRED. Expression DSL, e.g., "base_time * distance".
-    allow_companions: <bool>      # OPTIONAL. Default true.
+# Movement system definition
+# Place as a top level movement node 
+movement:                         # OPTIONAL. Top level node 
+  base_time: <int>                # OPTIONAL. Base time for local travel.
+                                    # Minutes/actions consumed for one movement.
+  use_entry_exit: <bool>          # OPTIONAL. Default false. 
+                                    # If true, arrive to zone's entry locations and
+                                    # must reach the zone's exit location to travel out of a zone.
 
-  # --- Restrictions (global checks) ---
-  restrictions:
-    requires_consciousness: true  # Default true. Block travel if the player is unconscious.
-    min_energy: <int>             # Optional. Block travel if below a threshold.
-    check_npc_consent: true       # Default true. Validate gates before moving with NPCs.
-
+  methods:                        # REQUIRED if a game uses travel methods. List of travel methods.
+    - "<method_name>": <base_time>  # REQUIRED. Unique method name and base time.
 ```
-### 16.2. Runtime Example
-```yaml
-state:
-  location: { zone: "campus", id: "library", privacy: "low" }
-  time: { day: 3, slot: "afternoon", time_hhmm: "14:30" }
-  meters:
-    player: { energy: 35 }
-```
-If player moves from `library` → `dorm_room`:
-- `distance: short` → `base_time (1) * short (1) = 1 minute`.
-- `energy ≥ min_energy (5)` → allowed.
-- If `emma accompanies`, engine checks her `movement.willing_locations` and consent gates.
-
-### 16.3. Example Config
-
-```yaml
-movement:
-  local:
-    base_time: 1
-    distance_modifiers: { immediate: 0, short: 1, medium: 3, long: 5 }
-
-  zone_travel:
-    requires_exit_point: true
-    time_formula: "5 * distance"
-    allow_companions: true
-
-  restrictions:
-    requires_consciousness: true
-    min_energy: 5
-    check_npc_consent: true
-
-```
-
-### 16.4. Companion Consent Rules
-
-Defined per character in `characters` node:
-```yaml
-movement:
-  willing_zones:
-    - { zone: "campus", when: "always" }
-    - { zone: "downtown", when: "meters.emma.trust >= 50" }
-  willing_locations:
-    - { location: "player_room", when: "meters.emma.trust >= 40" }
-  transport:
-    walk: "always"
-    bus:  "always"
-    car:  "meters.emma.trust >= 30"
-  follow_thresholds:
-    eager: 70      # attraction + trust
-    willing: 40
-    reluctant: 20
-  refusal_text:
-    low_trust: "I don't feel comfortable going there with you yet."
-    wrong_time: "Now isn’t a good time."
-
-```
-
-### 16.5. Authoring Guidelines
-
-- **Always include fallback travel routes** to avoid dead-ends.
-- Balance **time cost**: keep local moves cheap, zone travel meaningful.
-- Use **consent thresholds** for NPC companions (trust + attraction).
-- Apply **privacy rules** at the target location, not during movement.
-- Keep `min_energy` low enough to avoid soft-locking players.
-
 ---
-
-
-## 10. Characters
+## 11. Characters
 
 ### Character Template
 A **character** is any entity (NPC or player avatar) that participates in the story. 
@@ -1125,7 +1022,7 @@ state.characters:
     modifiers: []
     location: "library"
 ```
-### 7.4. Example Character
+### Example
 ```yaml
 - id: "emma"
   name: "Emma Chen"
@@ -1175,8 +1072,247 @@ state.characters:
 
 ---
 
+## 12. Effects
 
-## 10. Modifiers
+### Base Effect Definition
+
+An **effect** is an atomic, declarative instruction that changes the game state. Effects are:
+- **Deterministic** — applied in order, validated against schema.
+- **Declarative** — authors describe what changes, not how.
+- **Guarded** — can include a `when` condition (expression DSL).
+- **Validated** — invalid or disallowed effects are ignored and logged.
+
+Effects can be authored in nodes, events, arcs, milestones, or items. 
+The Checker may also emit effects as JSON deltas, which are merged into the same pipeline
+
+```yaml
+# Single Effect Definition (template)
+- type: "<enum>"            # REQUIRED. Effect kind (see catalog below).
+  when: "<expr>"              # OPTIONAL. A single guard condition that must be true. Default: "always". 
+  when_any: ["<expr>", ...]   # OPTIONAL. A list of conditions where at least one must be true.
+  when_all: ["<expr>", ...]   # OPTIONAL. A list of conditions where all must be true.
+
+  # Rest of fields depend on type.
+```
+### Catalog of Effect Types
+
+#### Meter change
+Applies a change to a meter.
+```yaml
+# Modify meter value  
+  type: meter_change
+  target: "player | <npc_id>"
+  meter: "<meter_id>"
+  op: "add | subtract | set | multiply | divide"
+  value: <int>
+  respect_caps: true    # OPTIONAL. Default: true (clamp to min/max).
+  cap_per_turn: true    # OPTIONAL. Default: true (respect delta caps).
+```
+#### Flag set
+Changes a flag value.
+```yaml
+# Set flag
+- type: flag_set
+  key: "<flag_key>"
+  value: true | false | number | string
+```
+
+#### Inventory
+```yaml
+# Add item to inventory
+- type: inventory_add
+  owner: "player | <npc_id>"
+  item_type: "item | outfit | clothing" # OPTIONAL. Default: "item". Type of the item
+  item: "<item_id>"
+  count: <int>                   # OPTIONAL. Default: 1.
+
+# Remove item from inventory
+- type: inventory_remove
+  owner: "player | <npc_id>"
+  item_type: "item | outfit | clothing" # OPTIONAL. Default: "item". Type of the item
+  item: "<item_id>"
+  count: <int>                  # OPTIONAL. Default: 1.
+
+# Take item from the current location; checks availability 
+- type: inventory_take
+  owner: "player | <npc_id>"
+  item_type: "item | outfit | clothing" # OPTIONAL. Default: "item". Type of the item
+  item: "<item_id>"
+  count: <int>                   # OPTIONAL. Default: 1.
+
+# Drops item at the current location inventory
+- type: inventory_drop
+  owner: "player | <npc_id>"
+  item_type: "item | outfit | clothing" # OPTIONAL. Default: "item". Type of the item
+  item: "<item_id>"
+  count: <int>                  # OPTIONAL. Default: 1.
+```
+
+#### Clothing
+````yaml
+# Puts an item from the wardrobe on
+- type: clothing_put_on
+  character: "player | <npc_id>"   # REQUIRED.
+  item: "<item_id>"       # REQUIRED. Clothing item will occupy corresponding slot(s).
+  condition: "intact | displaced | opened | removed" # OPTIONAL. Default: taken from the item or intact.
+
+# Takes an item off and keeps it in the wardrobe 
+- type: clothing_take_off
+  character: "player | <npc_id>"   # REQUIRED.
+  item: "<item_id>"       # REQUIRED. 
+
+# Applies condition to item  
+- type: clothing_item_condition
+  character: "player | <npc_id>"   # REQUIRED.
+  item: "<item_id>"       # REQUIRED. 
+  condition: "intact | displaced | opened | removed" # REQUIRED.
+
+# Applies condition to the item that occupies the slot
+- type: clothing_slot_condition
+  character: "player | <npc_id>"   # REQUIRED.
+  slot: "<slot_id>"       # REQUIRED. 
+  condition: "intact | displaced | opened | removed" # REQUIRED.
+
+# Puts on all items from te outfit 
+- type: outfit_put_on
+  character: "player | <npc_id>"   # REQUIRED.
+  item: "<outfit_id>"     # REQUIRED. 
+
+# Takes off all items from the outfit  
+- type: outfit_take_off
+  character: "player | <npc_id>"   # REQUIRED.
+  item: "<outfit_id>"              # REQUIRED.
+
+
+````
+> Engine enforces privacy + consent; disallowed changes are ignored and logged
+
+#### Movement & Time
+```yaml
+# Local movement from the current location in a specified direction  
+- type: move
+  direction: "n | s | w | e | nw | ne | sw | se | u | d"  # REQUIRED. Cardinal directions and up/down.
+            # Also allows full values north, south, etc. 
+  with_characters: ["<npc_id>", ...]   # consent checked
+
+# Local movement within a zone to a location 
+- type: move_to
+  location: "<location_id>"             # REQUIRED. Target location in the same zone
+  with_characters: ["<npc_id>", ...]    # OPTIONAL.  
+
+# Global movement between zones  
+- type: travel_to
+  location: "<location_id>"             # REQUIRED. Target location in another zone.
+  method: "<method_id>"                 # REQUIRED. Method to travel with. 
+  with_characters: ["<npc_id>", ...]    # OPTIONAL.   
+
+# Time advancement
+- type: advance_time
+  minutes: <int>                        # REQUIRED. Minutes to advance.
+
+# Time advancement for slot mode
+- type: advance_slot
+  slots: <int>                          # REQUIRED.
+```
+
+#### Flow control
+```yaml
+# Switches game to a specified node 
+- type: goto_node
+  node: "<node_id>"
+
+# Combined effect with complex conditions
+- type: conditional
+  when: "<expr>"                # One of when/when_any/when_all is REQUIRED.
+  when_any: ["<expr>", ...]
+  when_all: ["<expr>", ...]
+  then: [ <effects...> ]        # Effects to apply when a condition is met.
+  otherwise: [ <effects...> ]   # Effects to apply when a condition is not met.
+
+# Random effect applies one of different sets of effects based on random value with defined weights (%) 
+- type: random
+  choices:
+    - weight: <int>
+      effects: [ <effects...> ]
+    - weight: <int>
+      effects: [ <effects...> ]
+```
+#### Unlocks & Utilities
+```yaml
+# Unlocks an item
+- type: unlock_item
+  owner: "player | <npc_id>"
+  item_type: "item | outfit | clothing" # OPTIONAL. Default: "item". Type of the item
+  item: "<item_id>"
+
+# Unlocks a zone
+- type: unlock_zone
+  zone: "<zone_id>"
+  
+# Unlocks a single location
+- type: unlock_location
+  location: "<location_id>"
+  
+# Unlocks locations
+- type: unlock_locations
+  locations: ["<location_id>", ...]
+ 
+# Unlocks an action
+- type: unlock_actions
+  actions: ["<action_id>", ...]
+
+# Unlocks an ending
+- type: unlock_ending
+  ending: "<ending_id>"
+
+```
+### Execution Order (per turn)
+
+1. **Gates** (hard rules, consent).
+2. **Node entry_effects** / **event effects** (in order).
+3. **Checker deltas** (validated, clamped).
+4. **Modifiers resolution** (activation, expiry, stacking).
+5. **Advance time** (explicit or defaults).
+6. **Node transitions** (forced `goto` → authored `transitions` → fallback).
+
+### Constraints & Notes
+
+- Conditions use the Expression DSL.
+- Unknown `type` or invalid fields → effect rejected, log warning.
+- Invalid references (unknown meter/item/npc/location) → effect rejected.
+- `when` guard false → effect skipped silently.
+- All randomness is seeded deterministically (`game_id + run_id + turn_index`) for replay stability.
+
+### Examples
+**Trust boost or penalty**
+```yaml
+- type: conditional
+  when: "player.polite == true"
+  then:
+    - { type: meter_change, target: "emma", meter: "trust", op: "add", value: 2 }
+  otherwise:
+    - { type: meter_change, target: "emma", meter: "trust", op: "subtract", value: 1 }
+
+```
+**Weighted random outcome**
+```yaml
+- type: random
+  choices:
+    - weight: 70
+      effects: [{ type: flag_set, key: "heard_rumor", value: true }]
+    - weight: 30
+      effects: [{ type: meter_change, target: "player", meter: "energy", op: "subtract", value: 5 }]
+```
+
+**Move with companion**
+```yaml
+- type: move_to
+  location: "emma_room"
+  with_characters: ["emma"]
+```
+---
+
+## 13. Modifiers
 
 ### 10.1. Definition
 A **modifier** is a named, (usually) temporary state that overlays appearance/behavior rules 
@@ -1304,270 +1440,6 @@ modifier_system:
 ```
 ---
 
-## 12. Clothing & Wardrobe
-
-### 12.1. Definition
-The **clothing system** represents what characters wear, how outfits are composed, and how layers can change
-state during play. Clothing provides narrative grounding (outfits described in prose), 
-mechanical gating (privacy, consent, embarrassment), and state tracking (layer `intact` / `displaced` / `removed`).
-
-
-Wardrobe definitions live in the `characters` node under each NPC (and optionally the player), 
-with a shared ontology of layers. Runtime state tracks which outfit is equipped and the state of each layer.
-
-**Single outfit**
-```yaml
-# Outfit definition lives under: characters[].wardrobe.outfits[]
-- id: "<string>"                 # REQUIRED. Stable outfit ID for reference/unlocks.
-  name: "<string>"               # REQUIRED. Display name.
-  tags: ["<string>", ...]        # OPTIONAL. Semantic labels (e.g., "casual","sexy","formal").
-  description: "<string>"        # OPTIONAL. Author notes (not shown verbatim to players).
-
-  # --- Unlock rules ---
-  unlock_when: "<expr>"          # OPTIONAL. Expression DSL; if true, outfit becomes selectable.
-  locked: <bool>                 # OPTIONAL. Default false. Explicit lock toggle.
-
-  # --- Clothing layers ---
-  layers:                        # REQUIRED. Ontology must match the game. See the example below.
-    outerwear:       { item: "<string>", color: "<string>", style: "<string>" }
-    dress:           { item: "<string>", color: "<string>", style: "<string>" }
-    top:             { item: "<string>", color: "<string>", style: "<string>" }
-    bottom:          { item: "<string>", color: "<string>", style: "<string>" }
-    feet:            { item: "<string>", style: "<string>" }
-    underwear_top:   { item: "<string>", style: "<string>" }
-    underwear_bottom:{ item: "<string>", style: "<string>" }
-    accessories:     ["<string>", ...]   # OPTIONAL. Non-layer items (choker, glasses, etc.)
-```
-
-**Wardrobe System**
-```yaml
-wardrobe:
-  rules:
-    layer_order: ["outerwear","dress","top","bottom","feet","underwear_top","underwear_bottom","accessories"]
-    required_layers: ["top","bottom","underwear_top","underwear_bottom"]   # engine checks presence
-    removable_layers: ["outerwear","dress","top","bottom","feet","accessories"]
-    sexual_layers: ["underwear_top","underwear_bottom"]  # layers relevant for intimacy checks
-
-  outfits: [ ... see above ... ]
-```
-### 12.2. Clothing State (runtime)
-At runtime, each character has:
-```yaml  
-state.clothing:
-  <npc_id>:
-    outfit: "<outfit_id>"           # currently equipped outfit
-    layers:
-      outerwear: "intact"           # intact | displaced | removed
-      top:       "intact"
-      bottom:    "displaced"
-      underwear_top: "intact"
-      underwear_bottom: "removed"
-```
-
-### 12.3. Clothing Effects
-Clothing changes are expressed through standard Effects (`outfit_change` and `clothing_set`), see Effects catalog.
-
-**Rules**
-- **Consent gates** + **privacy** enforced before applying. If blocked → effect ignored, refusal line triggered.
-- **Wardrobe rules** ensure mandatory layers exist and respect layer order.
-- **Engine validation**: unknown layers/outfits rejected.
-
-### 12.4. Example
-```yaml
-characters:
-  - id: "emma"
-    name: "Emma Chen"
-    wardrobe:
-      rules:
-        layer_order: ["outerwear","dress","top","bottom","feet","underwear_top","underwear_bottom","accessories"]
-      outfits:
-        - id: "casual_day"
-          name: "Casual Outfit"
-          tags: ["everyday","modest"]
-          layers:
-            outerwear: { item: "hoodie", color: "gray" }
-            top:       { item: "tank top", color: "white" }
-            bottom:    { item: "jeans", style: "skinny" }
-            feet:      { item: "sneakers" }
-            underwear_top:    { item: "bra", style: "t-shirt" }
-            underwear_bottom: { item: "panties", style: "bikini" }
-            accessories: ["glasses"]
-
-        - id: "bold_outfit"
-          name: "Bold Outfit"
-          unlock_when: "meters.emma.corruption >= 40 or meters.emma.boldness >= 60"
-          layers:
-            top: { item: "crop top", color: "black" }
-            bottom: { item: "mini skirt", color: "red" }
-            feet: { item: "heels" }
-            underwear_top: { item: "push-up bra", style: "lace" }
-            underwear_bottom: { item: "thong", style: "g-string" }
-            accessories: ["choker"]
-
-```
-### 12.5. Authoring Guidelines
-- Always provide at least one **default outfit** per character.
-- Use `unlock_when` for narrative progression (e.g., bold/corrupted outfits).
-- Keep **layer ontology consistent** across all characters.
-- Treat **clothing removal/displacement** as state, not narrative fluff — prose must match state.
-- For NSFW: intimate acts require underwear layers `removed` or `displaced`, **plus** consent gates and privacy = high.
-
----
-
-## 13. Effects
-
-### 13.1. Definition
-
-An **effect** is an atomic, declarative instruction that changes the game state. Effects are:
-- **Deterministic** — applied in order, validated against schema.
-- **Declarative** — authors describe what changes, not how.
-- **Guarded** — can include a `when` condition (expression DSL).
-- **Validated** — invalid or disallowed effects are ignored and logged.
-
-Effects can be authored in nodes, events, arcs, milestones, or items. The Checker may also emit effects as JSON deltas, which are merged into the same pipeline
-
-```yaml
-# Single Effect Definition (template)
-- type: "<enum>"            # REQUIRED. Effect kind (see catalog below).
-  when: "<expr>"            # OPTIONAL. Guard condition (DSL). Default: "always".
-
-  # Fields depend on type.
-```
-### 13.2. Catalog of Effect Types
-
-#### Meter change
-```yaml
-- type: meter_change
-  target: "player | <npc_id>"
-  meter: "<meter_id>"
-  op: "add | subtract | set | multiply | divide"
-  value: <int>
-  respect_caps: true    # OPTIONAL. Default: true (clamp to min/max).
-  cap_per_turn: true    # OPTIONAL. Default: true (respect delta caps).
-
-```
-
-#### Flag set
-```yaml
-- type: flag_set
-  key: "<flag_key>"
-  value: true | false | number | string
-
-```
-
-#### Inventory
-```yaml
-- type: inventory_add
-  owner: "player | <npc_id>"
-  item: "<item_id>"
-  count: <int> =1
-
-- type: inventory_remove
-  owner: "player | <npc_id>"
-  item: "<item_id>"
-  count: <int> =1
-```
-#### Modifiers
-````yaml
-- type: outfit_change
-  character: "<npc_id>"
-  outfit: "<outfit_id>"
-
-- type: clothing_set
-  character: "<npc_id>"
-  layer: "<layer_id>"       # top | bottom | underwear_top | ...
-  state: "intact | displaced | removed"
-
-````
-> Engine enforces privacy + consent; disallowed changes are ignored and logged
-
-#### Movement & Time
-```yaml
-- type: move_to
-  location: "<location_id>"
-  with_characters: ["<npc_id>", ...]   # consent checked
-
-- type: advance_time
-  minutes: <int>
-```
-
-#### Flow control
-```yaml
-- type: goto_node
-  node: "<node_id>"
-
-- type: conditional
-  when: "<expr>"
-  then: [ <effects...> ]
-  otherwise: [ <effects...> ]
-
-- type: random
-  choices:
-    - weight: <int>
-      effects: [ <effects...> ]
-    - weight: <int>
-      effects: [ <effects...> ]
-```
-#### Unlocks & Utilities
-```yaml
-- type: unlock_outfit
-  character: "<npc_id>"
-  outfit: "<outfit_id>"
-
-- type: unlock_actions
-  actions: ["<action_id>", ...]
-
-- type: unlock_ending
-  ending: "<ending_id>"
-
-```
-### 13.3. Execution Order (per turn)
-
-1. **Safety gates** (hard rules, consent).
-2. **Node entry_effects** / **event effects** (in order).
-3. **Checker deltas** (validated, clamped).
-4. **Modifiers resolution** (activation, expiry, stacking).
-5. **Advance time** (explicit or defaults).
-6. **Node transitions** (forced `goto` → authored `transitions` → fallback).
-
-### 13.4. Constraints & Notes
-
-- Conditions use the Expression DSL.
-- Unknown `type` or invalid fields → effect rejected, log warning.
-- Invalid references (unknown meter/item/npc/location) → effect rejected.
-- `when` guard false → effect skipped silently.
-- All randomness is seeded deterministically (`game_id + run_id + turn_index`) for replay stability.
-- Effects **must not bypass consent/NSFW rules**; if violated, they are dropped, and refusal text is triggered.
-
-### 13.5. Examples
-**Trust boost or penalty**
-```yaml
-- type: conditional
-  when: "player.polite == true"
-  then:
-    - { type: meter_change, target: "emma", meter: "trust", op: "add", value: 2 }
-  otherwise:
-    - { type: meter_change, target: "emma", meter: "trust", op: "subtract", value: 1 }
-
-```
-**Weighted random outcome**
-```yaml
-- type: random
-  choices:
-    - weight: 70
-      effects: [{ type: flag_set, key: "heard_rumor", value: true }]
-    - weight: 30
-      effects: [{ type: meter_change, target: "player", meter: "energy", op: "subtract", value: 5 }]
-```
-
-**Move with companion**
-```yaml
-- type: move_to
-  location: "emma_room"
-  with_characters: ["emma"]
-```
-
----
 ## 14. Actions
 
 ### 14.1. Definition
