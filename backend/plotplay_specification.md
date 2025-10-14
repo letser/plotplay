@@ -11,15 +11,16 @@
 7. [Economy System](#7-economy-system)
 8. [Inventory & Items](#8-inventory--items)
 9. [Clothing System](#9-clothing-system)
-10. [Locations & Zones](#10-locations--zones)  
-11. [Characters](#11-characters)  
-12. [Effects](#12-effects)
-13. [Modifiers](#13-modifiers)  
-14. [Actions](#14-actions)
-15. [Nodes](#15-nodes)  
-16. [Events](#16-events)  
-17. [Arcs & Milestones](#17-arcs--milestones)  
-18. [AI Contracts (Writer & Checker)](#18-ai-contracts-writer--checker)  
+10. [Shopping System](#10-shopping-system)
+11. [Locations & Zones](#11-locations--zones)  
+12. [Characters](#12-characters)  
+13. [Effects](#13-effects)
+14. [Modifiers](#14-modifiers)  
+15. [Actions](#15-actions)
+16. [Nodes](#16-nodes)  
+17. [Events](#17-events)  
+18. [Arcs & Milestones](#18-arcs--milestones)  
+19. [AI Contracts (Writer & Checker)](#19-ai-contracts-writer--checker)  
 
 ---
 
@@ -363,7 +364,7 @@ which may introduce additional meters for this specific NPC or override meters f
 # Place under: meters.player.<meter_id>, or meters.template.<meter_id>, or characters.<npc_id>.meters.<meter_id>
 
 <meter_id>:             # REQUIRED. Meter ID unique within its parent node.
-  # --- Bounds & Defaults ---
+# --- Bounds & Defaults ---
   min: <int>            # REQUIRED. Absolute floor (inclusive).
   max: <int>            # REQUIRED. Absolute ceiling (inclusive). Must be > min.
   default: <int>        # REQUIRED. Initial value. Must be within [min, max].
@@ -385,7 +386,7 @@ which may introduce additional meters for this specific NPC or override meters f
     <label_b>: [<int_lo>, <int_hi>]
 
   # --- Notes (author-facing only; ignored by engine) ---
-  description: "<string>"   # OPTIONAL. Brief author guidance about meaning and usage.
+  description: "<string>"   # OPTIONAL. Brief author notes
 
 ```
 ### Example (NPC meter)
@@ -427,12 +428,14 @@ They can be boolean, number, or string, but should remain simple and stable over
   visible: <bool>        # OPTIONAL. Show in debug/author UIs. Default: false.
   reveal_when: "<expr>"  # OPTIONAL. Expression DSL; when true, UI may show this flag.
   label: "<string>"      # OPTIONAL. Human-friendly name for UI.
-  description: "<string>"# OPTIONAL. Author note on what this flag means.
-
+  
   # --- Validation (optional helpers) ---
   allowed_values:        # OPTIONAL. Only for string/number; reject values outside this set/range.
     - <valueA>
     - <valueB>
+  # --- Notes (author-facing only; ignored by engine) ---
+  description: "<string>"   # OPTIONAL. Brief author notes
+- 
 ```
 
 **Constraints & Notes**
@@ -713,7 +716,7 @@ Outfits predefine clothing items to slots and populate corresponding items once 
 
 Outfits can be worn either as a single unit and add all items to the character's inventory, 
 or require a character to have/acquire all required items to be applied. Outfits just populate items into slots,
-so individual items can be changed or removed as a set of items. Each clothing item has own status and can be 
+so individual items can be changed or removed as a set of items. Each clothing item has own state and can be 
 `intact`, `opened`, `displaced`, `removed`. 
 `displaced` and `opened` allow revealing items from underneath slots.
 `removed` means that the item is removed but still present in the inventory and can be worn again by changing its condition.
@@ -745,14 +748,15 @@ items:
     name: "<string>"               # REQUIRED. Display name.
     value: <int>                   # OPTIONAL. Shop price; non-negative.
     slot: "<string>"               # REQUIRED. Which slot this occupies.
-    condition: "intact|opened|displaced|removed"  # OPTIONAL. Default: "intact"
-    description:                   # REQUIRED. Narrative description.
+    state: "intact|opened|displaced|removed"  # OPTIONAL. Default: "intact"
+    look:                          # REQUIRED. Narrative description.
       intact: "<string>"           # REQUIRED. Description of the intact item.
       opened: "<string>"           # OPTIONAL. Description of the opened item.
       displaced: "<string>"        # OPTIONAL. Description of the displaced item.
-    occupies: ["<slot>", ...]     # REQUIRED. Which slot item occupies? Items like dresses that use multiple slots.
-    conceals: ["<slot>", ...]     # OPTIONAL. Which slots this hides when intact.
-    can_open: <bool>              # OPTIONAL. Default: false. Can be opened/unfastened?
+      removed: "<string>"          # OPTIONAL. Description of the removed item.
+    occupies: ["<slot>", ...]      # REQUIRED. Which slot item occupies? Items like dresses that use multiple slots.
+    conceals: ["<slot>", ...]      # OPTIONAL. Which slots this hides when intact.
+    can_open: <bool>               # OPTIONAL. Default: false. Can be opened/unfastened?
     # --- Locking ---
     locked: <bool>              # OPTIONAL. Default: false.
     unlock_when: "<expr>"       # OPTIONAL. Unlock condition.
@@ -787,9 +791,45 @@ If some items occupy the same slot, the last one will be used.
   TODO: add examples
 ```
 ---
+## 10. Shopping System
+The shopping system allows players to buy or sell item. 
+The `shop` node defines inventory items, clothing items, and outfits available for sale. 
+It can also provide an option for the player to sell items. 
+Expressions allow to set price multipliers for selling and purchasing. 
 
 
-## 10. Locations & Zones
+The `shop` node can be **attached** to any location or character, so characters become merchants and location become stores. 
+Once a shop node is attached, game UI allows players to enther the shop, list items and buy/sell. 
+
+```yaml
+# Shop definition
+# Place under any location or character 
+shop:                                 # OPTIONAL. Shop definition.
+  name: "<string>"                    # REQUIRED. Shop name
+  description: "<string>"             # OPTIONAL. Author notes.
+  when: "<expr>"                      # OPTIONAL. Expression DSL. Default: true. Defines when shop is open.                      
+  can_buy: "<expr>"                   # OPTIONAL. Expression DSL. Default: true. Can buy items from the player.
+  multiplier_sell: "<expr>"           # OPTIONAL. Expression DSL. Multiplier for selling to the player. Default 1.0
+  multiplier_buy: "<expr>"            # OPTIONAL. Expression DSL. Multiplier for buying from the player. Default 1.0
+  # --- Items ---
+  items:                              # OPTIONAL. Available items
+    - id: <item_id>                   # REQUIRED. List of items available for sale.
+      count: <int>                    # OPTIONAL. Default: 1. Number of items available.
+      value: <int>                    # OPTIONAL. Price override of the item.
+  # --- Clothing Items ---
+  clothing:                              # OPTIONAL. Available items
+    - id: <clothing_item_id>                   # REQUIRED. List of items available for sale.
+      count: <int>                    # OPTIONAL. Default: 1. Number of items available.
+      value: <int>                    # OPTIONAL. Price override of the item.
+  # --- Clothing Items ---
+  outfits:                              # OPTIONAL. Available items
+    - id: <outfit_id>                   # REQUIRED. List of items available for sale.
+      count: <int>                    # OPTIONAL. Default: 1. Number of items available.
+      value: <int>                    # OPTIONAL. Price override of the item.
+```  
+---
+
+## 11. Locations & Zones
 
 ### World Model
 The world model is hierarchical:
@@ -816,28 +856,29 @@ If there are no connections provides then it is possible to travel between any z
 # Zone definition
 # Place under the top level zones node 
 
-<zone_id>:                        # REQUIRED. Unique stable zone ID.
+- id:                                    # REQUIRED. Unique stable zone ID.
   name: "<string>"                       # REQUIRED. Display name.
-  description: "<string>"                # OPTIONAL. Short description to show in UI and pass to Writer. 
-  privacy: "low|medium|high"             # low | medium | high (default: low)
+  summary: "<string>"                    # OPTIONAL. Short description to show in UI and pass to Writer. 
+  privacy: "low|medium|high"             # REQUIRED. low | medium | high (default: low)
+  description: "<string>"                # OPTIONAL. Author notes.
 
   # --- Access & discovery ---
-  access:                         # OPTIONAL. Access rules.
-    discovered: <bool>                   # OPTIONAL. Default false.
-    hidden_until_discovered: <bool>      # OPTIONAL. Default false.
-    discovered_when: "<expr>"            # OPTIONAL. Expressions; if true, then revealed.
-    locked: <bool>                       # OPTIONAL. Default false.
-    unlocked_when: "<expr>"              # OPTIONAL. Expression DSL. If true, then unlocked.
+  access:                                # OPTIONAL. Access rules.
+    discovered: <bool>                     # OPTIONAL. Default false.
+    hidden_until_discovered: <boo  l>      # OPTIONAL. Default false.
+    discovered_when: "<expr>"              # OPTIONAL. Expressions; if true, then revealed.
+    locked: <bool>                         # OPTIONAL. Default false.
+    unlocked_when: "<expr>"                # OPTIONAL. Expression DSL. If true, then unlocked.
 
   # --- Transport & travel ---
-  connections:                    # OPTIONAL. Travel routes between zones.
-    - to: ["<zone_id>|all", ...]        # Connects to specified zones, shortcut 'all' means all zones. 
-      except: ["<zone_id>", ...]        # OPTIONAL. Excludes zone from the connection if to='all'.
-      methods: ["bus|car|walk", ...]    # OPTIONAL. Transport methods for the link. See the Movement Rules for details 
-      distance: <int>                   # OPTIONAL. Distance to calculate time and cost. See the Movement Rules for details.
+  connections:                          # OPTIONAL. Travel routes between zones.
+    - to: ["<zone_id>|all", ...]          # Connects to specified zones, shortcut 'all' means all zones. 
+      except: ["<zone_id>", ...]          # OPTIONAL. Excludes zone from the connection if to='all'.
+      methods: ["bus|car|walk", ...]      # OPTIONAL. Transport methods for the link. See the Movement Rules for details 
+      distance: <int>                     # OPTIONAL. Distance to calculate time and cost. See the Movement Rules for details.
 
   # --- Inline locations (see below) ---
-  locations: { ... }
+  locations: [ ... ]
   
   # --- Entrances and exits ---
   entrances: ["<location_id>"]    # OPTIONAL. List of locations that allow entering a zone. Not set = enter any location.
@@ -855,10 +896,11 @@ using cardinal direction and up/down between floors.
 
 ```yaml
 # Location definition lives under: zones[].locations[]
-<location_id>:                    # REQUIRED. Unique stable zone ID.
+- id:                             # REQUIRED. Unique stable zone ID.
   name: "<string>"                # REQUIRED. Display name.
-  description: "<string>"         # OPTIONAL. Short description to show in UI and pass to Writer. 
-  privacy: "low|medium|high"             # low | medium | high (default: low)
+  summary: "<string>"             # OPTIONAL. Short description to show in UI and pass to Writer. 
+  description: "<string>"         # OPTIONAL. Author notes.
+  privacy: "low|medium|high"      # REQUIRED. low | medium | high (default: low)
 
   # --- Access & discovery ---
   access:                         # OPTIONAL. Access rules.
@@ -882,6 +924,7 @@ using cardinal direction and up/down between floors.
       replenish: <bool>                 # OPTIONAL. Regenerates? Default: false.
       discovered: <bool>                # OPTIONAL. Discovered and visible? Default: true.
       discovered_when: "<expr>"         # OPTIONAL. Condition to reveal.
+  shop: <shop>                    # OPTIONAL. Shop definition.
 
 ```
 ### Runtime State (excerpt)
@@ -926,7 +969,7 @@ movement:                         # OPTIONAL. Top level node
     - "<method_name>": <base_time>  # REQUIRED. Unique method name and base time.
 ```
 ---
-## 11. Characters
+## 12. Characters
 
 ### Character Template
 A **character** is any entity (NPC or player avatar) that participates in the story. 
@@ -951,7 +994,7 @@ while meters for other characters are taken from the `template`  section.
 # Character Template 
 # Place under the top level items node 
 
-<character_id>:                   # REQUIRED. Unique stable ID.
+- id:                             # REQUIRED. Unique stable ID.
   name: "<string>"                # REQUIRED. Display name.
   age: <int>                      # REQUIRED. 
   gender: "<string>"              # REQUIRED. Free text or enum ("female","male","nonbinary").
@@ -980,7 +1023,9 @@ while meters for other characters are taken from the `template`  section.
     clothing_items: 
       "<item_id>": <item_count>
     outfits:  ["<outfit_id>", ...]
+  shop: <shop>                    # OPTIONAL. Shop definition.
 ```
+
 ###  Gates 
 Behavioral **gates** are a powerful tool for defining the conditions under which a character 
 will do certain action or behave in a certain way. They are defined as a list of conditions 
@@ -993,7 +1038,7 @@ that will be passed to the Writer and Checker to keep character's behavior consi
 
 ```yaml
 gates:                        # OPTIONAL. A list of consent/behavior gates.
-  <gate_id>:                    # REQUIRED. The unique ID for the gate (e.g., "accept_kiss").
+  - id: `````                   # REQUIRED. The unique ID for the gate (e.g., "accept_kiss").
     when: "<expr>"              # OPTIONAL. A single condition that must be true.
     when_any: ["<expr>", ...]   # OPTIONAL. A list of conditions where at least one must be true.
     when_all: ["<expr>", ...]   # OPTIONAL. A list of conditions where all must be true.
@@ -1071,7 +1116,7 @@ state.characters:
 
 ---
 
-## 12. Effects
+## 13. Effects
 
 ### Base Effect Definition
 
@@ -1086,7 +1131,8 @@ The Checker may also emit effects as JSON deltas, which are merged into the same
 
 ```yaml
 # Single Effect Definition (template)
-- type: "<enum>"            # REQUIRED. Effect kind (see catalog below).
+- type: "<enum>"              # REQUIRED. Effect kind (see catalog below).
+  description: "<string>"     # OPTIONAL. Author notes.
   when: "<expr>"              # OPTIONAL. A single guard condition that must be true. Default: "always". 
   when_any: ["<expr>", ...]   # OPTIONAL. A list of conditions where at least one must be true.
   when_all: ["<expr>", ...]   # OPTIONAL. A list of conditions where all must be true.
@@ -1343,7 +1389,7 @@ Changes a flag value.
 ```
 ---
 
-## 13. Modifiers
+## 14. Modifiers
 
 ### Purpose & Template 
 A **modifier** is a named, (usually) temporary state that overlays appearance/behavior rules 
@@ -1434,7 +1480,7 @@ modifiers:
 ```
 ---
 
-## 14. Actions
+## 15. Actions
 
 ### Purpose & Template
 
@@ -1450,12 +1496,12 @@ Actions are defined in a top-level `actions` node.
 # Actions definition
 # In game manifest (top level)
 actions:
-  <action_id>:                    # REQUIRED. UniqueID for unlocking.
+ -  id:                           # REQUIRED. UniqueID for unlocking.
     prompt: "<string>"            # REQUIRED. The text shown to the player.
     category: "<string>"          # OPTIONAL. UI hint (e.g., "conversation", "romance").
     when: "<expr>"                # OPTIONAL. Expression DSL. Action is only available if true.
-    when_all: "<expr>"            # OPTIONAL. Expression DSL. Action is only available if true.
-    when_any: "<expr>"            # OPTIONAL. Expression DSL. Action is only available if true.
+    when_all: ["<expr>", ... ]    # OPTIONAL. Expression DSL. Action is only available if true.
+    when_any: ["<expr>", ... ]    # OPTIONAL. Expression DSL. Action is only available if true.
     effects: [ <effect>, ... ]    # OPTIONAL. Effects applied when the action is chosen.
 ```
 ### Example
@@ -1480,11 +1526,9 @@ actions:
 ```
 ---
 
+## 16. Nodes
 
-
-## 18. Nodes
-
-### 18.1. Definition
+### Purpose & Template
 
 A **node** is the authored backbone of a PlotPlay story.
 Each node represents a discrete story unit — a scene, a hub, an encounter, or an ending. 
@@ -1493,92 +1537,78 @@ and control how the story progresses via **transitions**.
 
 Nodes are where most author effort goes: they set context for the Writer, define conditions and effects, and connect to other nodes
 
-### 18.2. Node Types
-
+**Node types:**
 - **scene** — A focused moment with authored beats and freeform AI prose.
 - **hub** — A menu-like node for navigation or repeated interactions.
 - **encounter** — Short, often event-driven vignette; usually returns to a hub.
 - **ending** — Terminal node; resolves the story and stops play.
 
-### 18.3. Node Template
-
 ```yaml
-# Node definition lives under: nodes: [ ... ]
-- id: "<string>"                    # REQUIRED. Unique across the game.
-  type: "<enum>"                    # REQUIRED. scene | hub | encounter | ending
-  title: "<string>"                 # REQUIRED. Display name in UI/logs.
-  present_characters: ["<string>", ...] # OPTIONAL. Explicitly list character IDs present in this node.
+# Node template 
+# Place under the 'nodes' root node
+- id:                                   # REQUIRED. Unique node id 
+  type: "scene|hub|encounter|ending"    # REQUIRED. scene | hub | encounter | ending
+  title: "<string>"                     # REQUIRED. Display name in UI/logs.
+  description: "<string>"               # OPTIONAL. Author notes.
+  characters_present: ["<string>", ...] # OPTIONAL. Explicitly list character IDs present in this node.
 
   # --- Availability ---
-  preconditions: "<expr>"           # OPTIONAL. Expression DSL; must be true to enter.
-  once: <bool>                      # OPTIONAL. If true, the node only plays once per run.
+  when: "<expr>"                        # OPTIONAL. Expression DSL; must be true to enter.
+  when_all: ["<expr>", ... ]            # OPTIONAL. Expression DSL; all must be true to enter.
+  when_any: ["<expr>", ... ]            # OPTIONAL. Expression DSL; any must be true to enter.
+  once: <bool>                          # OPTIONAL. If true, the node only plays once per run.
 
   # --- Writer guidance ---
-  narration_override:               # OPTIONAL. Override defaults from game.yaml.
+  narration:                            # OPTIONAL. Override defaults from the game manifest.
     pov: "<first|second|third>"
     tense: "<present|past>"
     paragraphs: "1-2"
-    writer_profile: "<cheap|luxe|custom>"
 
-  beats:                            # OPTIONAL. Bullets for Writer (not shown to players).
-    - "Author-facing story cues."
-    - "Establish tone, context, or presence of NPCs."
+  beats: [<string>, ... ]               # OPTIONAL. Bullets for Writer (not shown to players).
 
   # --- Effects ---
-  entry_effects: [ <effects...> ]   # Applied once when the node is entered.
+  on_entry: [ <effect>, ... ]           # OPTIONAL. Applied when the node is entered.
+  on_exit:  [ <effect>, ... ]           # OPTIONAL. Applied when the node is left.
 
   # --- Actions & choices ---
-  choices:                          # Preauthored menu buttons.
-    - id: "<string>"
-      prompt: "<string>"            # Shown to player.
-      conditions: "<expr>"          # OPTIONAL.
-      effects: [ <effects...> ]     # OPTIONAL.
-      goto: "<node_id>"             # OPTIONAL. Forced transition on select.
+  choices:                              # OPTIONAL. Pre-authored menu buttons. Always visible
+    - id: "<string>"                    # REQUIRED. Unique id 
+      prompt: "<string>"                # REQUIRED. Shown to player.
+      when: "<expr>"                    # OPTIONAL. Choice disabled if false.
+      on_select: [ <effect>, ... ]      # OPTIONAL. Effects applied when the choice is chosen.
+      goto: "<node_id>"                 # OPTIONAL. Forced transition on select.
 
-  dynamic_choices:                  # Appear only when conditions become true.
-    - id: "<string>"
-      prompt: "<string>"
-      conditions: "<expr>"
-      effects: [ <effects...> ]
-      goto: "<node_id>"
-
-  action_filters:                   # OPTIONAL. Restrictions on freeform input.
-    banned_freeform:
-      - pattern: "<string>"         # Simple contains or regex.
-        reason: "<string>"
-    banned_topics: ["<string>", ...]
+  dynamic_choices:                      # OPTIONAL. Pre-authored menu buttons. Appear only when conditions become true.
+      prompt: "<string>"                # REQUIRED. Shown to player.
+      when: "<expr>"                    # OPTIONAL. Choice disabled if false.
+      on_select: [ <effect>, ... ]      # OPTIONAL. Effects applied when the choice is chosen.
+      goto: "<node_id>"                 # OPTIONAL. Forced transition on select.
 
   # --- Transitions ---
-  transitions:
-    - when: "<expr>"                # Expression DSL. e.g., "always"
-      to: "<node_id>"               # Target node ID
-      reason: "<string>"            # OPTIONAL. For logs/debugging.
+  transitions:                          # OPTIONAL. Automatic transitions. 
+                                        # REQUIRED.One of when/when_all/when_any is required. 
+    - when: "<expr>"                    #   Expression DSL; must be true to activate transition.
+      when_all: ["<expr>", ... ]        #   Expression DSL; all must be true to activate transition.
+      when_any: ["<expr>", ... ]        #   Expression DSL; any must be true to activate transition.
+      to: "<node_id>"                   # REQUIRED. Target node ID
 
   # --- Ending-specific ---
-  ending_id: "<string>"             # REQUIRED if type == ending.
-  ending_meta:                      # OPTIONAL. Tags for UIs/achievements.
-    character: "<npc_id>"
-    tone: "<good|neutral|bad|secret|joke>"
-    route: "<string>"
-  credits:                          # OPTIONAL. Epilogue text.
-    summary: "<string>"
-    epilogue: ["<string>", ...]
-
+  ending_id: "<string>"                    # REQUIRED if type == ending. Unique ending id
 ```
 
-### 18.4. Runtime State (excerpt)
+### Runtime State (excerpt)
 ```yaml
 state.current_node: "<node_id>"
 ```
 
-### 18.5. Examples
+### Examples
 
 #### Scene 
 ```yaml
 - id: "intro_courtyard"
-  type: "scene"
+  type:  "scene"
   title: "First Day on Campus"
-  preconditions: "time.day == 1 and time.slot == 'morning'"
+  when:  "time.day == 1 and time.slot == 'morning'"
   beats:
     - "Set the scene in the campus courtyard."
     - "Emma is visible but shy."
@@ -1588,7 +1618,7 @@ state.current_node: "<node_id>"
 #### Hub
 ```yaml
 - id: "player_room"
-  type: "hub"
+  type:  "hub"
   title: "Your Dorm Room"
   choices:
     - id: "sleep"
@@ -1607,103 +1637,77 @@ state.current_node: "<node_id>"
   type: "ending"
   title: "A Happy Ending with Emma"
   ending_id: "emma_good"
-  preconditions: "meters.emma.trust >= 80 and meters.emma.attraction >= 80"
-  entry_effects:
+  when: "meters.emma.trust >= 80 and meters.emma.attraction >= 80"
+  on_entry:
     - { type: flag_set, key: "ending_reached", value: "emma_good" }
-  credits:
-    summary: "You and Emma start a genuine relationship."
-    epilogue:
-      - "Over the next weeks, she grows more confident."
-      - "You share love without losing her innocence."
-
+  beats:
+    - "You and Emma start a genuine relationship."
+    - "Over the next weeks, she grows more confident."
+    - "You share love without losing her innocence."
 ```
 
-### 18.6. Authoring Guidelines
+### Authoring Guidelines
 
 - Always provide at least one **fallback transition** (`when: always`) to prevent dead-ends.
 - Keep **beats** concise — bullets of intent, not prose.
 - Use **choices** for deliberate actions; **dynamic_choices** for reactive unlocking.
 - Use **gates** (in `characters` node) instead of raw meter checks where possible.
-- For endings, always set a stable `ending_id`; use `ending_meta` for UI grouping.
-- Restrict **banned_freeform** to keep Writer outputs within tone/setting.
-
+- For endings, always set a stable `ending_id`.
 ---
 
-## 19. Events
+## 17. Events
 
-### 19.1. Definition
+### Purpose & Template
 
 An **event** is authored content that can **interrupt**, **inject**, or **overlay** narrative 
-outside the main node flow. Events add pacing, variety, and reactivity. 
-They are triggered by **time**, **conditions**, **randomness**, or **milestones** and can fire once, repeat, or cycle with cooldowns.
+outside the main node flow. 
+They are triggered by **conditions** or **randomness**, and can fire once, repeat, or cycle with cooldowns.
+Conditions allow to restrict events to specific nodes, locations, characters, time, etc. 
 
 Events differ from nodes:
 - **Nodes** are the backbone of the story (explicit story beats).
 - **Events** are side-triggers, often opportunistic or reactive.
 
-### 19.2. Event Template
-
-```yaml
-# Event definition lives under: events: [ ... ]
-- id: "<string>"                  # REQUIRED. Unique event ID.
-  title: "<string>"               # REQUIRED. Display name (for logs/UI).
-  description: "<string>"         # OPTIONAL. Author note, not shown to player.
-
-  # --- Triggering ---
-  trigger:
-    scheduled:                    # OPTIONAL. Time/date slots.
-      - when: "<expr>"            # Expression DSL (time/day/weekday).
-    conditional:                  # OPTIONAL. State-based checks.
-      - when: "<expr>"
-    random:                       # OPTIONAL. Weighted pool trigger.
-      weight: <int>               # Non-negative integer weight.
-      cooldown: <int>             # Minutes or slots before re-eligibility.
-
- # --- Scope ---
-  scope: "<global|zone|location>" # OPTIONAL. Default: "global".
-  location: "<location_id>"       # OPTIONAL. Required if scope is "location".
-
-  once: <bool>                    # OPTIONAL. If true, fires only once per run.
-
-  # --- Payload ---
-  narrative: "<string>"           # REQUIRED. Author seed text for Writer.
-  beats: ["<string>", ...]        # OPTIONAL. Extra Writer guidance.
-  effects: [ <effects...> ]       # OPTIONAL. Applied if the event fires.
-  choices:                        # OPTIONAL. Local player decisions.
-    - id: "<string>"
-      prompt: "<string>"
-      effects: [ <effects...> ]
-      goto: "<node_id>"           # Optional transition.
-
-```
-
-### 19.3. Runtime Behavior
-
+**Runtime behavior:**
 - Engine evaluates all events **each turn** after node resolution, before the next node selection.
-- Eligible events are collected into a pool; if multiple random events qualify, weighted RNG selects.
+- Eligible events are collected into a pool.
 - Events can either:
-  - **Inject prose** into the current node (overlay),
+  - **Inject beats** into the current node (overlay),
   - **Interrupt** and redirect to a dedicated event node,
   - **Apply effects silently** (background change).
 
-### 19.4. Runtime State (excerpt)
 
 ```yaml
-state.events:
-  triggered: ["emma_text_day1"]     # log of fired events
-  cooldowns:
-    "emma_text_day1": 1440          # minutes until eligible again
+# Event definition lives under: events: [ ... ]
+# Place under the 'events' root node
+- id: "<string>"                  # REQUIRED. Unique event ID.
+  title: "<string>"               # REQUIRED. Display name (for logs/UI).
+  description: "<string>"         # OPTIONAL. Author notes.
+  
+
+  # --- Triggering ---
+  when: "<expr>"                # OPTIONAL. Expression DSL Condition to trigger an event. Required.
+  when_all: ["<expr>", ... ]    # OPTIONAL. Expression DSL Condition to trigger an event. Required.
+  when_any: ["<expr>", ... ]    # OPTIONAL. Expression DSL Condition to trigger an event. Required.
+  random:                       # OPTIONAL. Ramdom event firing 
+    weight: <int>               #   REQUIRED. Non-negative integer weight.
+    cooldown: <int>             #   REQUIRED. Minutes or slots before re-eligibility.
+  once: <bool>                  # OPTIONAL. Default: false. If true, fires only once per run.
+
+  # --- Payload ---
+  narrative: <string>           # OPTIONAL. Custom addition to narrative 
+  beats: ["<string>", ... ]     # OPTIONAL. Extra Writer guidance.
+  effects: [ <effect>, ... ]    # OPTIONAL. Applied if the event fires.
+  choices: [<choice>, ...]      # OPTIONAL. Local player decisions. See the Nodes section for choice format
 ```
 
-### 19.5. Examples
+### Examples
 
 #### Scheduled event
 ```yaml
 - id: "emma_text_day1"
   title: "Emma Texts You"
-  trigger:
-    scheduled:
-      - when: "time.slot == 'night' and time.day == 1"
+  when: "time.slot == 'night' and time.day == 1"
   narrative: "Your phone buzzes — Emma wants to meet tomorrow."
   effects:
     - { type: flag_set, key: "emma_texted", value: true }
@@ -1712,9 +1716,7 @@ state.events:
 ```yaml
 - id: "library_meet"
   title: "Chance Meeting in Library"
-  trigger:
-    conditional:
-      - when: "state.location.id == 'library' and meters.emma.trust >= 20"
+  when: "state.location.id == 'library' and meters.emma.trust >= 20"
   narrative: "Emma waves shyly from behind a book."
   choices:
     - id: "chat"
@@ -1728,22 +1730,20 @@ state.events:
 ```yaml
 - id: "rumor_spread"
   title: "Rumor at the Courtyard"
-  trigger:
-    random:
-      weight: 30
-      cooldown: 720     # 12h before next chance
-  location_scope:
-    zones: ["campus"]
+  when: "state.location.zone == 'campus'"
+  random:
+    weight: 30
+    cooldown: 720     # 12h before next chance
   narrative: "You overhear whispers of your name among the students."
   effects:
     - { type: flag_set, key: "rumor_active", value: true }
 
 ```
 
-### 19.6. Authoring Guidelines
+### Authoring Guidelines
 
 - Always define **cooldowns** for random events to prevent spam.
-- Use **location_scope** to tie events naturally to a setting.
+- Use **location** in conditions to tie events naturally to a setting.
 - Keep **scheduled triggers** simple (slot/day/weekday).
 - Avoid chaining too many effects — events should be light and modular.
 - For **story-critical beats**, prefer nodes to events.
@@ -1751,9 +1751,9 @@ state.events:
 
 ---
 
-## 20. Arcs & Milestones
+## 18. Arcs & Milestones
 
-### 20.1. Definition
+### Purpose & Arc Template
 
 An **arc** is a long-term progression track that represents a character route, corruption path, relationship stage,
 or overarching plotline. Each arc consists of ordered **milestones** (stages).
@@ -1763,13 +1763,12 @@ or overarching plotline. Each arc consists of ordered **milestones** (stages).
 
 Arcs ensure that stories have clear progression, and that endings are unlocked in a controlled, authored way.
 
-### 20.2. Arc Template
-
 ```yaml
-# Arc definition lives under: arcs: [ ... ]
+# Arc Template
+# Place under the 'arcs' root node
 - id: "<string>"                     # REQUIRED. Unique arc ID.
   title: "<string>"                  # REQUIRED. Display name for authoring.
-  description: "<string>"            # OPTIONAL. Author notes.
+  description: "<string>"            # OPTIONAL. Author note.
 
   # --- Metadata ---
   character: "<npc_id>"              # OPTIONAL. Link arc to a character.
@@ -1784,21 +1783,16 @@ Arcs ensure that stories have clear progression, and that endings are unlocked i
 
       # --- Advancement ---
       advance_when: "<expr>"         # REQUIRED. DSL condition. Checked each turn.
+      advance_when_all: "<expr>"     # REQUIRED. DSL condition. Checked each turn.
+      advance_when_any: "<expr>"     # REQUIRED. DSL condition. Checked each turn.
       once: <bool>                   # OPTIONAL. Default true. Fires once.
 
       # --- Effects ---
-      effects_on_enter: [ <effects...> ]   # Applied once when the stage begins.
-      effects_on_exit:  [ <effects...> ]   # Applied once when leaving stage.
-      effects_on_advance: [ <effects...> ] # Applied when transitioning into the next stage.
-
-      # --- Unlocks ---
-      unlocks:
-        nodes: ["<node_id>", ...]    # OPTIONAL. Nodes become available.
-        outfits: ["<outfit_id>", ...]
-        endings: ["<ending_id>", ...]
+      on_enter:   [ <effect>, ... ]  # Applied once when the stage begins.
+      on_advance: [ <effect>, ... ]  # Applied once when leaving stage.
 ```
 
-### 20.3. Runtime State (excerpt)
+### Runtime State (excerpt)
 ```yaml
 state.arcs:
   emma_corruption:
@@ -1806,7 +1800,7 @@ state.arcs:
     history: ["innocent","curious"]
 ```
 
-### 20.4. Examples
+### Examples
 
 #### Romance arc
 ```yaml
@@ -1818,25 +1812,25 @@ state.arcs:
     - id: "acquaintance"
       title: "Just Met"
       advance_when: "flags.emma_met == true"
-      effects_on_enter:
+      on_enter:
         - { type: meter_change, target: "emma", meter: "trust", op: "add", value: 5 }
 
     - id: "dating"
       title: "Dating"
       advance_when: "meters.emma.trust >= 50 and flags.first_kiss == true"
-      effects_on_advance:
+      on_advance:
         - { type: unlock_ending, ending: "emma_good" }
 
     - id: "in_love"
       title: "In Love"
       advance_when: "meters.emma.trust >= 80 and meters.emma.attraction >= 80"
-      effects_on_enter:
+      on_enter:
         - { type: flag_set, key: "emma_in_love", value: true }
-      effects_on_advance:
+      on_advance:
         - { type: unlock_ending, ending: "emma_best" }
 ```
 
-### 20.5. Corruption arc
+#### Corruption arc
 
 ```yaml
 - id: "emma_corruption"
@@ -1855,29 +1849,29 @@ state.arcs:
     - id: "experimenting"
       title: "Experimenting"
       advance_when: "40 <= meters.emma.corruption and meters.emma.corruption < 70"
-      effects_on_enter:
+      on_enter:
         - { type: unlock_outfit, character: "emma", outfit: "bold_outfit" }
 
     - id: "corrupted"
       title: "Corrupted"
       advance_when: "meters.emma.corruption >= 70"
-      effects_on_enter:
+      on_enter:
         - { type: unlock_ending, ending: "emma_corrupted" }
 
 ```
-### 20.6. Authoring Guidelines
+### Authoring Guidelines
 - Always order stages so they evaluate from lowest to highest.
-- Keep advance_when expressions simple (use flags/meters).
-- Use effects_on_enter for immediate narrative unlocks.
-- Use effects_on_advance for one-off triggers (new choices, outfits, endings).
+- Keep `advance_when` expressions simple (use flags/meters).
+- Use `on_enter` effects for immediate narrative unlocks.
+- Use `on_advance` effects for one-off triggers (new choices, outfits, endings).
 - Mark arcs as **non-repeatable** unless designed for loops.
 - Each arc should normally have **at least one ending unlock**.
 
 ---
 
-## 21. AI Contracts (Writer & Checker)
+## 19. AI Contracts (Writer & Checker)
 
-### 21.1. Definition
+### Definition
 
 The game engine uses a **two-model architecture** every turn:
  - **Writer**: expands authored beats, generates prose & dialogue in style/POV, and respects state/gates.
@@ -1885,7 +1879,7 @@ The game engine uses a **two-model architecture** every turn:
 
 Both run each turn; the engine merges outputs into the game state.
 
-### 21.2. Turn Context Envelope
+#### Turn Context Envelope
 
 Every turn, the engine builds a **context envelope** that goes to both models.
 ```yaml
@@ -1910,7 +1904,7 @@ turn:
   ui:
     choices: [{ id: "order_drink", prompt: "Order a drink" }]
 ```
-### 21.3. Writer Contract
+### Writer Contract
 
 - **Input**: node metadata, beats, character cards, last dialogue, UI choices, player action, events.
 - **Output**: **plain text prose** (≤ target paragraphs).
@@ -1928,7 +1922,7 @@ Heat spills from the tavern. Alex smiles from behind the bar, polishing a glass.
 “Company’s free,” she teases, “but the drink will cost you.”
 
 ```
-### 21.4. Checker Contract
+### Checker Contract
 
 - **Input**: full envelope + Writer text + player input.
 - **Output**: strict JSON with deltas.
@@ -1957,7 +1951,7 @@ Heat spills from the tavern. Alex smiles from behind the bar, polishing a glass.
 - Refuse disallowed acts (set `safety.ok=false`, log violation).
 - No extra keys, no comments.
 
-### 21.5. Prompt templates
+### Prompt templates
 
 #### Writer 
 ```
@@ -1987,27 +1981,3 @@ card:
   gates: { allow: ["accept_flirting"], deny: ["accept_kiss"] }
   refusals: { low_trust: "Not yet.", wrong_place: "Not here." }
 ```
-### 21.6. Safety & Consent
-- All characters must be 18+.
-- Non-con and minors are blocked hard.
-- Intimate acts require:
-  - Proper gate (`accept_*`).
-  - Location privacy is high enough.
-  - Meter thresholds satisfied.
-- Violations cause Writer to use **refusal text** and Checker to flag `safety.ok=false`.
-
-### 21.7. Memory
-- `memory.append` holds compact factual reminders (e.g., “Alex teased you at the tavern”).
-- Engine keeps rolling window (last 6–10).
-- Avoid explicit sex details unless milestone/flag.
-
-### 21.8. Error Recovery
- - Malformed JSON → cleanup pass.
- - Still bad → retry with “Return JSON only”
- - On double failure → skip deltas, log error, continue.
-
-### 21.9. Cost Profiles
- - **cheap**: small, fast models.
- - **luxe**: larger models, richer prose.
- - **custom**: override in game.yaml.
-
