@@ -158,7 +158,6 @@ flags: { ... }                   # OPTIONAL. Game flags. See the Flags section.
 # --- Game world definition ---
 time: { ... }                    # REQUIRED. See the Time & Calendar section. 
 economy: { ... }                 # REQUIRED. See the Economy section. 
-gates: { ... }                   # REQUIRED. See the Gates section. 
 inventory: { ... }               # REQUIRED. See the Inventory & Items section.
 wardrobe: { ... }                # REQUIRED. See the Wardrobe & Outfits section. 
 characters: [ ... ]              # REQUIRED. See the Characters section.              
@@ -327,6 +326,13 @@ The following variables and namespaces are available:
 - `arcs.<arc_id>.stage` (string) — current stage id
 - `arcs.<arc_id>.history` (list[string]) — prior stages
 
+#### Macros
+ - `'always'` resolves to boolean truth   
+ - `{owner}` - Item owner 
+ - `{character}` - Current character in modifier context
+ - `{target}` - Effect target
+ - `{location}` - Current location
+
 ### Authoring Guidelines
 - Prefer checking **gates** (`gates.emma.accept_kiss`) over raw meter math.
 - Keep expressions short; move complexity into flags/arcs or precomputed gates.
@@ -487,6 +493,13 @@ The **time system** governs pacing, scheduling, and event triggers. It supports 
 - **Slots** — day divided into named parts (morning, afternoon, evening, night).
 - **Clock** — continuous minute-based time (HH:MM).
 - **Hybrid** — both: slots exist, but minutes are tracked within them.
+
+In the `clock/hybrid` mode, the `minutes_per_action` parameter defines the amount of time taken by one single action, 
+so each action can advance time properly. Once time moves into another slot window, the engine automatically advances slot as well.  
+
+In the `slots` mode the engine automatically advances slots after `actions_per_slot` action.
+
+Once the last slot passed, the engine advances to the next day.
 
 Time advances through **actions**, **movement**, **effects**, and **sleep**,
 and is referenced by **events**, **schedules**, and **arcs**.
@@ -720,6 +733,8 @@ so individual items can be changed or removed as a set of items. Each clothing i
 `intact`, `opened`, `displaced`, `removed`. 
 `displaced` and `opened` allow revealing items from underneath slots.
 `removed` means that the item is removed but still present in the inventory and can be worn again by changing its condition.
+There is no special order between these statuses, 
+the engine assumes that statuses will be set by effects ir detected by the Checker from narrative. 
 
 
 Both clothing items and outfits act like inventory items and can be bought, given, apply effects, etc. 
@@ -754,8 +769,8 @@ items:
       opened: "<string>"           # OPTIONAL. Description of the opened item.
       displaced: "<string>"        # OPTIONAL. Description of the displaced item.
       removed: "<string>"          # OPTIONAL. Description of the removed item.
-    occupies: ["<slot>", ...]      # REQUIRED. Which slot item occupies? Items like dresses that use multiple slots.
-    conceals: ["<slot>", ...]      # OPTIONAL. Which slots this hides when intact.
+    occupies: ["<slot>", ...]      # REQUIRED. Which slot(s) the current item occupies? Items like dresses that use multiple slots.
+    conceals: ["<slot>", ...]      # OPTIONAL. Which slots are under the current slot? Engine can generate a description based on this. 
     can_open: <bool>               # OPTIONAL. Default: false. Can be opened/unfastened?
     # --- Locking ---
     locked: <bool>              # OPTIONAL. Default: false.
@@ -1017,6 +1032,11 @@ while meters for other characters are taken from the `template`  section.
       - { zone: "<zone_id>>", when: "<expr>" }       # Expression cam be 'always', it is the same as not having a rule at all.
     willing_locations:            # OPTIONAL. List of rules for following player to other locations.
       - { zone: "<location_id>>", when: "<expr>" }   # Expression cam be 'always', it is the same as not having a rule at all.
+    consent:                      # OPTIONAL. Expressions to define will character agree to move usn=ing specific transportation method
+      - <method>: "<expr>"         # REQUIRED. Method name and condition.
+  # --- Availability ---
+  availability:                   # OPTIONAL. Availability rules for following player to other zones/locations.
+    available_zones:              # OPTIONAL. List of rules for following player to other zones.
   inventory:                       # OPTIONAL. Items carried by this character.
     items:  
       "<item_id>": <item_count>
@@ -1045,7 +1065,7 @@ gates:                        # OPTIONAL. A list of consent/behavior gates.
     acceptance: "<string>"      # OPTIONAL. String to pass to Writer and Checker if a gate is active
     refusal: "<string>"         # OPTIONAL. String to pass to Writer and Checker if a gate is not active
 ```
-
+> `when`, `when_any`, and `when_all` are mutually exclusive. Only one of them must be set.
 
 ### Runtime State (excerpt)
 ```yaml
@@ -1139,6 +1159,8 @@ The Checker may also emit effects as JSON deltas, which are merged into the same
 
   # Rest of fields depend on type.
 ```
+> `when`, `when_any`, and `when_all` are mutually exclusive. Only one of them must be set.
+
 ### Catalog of Effect Types
 
 #### Meter change
@@ -1198,6 +1220,28 @@ Changes a flag value.
   count: <int>                  # OPTIONAL. Default: 1.
 ```
 
+#### Shopping
+```yaml
+# Purchase item 
+- type: inventory_purchase
+  # ... common fields
+  target: "player|<npc_id>"             # REQUIRED. Effect target. Ignored for the flag_set
+  source: "<location_id>|<npc_id>"      # REQUIRED. Source of the item (npc or location with a shop).
+  item_type: "item | outfit | clothing" # OPTIONAL. Default: "item". Type of the item
+  item: "<item_id>"                     # REQUIRED 
+  count: <int>                          # OPTIONAL. Default: 1.
+  price: <float>                        # OPTIONAL. Default: defined by item or shop 
+
+# Sell item from inventory
+- type: inventory_sell
+  # ... common fields
+  target: "<location_id>|<npc_id>"      # REQUIRED. Source of the item (npc or location with a shop).
+  source: "player|<npc_id>"             # REQUIRED. Effect target. Ignored for the flag_set
+  item_type: "item | outfit | clothing" # OPTIONAL. Default: "item". Type of the item
+  item: "<item_id>"                     # REQUIRED 
+  count: <int>                          # OPTIONAL. Default: 1.
+  price: <float>                        # OPTIONAL. Default: defined by item or shop 
+```
 #### Clothing
 ````yaml
 # Puts an item from the wardrobe on
@@ -1205,7 +1249,7 @@ Changes a flag value.
   # ... common fields
   target: "player|<npc_id>"   # REQUIRED. Effect target. Ignored for the flag_set
   item: "<item_id>"           # REQUIRED. Clothing item will occupy corresponding slot(s).
-  condition: "intact | displaced | opened | removed" # OPTIONAL. Default: taken from the item or intact.
+  state: "intact | displaced | opened | removed" # OPTIONAL. Default: taken from the item or intact.
 
 # Takes an item off and keeps it in the wardrobe 
 - type: clothing_take_off
@@ -1213,15 +1257,15 @@ Changes a flag value.
   target: "player|<npc_id>"   # REQUIRED. Effect target. Ignored for the flag_set
   item: "<item_id>"           # REQUIRED. 
 
-# Applies condition to item  
-- type: clothing_item_condition
+# Applies state to item  
+- type: clothing_item_state
   # ... common fields
   target: "player|<npc_id>"   # REQUIRED. Effect target. Ignored for the flag_set
   item: "<item_id>"           # REQUIRED. 
-  condition: "intact | displaced | opened | removed" # REQUIRED.
+  state: "intact | displaced | opened | removed" # REQUIRED.
 
-# Applies condition to the item that occupies the slot
-- type: clothing_slot_condition
+# Applies state to the item that occupies the slot
+- type: clothing_slot_state
   # ... common fields
   target: "player|<npc_id>"   # REQUIRED. Effect target. Ignored for the flag_set
   slot: "<slot_id>"           # REQUIRED. 
@@ -1297,6 +1341,8 @@ Changes a flag value.
     - weight: <int>
       effects: [ <effects...> ]
 ```
+> `when`, `when_any`, and `when_all` are mutually exclusive. Only one of them must be set.
+
 #### Modifiers
 ```yaml
 # Applies a modifier
@@ -1433,6 +1479,8 @@ but don’t invent hard state changes by themselves.
   on_entry: [<effect>, ... ]    # OPTIONAL. Apply once when the modifier becomes active.
   on_exit:  [<effect>, ... ]    # OPTIONAL. Apply once when it ends.
 ```
+> `when`, `when_any`, and `when_all` are mutually exclusive. Only one of them must be set.
+
 ### Modifiers Node & Stacking Rules 
 
 All modifiers are defined under the `modifiers` node together with stacking rules.  
@@ -1504,6 +1552,9 @@ actions:
     when_any: ["<expr>", ... ]    # OPTIONAL. Expression DSL. Action is only available if true.
     effects: [ <effect>, ... ]    # OPTIONAL. Effects applied when the action is chosen.
 ```
+
+> `when`, `when_any`, and `when_all` are mutually exclusive. Only one of them must be set.
+
 ### Example
 
 ```yaml
@@ -1595,6 +1646,8 @@ Nodes are where most author effort goes: they set context for the Writer, define
   # --- Ending-specific ---
   ending_id: "<string>"                    # REQUIRED if type == ending. Unique ending id
 ```
+
+> `when`, `when_any`, and `when_all` are mutually exclusive. Only one of them must be set.
 
 ### Runtime State (excerpt)
 ```yaml
@@ -1700,6 +1753,8 @@ Events differ from nodes:
   effects: [ <effect>, ... ]    # OPTIONAL. Applied if the event fires.
   choices: [<choice>, ...]      # OPTIONAL. Local player decisions. See the Nodes section for choice format
 ```
+
+> `when`, `when_any`, and `when_all` are mutually exclusive. Only one of them must be set.
 
 ### Examples
 
