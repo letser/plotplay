@@ -1058,14 +1058,24 @@ that will be passed to the Writer and Checker to keep character's behavior consi
 
 ```yaml
 gates:                        # OPTIONAL. A list of consent/behavior gates.
-  - id: `````                   # REQUIRED. The unique ID for the gate (e.g., "accept_kiss").
+  - id: `````                   # REQUIRED. Unique ID (e.g., "accept_kiss").
     when: "<expr>"              # OPTIONAL. A single condition that must be true.
     when_any: ["<expr>", ...]   # OPTIONAL. A list of conditions where at least one must be true.
     when_all: ["<expr>", ...]   # OPTIONAL. A list of conditions where all must be true.
-    acceptance: "<string>"      # OPTIONAL. String to pass to Writer and Checker if a gate is active
-    refusal: "<string>"         # OPTIONAL. String to pass to Writer and Checker if a gate is not active
+    acceptance: "<string>"      # OPTIONAL. Text to pass to Writer and Checker if a gate is active
+    refusal: "<string>"         # OPTIONAL. Text to pass to Writer and Checker if a gate is not active
 ```
-> `when`, `when_any`, and `when_all` are mutually exclusive. Only one of them must be set.
+> Only one of `when`, `when_any`, and `when_all` may be set.
+> 
+> Either `acceptance` or `refusal` must be set.`
+
+Each evaluated gate contributes one of the following objects:
+ - `{ id, allow: true, text: acceptance }` if the gate is active and acceptance text is provided;
+ - `{ id, allow: false, text: refusal }` if the gate is not active and refusal text is provided;
+
+The engine exposes this compact form in:
+ - **Character cards** (for the Writer model) — used to naturally steer dialogue.
+ - **Checker envelope** — used for enforcement and validation.
 
 ### Runtime State (excerpt)
 ```yaml
@@ -1159,7 +1169,7 @@ The Checker may also emit effects as JSON deltas, which are merged into the same
 
   # Rest of fields depend on type.
 ```
-> `when`, `when_any`, and `when_all` are mutually exclusive. Only one of them must be set.
+> Only one of `when`, `when_any`, and `when_all` may be set.
 
 ### Catalog of Effect Types
 
@@ -1341,7 +1351,7 @@ Changes a flag value.
     - weight: <int>
       effects: [ <effects...> ]
 ```
-> `when`, `when_any`, and `when_all` are mutually exclusive. Only one of them must be set.
+> Only one of `when`, `when_any`, and `when_all` may be set.
 
 #### Modifiers
 ```yaml
@@ -1479,7 +1489,7 @@ but don’t invent hard state changes by themselves.
   on_entry: [<effect>, ... ]    # OPTIONAL. Apply once when the modifier becomes active.
   on_exit:  [<effect>, ... ]    # OPTIONAL. Apply once when it ends.
 ```
-> `when`, `when_any`, and `when_all` are mutually exclusive. Only one of them must be set.
+> Only one of `when`, `when_any`, and `when_all` may be set.
 
 ### Modifiers Node & Stacking Rules 
 
@@ -1553,7 +1563,7 @@ actions:
     effects: [ <effect>, ... ]    # OPTIONAL. Effects applied when the action is chosen.
 ```
 
-> `when`, `when_any`, and `when_all` are mutually exclusive. Only one of them must be set.
+> Only one of `when`, `when_any`, and `when_all` may be set.
 
 ### Example
 
@@ -1647,7 +1657,7 @@ Nodes are where most author effort goes: they set context for the Writer, define
   ending_id: "<string>"                    # REQUIRED if type == ending. Unique ending id
 ```
 
-> `when`, `when_any`, and `when_all` are mutually exclusive. Only one of them must be set.
+> Only one of `when`, `when_any`, and `when_all` may be set.
 
 ### Runtime State (excerpt)
 ```yaml
@@ -1754,7 +1764,7 @@ Events differ from nodes:
   choices: [<choice>, ...]      # OPTIONAL. Local player decisions. See the Nodes section for choice format
 ```
 
-> `when`, `when_any`, and `when_all` are mutually exclusive. Only one of them must be set.
+> Only one of `when`, `when_any`, and `when_all` may be set.
 
 ### Examples
 
@@ -1959,16 +1969,28 @@ turn:
   ui:
     choices: [{ id: "order_drink", prompt: "Order a drink" }]
 ```
+
+### Safety & Consent Enforcement (engine rules)
+
+- **Inputs considered:** `location.privacy`, per-character **gates** (allow/refusal text), active **modifiers** 
+(e.g., `disallow_gates`), and game-level switches (`nsfw_allowed`).
+- **Writer behavior:** may narrate **attempts** or social beats around blocked acts but **must not describe** the act 
+as completed. Use the gate’s **refusal text** to guide the scene when blocked.
+- **Checker behavior:** if prose contradicts gates/privacy, set `safety.ok = false`, 
+record a violation (`gate:<id>` or `privacy:<level>`), and omit any deltas that would realize the blocked act.
+- **Modifiers** can temporarily alter permissions (e.g., `drunk` may `disallow_gates: [accept_sex]`).
+
 ### Writer Contract
 
 - **Input**: node metadata, beats, character cards, last dialogue, UI choices, player action, events.
 - **Output**: **plain text prose** (≤ target paragraphs).
 
 #### Requirements
-- Follow POV/tense from `game.yaml`.
-- Respect gates & privacy (use refusal lines if needed).
- - Keep to the paragraph budget.
-- No raw state changes (money, clothing, items) — imply only.
+- Follow POV/tense.
+- Respect gates and privacy rules.
+- Writer may narrate attempts or refusals, but never depict blocked acts as happening. Use gate `refusal` text where `allow = false`.
+- Keep to the paragraph budget.
+- Never describe raw state changes (money, inventory, clothing). Imply only.
 
 #### Example Output
 ```
@@ -2001,10 +2023,10 @@ Heat spills from the tavern. Alex smiles from behind the bar, polishing a glass.
 
 #### Rules
 - Use `+N/-N` for deltas, `=N` for absolutes.
-- Only output changes justified by prose or authored effects.
-- Clamp to meter caps.
-- Refuse disallowed acts (set `safety.ok=false`, log violation).
-- No extra keys, no comments.
+- Output only changes justified by prose and allowed by gates/privacy.
+- Clamp values within defined caps.
+- If prose depicts a blocked act: set `safety.ok = false`, add `violations: ["gate:<id>", "privacy:<level>"]`, and emit no deltas realizing the act.
+- Output strict JSON; no extra keys or comments.
 
 ### Prompt templates
 
