@@ -1,57 +1,56 @@
 """
-PlotPlay Game Models - Complete game definition structures.
-
-============== Main Game Definition ==============
+PlotPlay Game Models
+Game Definition
 """
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, AliasPath
 
+from .model import SimpleModel, DescriptiveModel, DSLExpression
 from .action import GameAction
 from .arc import Arc
 from .character import Character
-from .enums import ContentRating
 from .events import Event
 from .item import Item
-from .location import Zone
+from .location import Zone, ZoneId, LocationId
 from .meters import Meter
 from .movement import MovementConfig
-from .narration import NarrationConfig
-from .node import Node
+from .node import NodeId, Node
 from .time import TimeConfig
 from .flag import Flag
 from .modifier import ModifierSystem
+from .narration import GameNarration
 
 
-class MetaConfig(BaseModel):
-    """Metadata for the game, from the 'meta' block in game.yaml."""
+class MetaConfig(DescriptiveModel):
+    """Game metadata"""
     id: str
     title: str
     version: str = "1.0.0"
     authors: list[str] = Field(default_factory=list)
-    description: str | None = None
     content_warnings: list[str] = Field(default_factory=list)
     nsfw_allowed: bool = False
-    content_rating: ContentRating = ContentRating.MATURE
-    tags: list[str] = Field(default_factory=list)
     license: str | None = None
 
-
-class StartConfig(BaseModel):
-    """Starting conditions for the game from the 'start' block."""
-    node: str
-    location: dict[str, str]
-
-
-class GameDefinition(BaseModel):
+class GameDefinition(SimpleModel):
     """
     The complete, fully loaded game definition, compiled from the manifest
     (game.yaml) and all included files. This is the primary data object
     that the game engine will work with.
     """
-    # Core Config Blocks from manifest
+    # Game meta and narration
     meta: MetaConfig
-    start: StartConfig
-    narration: NarrationConfig = Field(default_factory=NarrationConfig)
+    narration: GameNarration = Field(default_factory=GameNarration)
     rng_seed: int | str | None = None
+
+    # Game starting point
+    start_node: NodeId = Field(validation_alias=AliasPath('start', 'node'))
+    start_location: LocationId = Field(validation_alias=AliasPath('start', 'location'))
+    start_day: int = Field(default=1, validation_alias=AliasPath('start', 'day'))
+    start_slot: str | None = Field(default=None, validation_alias=AliasPath('start', 'slot'))
+    start_time: str = Field(default="00:00", validation_alias=AliasPath('start', 'time'))
+
+    # Meters and flags
+
+
     time: TimeConfig = Field(default_factory=TimeConfig)
     movement: MovementConfig = Field(default_factory=MovementConfig)
     meters: dict[str, dict[str, Meter]] | None = None

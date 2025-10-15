@@ -140,12 +140,11 @@ rng_seed: "<int|auto>"           # OPTIONAL. Allows fixing random seed to reprod
 
 # --- Game starting point ---
 start:                           # REQUIRED. Game starting point. See corresponding sections for details about fields.
-  location: { zone: "<zone_id>", id: "<location_id>" } # Starting location 
+  location: "<location_id>"           # Starting location 
   node: "<node_id>"                   # Starting node.
-  time:                               # Optional if derivable from time config
-    day: 1                            # Starting day.
-    slot: "morning"                   # # REQUIRED for slots/hybrid. Starting slot.
-    time: "08:00".                    # OPTIONAL Starting time, "HH:MM". 
+  day: 1                              # Starting day.
+  slot: "<string>"                    # # REQUIRED for slots/hybrid. Starting slot.
+  time: "08:00".                      # OPTIONAL Starting time, "HH:MM". 
                                       # The default is "00:00" for clock/hybrid modes. 
 
 # --- Global state variables ---
@@ -388,8 +387,8 @@ which may introduce additional meters for this specific NPC or override meters f
 
   # --- Threshold Labels (authoring sugar) ---
   thresholds:           # OPTIONAL. Labeled ranges for gating & cards. Non-overlapping, ordered.
-    <label_a>: [<int_lo>, <int_hi>]  # inclusive bounds; must lie within [min, max]
-    <label_b>: [<int_lo>, <int_hi>]
+    <label_a>: { min: <int>, max: <int>}  # inclusive bounds; must lie within [min, max]
+    <label_b>: { min: <int>, max: <int>}
 
   # --- Notes (author-facing only; ignored by engine) ---
   description: "<string>"   # OPTIONAL. Brief author notes
@@ -404,11 +403,11 @@ meters:
       max: 100
       default: 10
       thresholds:
-        stranger: [0, 19]
-        acquaintance: [20, 39]
-        friend: [40, 69]
-        close: [70, 89]
-        intimate: [90, 100]
+        stranger: {min: 0, max: 19}
+        acquaintance: {min: 20, max: 39}
+        friend: {min: 40, max: 69}
+        close: {min: 70, max: 89}
+        intimate: {min: 90, max: 100}
       delta_cap_per_turn: 3
       description: "Social comfort with the player; drives access to dates/kissing."
 ```
@@ -441,7 +440,6 @@ They can be boolean, number, or string, but should remain simple and stable over
     - <valueB>
   # --- Notes (author-facing only; ignored by engine) ---
   description: "<string>"   # OPTIONAL. Brief author notes
-- 
 ```
 
 **Constraints & Notes**

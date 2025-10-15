@@ -6,8 +6,10 @@ PlotPlay Game Models - Complete game definition structures.
 
 from enum import StrEnum
 from pydantic import BaseModel, Field
-from typing import Any
+from typing import Any, NewType
 
+ZoneId = NewType("ZoneId", str)
+LocationId = NewType("LocationId", str)
 
 class LocationPrivacy(StrEnum):
     """Location privacy levels."""
