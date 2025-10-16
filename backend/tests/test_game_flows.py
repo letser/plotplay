@@ -7,7 +7,7 @@ from asyncio import TimeoutError  # Add this import
 from app.core.game_loader import GameLoader
 from app.core.game_engine import GameEngine
 from app.services.ai_service import AIResponse
-from app.models.node import Choice
+from app.models.nodes import Choice
 from app.models.effects import MeterChangeEffect
 
 # Mark all tests in this file as async
@@ -202,7 +202,7 @@ class TestErrorRecovery:
         engine = mock_game_engine
 
         # Try to transition to non-existent node
-        from app.models.node import Transition
+        from app.models.nodes import Transition
         current_node = engine._get_current_node()
         current_node.transitions = [
             Transition(to="non_existent_node", when="true")

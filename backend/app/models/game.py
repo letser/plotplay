@@ -7,13 +7,12 @@ from pydantic import BaseModel, Field, AliasPath
 from .model import SimpleModel, DescriptiveModel, DSLExpression
 from .action import GameAction
 from .arc import Arc
-from .character import Character
+from .characters import Character
 from .events import Event
 from .items import Item
-from .locations import Zone, ZoneId, LocationId
+from .locations import Zone, LocationId, MovementConfig
 from .meters import MetersConfig
-from .movement import MovementConfig
-from .node import NodeId, Node
+from .nodes import NodeId, Node
 from .time import TimeConfig, TimeHHMM
 from .flags import FlagsConfig
 from .modifier import ModifierSystem
@@ -60,15 +59,17 @@ class GameDefinition(SimpleModel):
     items: list[Item] = Field(default_factory=list)
     wardrobe: WardrobeConfig = Field(default_factory=WardrobeConfig)
 
+    characters: list[Character] = Field(default_factory=list)
+    zones: list[Zone] = Field(default_factory=list)
     movement: MovementConfig = Field(default_factory=MovementConfig)
+
+    # Game logic
     modifier_system: ModifierSystem | None = None
     includes: list[str] = Field(default_factory=list)
 
     # World and Content Lists (populated from included files)
     world: dict | None = None
-    characters: list[Character] = Field(default_factory=list)
     nodes: list[Node] = Field(default_factory=list)
-    zones: list[Zone] = Field(default_factory=list)
     events: list[Event] = Field(default_factory=list)
     arcs: list[Arc] = Field(default_factory=list)
     actions: list[GameAction] = Field(default_factory=list)

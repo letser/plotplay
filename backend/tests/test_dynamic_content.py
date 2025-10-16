@@ -6,7 +6,7 @@ from app.core.game_engine import GameEngine
 from app.core.event_manager import EventManager
 from app.core.arc_manager import ArcManager
 from app.models.events import Event, EventTrigger
-from app.models.node import Choice
+from app.models.nodes import Choice
 from app.models.arc import Arc, Stage
 from app.models.flags import Flag
 from app.models.effects import FlagSetEffect, MeterChangeEffect
@@ -197,7 +197,7 @@ class TestDynamicChoices:
 
     def test_conditional_choices(self, minimal_game_def):
         """Test that choices appear/hide based on conditions."""
-        from app.models.node import Node, NodeType
+        from app.models.nodes import Node, NodeType
 
         test_node = Node(
             id="conditional_node",
@@ -232,7 +232,7 @@ class TestDynamicChoices:
 
     def test_event_choices_merge(self, minimal_game_def):
         """Test that event choices merge with node choices."""
-        from app.models.node import Node, NodeType
+        from app.models.nodes import Node, NodeType
 
         test_node = Node(
             id="merge_node", type=NodeType.SCENE, title="Merge",

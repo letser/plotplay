@@ -17,7 +17,7 @@ import yaml
 from pathlib import Path
 from app.core.game_loader import GameLoader
 from app.core.game_engine import GameEngine
-from app.models.node import Node, Choice, Transition, NodeType
+from app.models.nodes import Node, Choice, Transition, NodeType
 from app.models.narration import NarrationConfig
 from app.models.enums import POV, Tense
 from app.models.effects import MeterChangeEffect, FlagSetEffect, GotoNodeEffect

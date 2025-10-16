@@ -7,6 +7,7 @@ PlotPlay Game Models - Complete game definition structures.
 from typing import Any, NewType
 from pydantic import BaseModel, Field, model_validator
 
+from .model import SimpleModel, DescriptiveModel, DSLExpression
 from app.models.effects import AnyEffect
 from app.models.enums import NodeType
 from app.models.narration import GameNarration

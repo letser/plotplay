@@ -15,7 +15,7 @@ from app.core.modifier_manager import ModifierManager
 from app.core.inventory_manager import InventoryManager
 from app.core.state_manager import StateManager
 from app.models.action import GameAction
-from app.models.character import Character
+from app.models.characters import Character
 from app.models.effects import (
     AnyEffect, MeterChangeEffect, FlagSetEffect, GotoNodeEffect,
     ApplyModifierEffect, RemoveModifierEffect, InventoryChangeEffect,
@@ -25,7 +25,7 @@ from app.models.effects import (
 from app.models.enums import NodeType
 from app.models.game import GameDefinition
 from app.models.locations import Location, LocationConnection, LocationPrivacy
-from app.models.node import Node, Choice
+from app.models.nodes import Node, Choice
 from app.services.ai_service import AIService
 from app.services.prompt_builder import PromptBuilder
 from app.core.logger import setup_session_logger

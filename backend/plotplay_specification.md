@@ -986,7 +986,7 @@ and checks **NPC consent** when traveling with companions.
   - `base_time = 0` means immediate movement which does not consume time or actions. 
 - **Zone travel**: moving between different zones consumes time based on distance and travel method:
   - Definition of methods provides own `base_time` for each method which means time to travel one unit of distance;
-  - Connections between zones define distance and available travel methods;
+  - Connections between zones define `distance` and available travel methods;
   - The final travel time is calculated as `base_time * distance` for each method;
   - For `slots` mode base time is the number of actions for movement.
 - **Companions**: NPC willingness depends on trust/attraction/gates and defined for each character.
@@ -1035,30 +1035,43 @@ while meters for other characters are taken from the `template`  section.
   name: "<string>"                # REQUIRED. Display name.
   age: <int>                      # REQUIRED. 
   gender: "<string>"              # REQUIRED. Free text or enum ("female","male","nonbinary").
+  pronouns: [<string>]            # OPTIONAL. List of pronouns for better UI pointing. E.g. ["she", "her", "herself"].
   description: "<string>"         # OPTIONAL. Author-facing description (cards, logs).
-  tags: ["<string>", ...]         # OPTIONAL. Semantic labels (e.g., "shy","athletic").
   dialogue_style: "<string>"      # OPTIONAL. A simple string describing the character's speech patterns for the AI.
 
+  # Personality - small text pieces describing character
+  # E.g. {
+  #          "core traits": "strong, honest, loyal",
+  #          "quirks": "clever, clever, clever",
+  #          "fears": "darkness",
+  #       }
+  personality: {"<key>": "<string>"}  # OPTIONAL. Free text key/value pairs.
+  appearance: "<string>"              # OPTIONAL. Free text.
+  
   meters:  { ... }                # OPTIONAL. Overrides / additions to character_template meters.
+
   gates: { ... }                  # OPTIONAL. Behavioral gates 
+
   wardrobe: { ... }               # OPTIONAL. Overrides / additions to global wardrobe.
   clothing:                       # OPTIONAL. Initial character clothing
     outfit: <outfit_id>           # OPTIONAL. If set, will populate items into slots 
     items:  {<slot_id>: <item_id>, ... } # OPTIONAL. Clothing items by slots.
+
+  # --- Schedule ---
   schedule:                      # OPTIONAL. Controls where the character is by time/day. List of schedules 
     - when: "<expr>"              # A condition, typically checking time.slot or time.weekday
       location: "<location_id>"   # A location where a character will appear when condition met
+
   # --- Movement willingness ---
-  movement:                       # OPTIONAL. Movement willingnessRules for following player to other zones/locations.
+  movement:                       # OPTIONAL. Rules for following player to other zones/locations.
     willing_zones:                # OPTIONAL. List of rules for following player to other zones.
-      - { zone: "<zone_id>>", when: "<expr>" }       # Expression cam be 'always', it is the same as not having a rule at all.
+      - zone: "<zone_id>>"          # REQUIRED. Target zone.
+        when: "<expr>"              # OPTIONAL. Condition when willing to move. Can be 'always', it is the same as not having a rule at all.
+        methods: ["<method>", ... ] # OPTIONAL. Methods to which rule is applicable 
     willing_locations:            # OPTIONAL. List of rules for following player to other locations.
-      - { zone: "<location_id>>", when: "<expr>" }   # Expression cam be 'always', it is the same as not having a rule at all.
-    consent:                      # OPTIONAL. Expressions to define will character agree to move usn=ing specific transportation method
-      - <method>: "<expr>"         # REQUIRED. Method name and condition.
-  # --- Availability ---
-  availability:                   # OPTIONAL. Availability rules for following player to other zones/locations.
-    available_zones:              # OPTIONAL. List of rules for following player to other zones.
+      - location: "<location_id>>"  # REQUIRED. Target location.
+        when: "<expr>"              # OPTIONAL. Condition when willing to move. Can be 'always', it is the same as not having a rule at all.
+
   inventory: <inventory>          # OPTIONAL. Items carried by this character.
   shop: <shop>                    # OPTIONAL. Shop definition.
 ```
@@ -1653,12 +1666,16 @@ Nodes are where most author effort goes: they set context for the Writer, define
     - id: "<string>"                    # REQUIRED. Unique id 
       prompt: "<string>"                # REQUIRED. Shown to player.
       when: "<expr>"                    # OPTIONAL. Choice disabled if false.
+      when_all: ["<expr>", ... ]        #   Expression DSL; all must be true to activate transition.
+      when_any: ["<expr>", ... ]        #   Expression DSL; any must be true to activate transition.
       on_select: [ <effect>, ... ]      # OPTIONAL. Effects applied when the choice is chosen.
       goto: "<node_id>"                 # OPTIONAL. Forced transition on select.
 
   dynamic_choices:                      # OPTIONAL. Pre-authored menu buttons. Appear only when conditions become true.
-      prompt: "<string>"                # REQUIRED. Shown to player.
+    - prompt: "<string>"                # REQUIRED. Shown to player.
       when: "<expr>"                    # OPTIONAL. Choice disabled if false.
+      when_all: ["<expr>", ... ]        #   Expression DSL; all must be true to activate transition.
+      when_any: ["<expr>", ... ]        #   Expression DSL; any must be true to activate transition.
       on_select: [ <effect>, ... ]      # OPTIONAL. Effects applied when the choice is chosen.
       goto: "<node_id>"                 # OPTIONAL. Forced transition on select.
 

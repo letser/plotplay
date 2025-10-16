@@ -11,9 +11,9 @@ from app.core.game_loader import GameLoader
 from app.core.game_engine import GameEngine
 from app.services.ai_service import AIService, AIResponse, AISettings
 from app.models.game import GameDefinition, MetaConfig, StartConfig
-from app.models.character import Character
+from app.models.characters import Character
 from app.models.locations import Zone, Location, LocationPrivacy
-from app.models.node import Node, Choice
+from app.models.nodes import Node, Choice
 from app.models.enums import NodeType
 from app.models.meters import Meter
 from app.models.flags import Flag

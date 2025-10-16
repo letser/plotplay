@@ -121,3 +121,22 @@ class Zone(DescriptiveModel):
 
     entrances: list[LocationId] = Field(default_factory=list)
     exits: list[LocationId] = Field(default_factory=list)
+
+
+class ZoneMovementWillingness(SimpleModel):
+    """Defines an NPC's willingness to move with the player."""
+    zone: ZoneId
+    when: DSLExpression | None = None
+    methods: list[MovementMethod] = Field(default_factory=list)
+
+
+class LocationMovementWillingness(SimpleModel):
+    """Defines an NPC's willingness to move with the player."""
+    location: LocationId
+    when: DSLExpression | None = None
+
+
+class MovementWillingnessConfig(SimpleModel):
+    """Defines an NPC's willingness to move with the player."""
+    willing_zones: list[ZoneMovementWillingness] = Field(default_factory=list)
+    willing_locations: list[LocationMovementWillingness] = Field(default_factory=list)

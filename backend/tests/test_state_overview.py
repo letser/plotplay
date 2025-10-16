@@ -13,8 +13,8 @@ from app.core.state_manager import StateManager, GameState
 from app.core.game_engine import GameEngine
 from app.core.game_loader import GameLoader
 from app.models.game import GameDefinition, MetaConfig, StartConfig
-from app.models.character import Character
-from app.models.node import Node, NodeType
+from app.models.characters import Character
+from app.models.nodes import Node, NodeType
 from app.models.locations import Zone, Location, LocationPrivacy
 from app.models.time import TimeConfig, TimeStart
 from app.models.flags import Flag

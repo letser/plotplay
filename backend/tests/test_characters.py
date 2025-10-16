@@ -12,7 +12,7 @@ from app.core.game_loader import GameLoader
 from app.core.state_manager import StateManager
 from app.core.game_engine import GameEngine
 from app.core.conditions import ConditionEvaluator
-from app.models.character import Character, BehaviorGate, Behaviors, BehaviorRefusals, Schedule, MovementWillingness
+from app.models.characters import Character, BehaviorGate, Behaviors, BehaviorRefusals, Schedule, MovementWillingness
 
 
 # =============================================================================
@@ -562,7 +562,7 @@ def test_character_wardrobe_basic():
     """
     §7.2: Test basic wardrobe reference (detailed tests in §12).
     """
-    from app.models.character import Wardrobe, Outfit, ClothingLayer
+    from app.models.characters import Wardrobe, Outfit, ClothingLayer
 
     wardrobe = Wardrobe(
         outfits=[
@@ -601,7 +601,7 @@ def test_complete_character_definition():
     """
     §7.4: Test a complete character with all fields defined.
     """
-    from app.models.character import (
+    from app.models.characters import (
         Wardrobe, Outfit, ClothingLayer,
         Behaviors, BehaviorGate, BehaviorRefusals,
         Schedule, MovementWillingness

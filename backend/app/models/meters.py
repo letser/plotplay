@@ -2,6 +2,7 @@
 PlotPlay Game Models.
 Meters System
 """
+from typing import NewType
 from pydantic import Field
 from .model import SimpleModel, DescriptiveModel, DSLExpression
 
@@ -30,7 +31,12 @@ class Meter(DescriptiveModel):
     # Named thresholds
     thresholds: list[MeterThreshold] | None = Field(default_factory=list)
 
+
+MeterId = NewType("MeterId", str)
+
+MetersDefinition = dict[MeterId, Meter]
+
 class MetersConfig(SimpleModel):
     """Meters configuration."""
-    player: dict[str, Meter] | None = Field(default_factory=dict)
-    template: dict[str, Meter] | None = Field(default_factory=dict)
+    player: MetersDefinition | None = Field(default_factory=dict)
+    template: MetersDefinition | None = Field(default_factory=dict)

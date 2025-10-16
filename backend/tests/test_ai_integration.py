@@ -5,7 +5,7 @@ import pytest
 import json
 from unittest.mock import AsyncMock, MagicMock
 
-from app.models.character import Character, Appearance, AppearanceBase
+from app.models.characters import Character, Appearance, AppearanceBase
 from app.core.game_engine import GameEngine
 from app.services.prompt_builder import PromptBuilder
 from app.services.ai_service import AIResponse

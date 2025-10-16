@@ -17,7 +17,7 @@ from unittest.mock import AsyncMock
 from app.core.game_loader import GameLoader
 from app.core.game_engine import GameEngine
 from app.models.movement import MovementConfig, LocalMovement, ZoneTravel, MovementRestrictions
-from app.models.character import Character, MovementWillingness
+from app.models.characters import Character, MovementWillingness
 from app.models.locations import Location, LocationConnection, Zone
 from app.core.conditions import ConditionEvaluator
 

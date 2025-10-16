@@ -8,7 +8,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 from app.models.effects import AnyEffect
-from app.models.node import Choice
+from app.models.nodes import Choice
 
 
 class RandomTrigger(BaseModel):

@@ -29,7 +29,7 @@ from app.core.game_loader import GameLoader
 from app.core.state_manager import StateManager
 from app.core.game_engine import GameEngine
 from app.models.effects import ClothingChangeEffect
-from app.models.character import Wardrobe, Outfit, ClothingLayer, WardrobeRules
+from app.models.characters import Wardrobe, Outfit, ClothingLayer, WardrobeRules
 
 
 # =============================================================================

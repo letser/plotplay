@@ -4,9 +4,9 @@ Builds prompts for the Writer and Checker AI models based on the game state.
 import json
 from app.core.state_manager import GameState
 from app.models.game import GameDefinition
-from app.models.node import Node
+from app.models.nodes import Node
 from app.core.clothing_manager import ClothingManager
-from app.models.character import Character
+from app.models.characters import Character
 from app.core.conditions import ConditionEvaluator
 
 

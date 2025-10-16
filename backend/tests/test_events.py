@@ -24,7 +24,7 @@ from app.core.game_loader import GameLoader
 from app.core.game_engine import GameEngine
 from app.core.event_manager import EventManager
 from app.models.events import Event, EventTrigger, RandomTrigger
-from app.models.node import Choice
+from app.models.nodes import Choice
 from app.models.effects import MeterChangeEffect, FlagSetEffect, AdvanceTimeEffect
 from app.models.game import GameDefinition
 
