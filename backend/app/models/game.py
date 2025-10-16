@@ -9,15 +9,17 @@ from .action import GameAction
 from .arc import Arc
 from .character import Character
 from .events import Event
-from .item import Item
-from .location import Zone, ZoneId, LocationId
-from .meters import Meter
+from .items import Item
+from .locations import Zone, ZoneId, LocationId
+from .meters import MetersConfig
 from .movement import MovementConfig
 from .node import NodeId, Node
-from .time import TimeConfig
-from .flag import Flag
+from .time import TimeConfig, TimeHHMM
+from .flags import FlagsConfig
 from .modifier import ModifierSystem
 from .narration import GameNarration
+from .economy import EconomyConfig
+from .wardrobe import WardrobeConfig
 
 
 class MetaConfig(DescriptiveModel):
@@ -46,15 +48,19 @@ class GameDefinition(SimpleModel):
     start_location: LocationId = Field(validation_alias=AliasPath('start', 'location'))
     start_day: int = Field(default=1, validation_alias=AliasPath('start', 'day'))
     start_slot: str | None = Field(default=None, validation_alias=AliasPath('start', 'slot'))
-    start_time: str = Field(default="00:00", validation_alias=AliasPath('start', 'time'))
+    start_time: TimeHHMM = Field(default="00:00", validation_alias=AliasPath('start', 'time'))
 
     # Meters and flags
+    meters: MetersConfig = Field(default_factory=MetersConfig)
+    flags: FlagsConfig = Field(default_factory=FlagsConfig)
 
-
+    # Game world
     time: TimeConfig = Field(default_factory=TimeConfig)
+    economy: EconomyConfig = Field(default_factory=EconomyConfig)
+    items: list[Item] = Field(default_factory=list)
+    wardrobe: WardrobeConfig = Field(default_factory=WardrobeConfig)
+
     movement: MovementConfig = Field(default_factory=MovementConfig)
-    meters: dict[str, dict[str, Meter]] | None = None
-    flags: dict[str, Flag] | None = None
     modifier_system: ModifierSystem | None = None
     includes: list[str] = Field(default_factory=list)
 
@@ -65,5 +71,4 @@ class GameDefinition(SimpleModel):
     zones: list[Zone] = Field(default_factory=list)
     events: list[Event] = Field(default_factory=list)
     arcs: list[Arc] = Field(default_factory=list)
-    items: list[Item] = Field(default_factory=list)
     actions: list[GameAction] = Field(default_factory=list)

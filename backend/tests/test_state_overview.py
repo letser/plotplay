@@ -15,9 +15,9 @@ from app.core.game_loader import GameLoader
 from app.models.game import GameDefinition, MetaConfig, StartConfig
 from app.models.character import Character
 from app.models.node import Node, NodeType
-from app.models.location import Zone, Location, LocationPrivacy
+from app.models.locations import Zone, Location, LocationPrivacy
 from app.models.time import TimeConfig, TimeStart
-from app.models.flag import Flag
+from app.models.flags import Flag
 from app.models.meters import Meter
 from app.models.effects import MeterChangeEffect
 

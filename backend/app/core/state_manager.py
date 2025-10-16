@@ -6,7 +6,7 @@ from typing import Any
 
 from app.models.game import GameDefinition
 from app.models.effects import AnyEffect
-from app.models.location import LocationPrivacy
+from app.models.locations import LocationPrivacy
 
 
 @dataclass

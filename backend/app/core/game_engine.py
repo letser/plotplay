@@ -24,7 +24,7 @@ from app.models.effects import (
 )
 from app.models.enums import NodeType
 from app.models.game import GameDefinition
-from app.models.location import Location, LocationConnection, LocationPrivacy
+from app.models.locations import Location, LocationConnection, LocationPrivacy
 from app.models.node import Node, Choice
 from app.services.ai_service import AIService
 from app.services.prompt_builder import PromptBuilder

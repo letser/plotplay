@@ -20,7 +20,7 @@ from pathlib import Path
 from app.core.game_loader import GameLoader
 from app.core.game_engine import GameEngine
 from app.core.conditions import ConditionEvaluator
-from app.models.location import (
+from app.models.locations import (
     Zone, Location, LocationPrivacy, LocationConnection, LocationAccess
 )
 

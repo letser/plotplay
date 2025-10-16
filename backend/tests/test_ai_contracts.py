@@ -27,7 +27,7 @@ from app.services.ai_service import AIService, AIResponse, AISettings
 from app.models.character import Character
 from app.models.narration import NarrationConfig
 from app.models.enums import POV, Tense
-from app.models.flag import Flag
+from app.models.flags import Flag
 
 
 # =============================================================================

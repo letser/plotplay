@@ -29,3 +29,8 @@ class Meter(DescriptiveModel):
 
     # Named thresholds
     thresholds: list[MeterThreshold] | None = Field(default_factory=list)
+
+class MetersConfig(SimpleModel):
+    """Meters configuration."""
+    player: dict[str, Meter] | None = Field(default_factory=dict)
+    template: dict[str, Meter] | None = Field(default_factory=dict)

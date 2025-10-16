@@ -8,7 +8,7 @@ import random
 from typing import Any
 
 from app.core.state_manager import GameState
-from app.models.location import LocationPrivacy
+from app.models.locations import LocationPrivacy
 
 
 class ConditionEvaluator:

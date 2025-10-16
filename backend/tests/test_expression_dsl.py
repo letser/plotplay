@@ -7,7 +7,7 @@ built-in functions, safety, and all runtime context variables.
 import pytest
 from app.core.conditions import ConditionEvaluator
 from app.core.state_manager import GameState
-from app.models.location import LocationPrivacy
+from app.models.locations import LocationPrivacy
 
 
 # =============================================================================

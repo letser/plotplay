@@ -5,7 +5,7 @@ from typing import Any
 import yaml
 
 from app.models.game import GameDefinition
-from app.models.location import LocationAccess
+from app.models.locations import LocationAccess
 from app.core.game_validator import GameValidator
 from app.core.game_settings import GameSettings
 

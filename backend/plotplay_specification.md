@@ -9,18 +9,19 @@
 5. [Flags](#5-flags)
 6. [Time & Calendar](#6-time--calendar)
 7. [Economy System](#7-economy-system)
-8. [Inventory & Items](#8-inventory--items)
+8. [Items](#8-items)
 9. [Clothing System](#9-clothing-system)
-10. [Shopping System](#10-shopping-system)
-11. [Locations & Zones](#11-locations--zones)  
-12. [Characters](#12-characters)  
-13. [Effects](#13-effects)
-14. [Modifiers](#14-modifiers)  
-15. [Actions](#15-actions)
-16. [Nodes](#16-nodes)  
-17. [Events](#17-events)  
-18. [Arcs & Milestones](#18-arcs--milestones)  
-19. [AI Contracts (Writer & Checker)](#19-ai-contracts-writer--checker)  
+10. [Inventory](#10-inventory)
+11. [Shopping System](#11-shopping-system)
+12. [Locations & Zones](#12-locations--zones)  
+13. [Characters](#13-characters)  
+14. [Effects](#14-effects)
+15. [Modifiers](#15-modifiers)  
+16. [Actions](#16-actions)
+17. [Nodes](#17-nodes)  
+18. [Events](#18-events)  
+19. [Arcs & Milestones](#19-arcs--milestones)  
+20. [AI Contracts (Writer & Checker)](#20-ai-contracts-writer--checker)  
 
 ---
 
@@ -153,17 +154,15 @@ meters:                          # OPTIONAL. Game meters definitions. See the Me
   template: { ... }                   # Template for NPC meters.
 flags: { ... }                   # OPTIONAL. Game flags. See the Flags section.
 
-
 # --- Game world definition ---
 time: { ... }                    # REQUIRED. See the Time & Calendar section. 
 economy: { ... }                 # REQUIRED. See the Economy section. 
-inventory: { ... }               # REQUIRED. See the Inventory & Items section.
+items: { ... }                   # REQUIRED. See the Items section.
 wardrobe: { ... }                # REQUIRED. See the Wardrobe & Outfits section. 
+
 characters: [ ... ]              # REQUIRED. See the Characters section.              
 zones: [ ... ]                   # REQUIRED. See the Locations & Zones section.
 movement: { ... }                # REQUIRED. See the Movement Rules section.
-items: [ ... ]                   # See Inventory & Items
-
 
 # --- Game logic ---
 nodes: [ ... ]                   # See the Nodes section.
@@ -581,9 +580,9 @@ meters:
 ```
 
 ---
-## 8. Inventory & Items
+## 8. Items
 
-### Items
+### Definition & template
 
 An **item** is a defined object (gift, key, consumable, equipment, trophy, etc.) that can be owned 
 by the player or NPCs or exist in locations. The game defintion defines a global list of all known items that mey be referenced by ID in applicable places. 
@@ -594,7 +593,7 @@ Clothing items are NOT defined here — they are tracked separately and live in 
 
 ```yaml
 # Single Item Definition (template)
-# Place under the top level items node 
+# Place under the inventory top level 
 
 items:
   - id: "<string>"                # REQUIRED. Unique ID.
@@ -603,23 +602,22 @@ items:
     
     # --- Presentation ---
     description: "<string>"       # OPTIONAL. Short description.
-    tags: ["<string>", ...]       # OPTIONAL. Freeform labels.
     icon: "<string>"              # OPTIONAL. UI hint (emoji or asset key).
     
     # --- Economy ---
-    value: <int>                  # OPTIONAL. Shop/economy price.
+    value: <float>                # OPTIONAL. Shop/economy price.
     stackable: <bool>             # OPTIONAL. Default: true.
     droppable: <bool>             # OPTIONAL. Default: true.
     
     # --- Usage ---
+    obtain_conditions: ["<expr>", ...] # OPTIONAL. Conditions to obtain.
+
     consumable: <bool>            # OPTIONAL. Destroyed on use.
     target: "<enum>"              # OPTIONAL. "player" | "character" | "any"
     use_text: "<string>"          # OPTIONAL. Flavor text when used.
-    effects_on_use: { ... }       # OPTIONAL. Effects applied when used. . See the Effects section.
     
     # --- Gifting ---
     can_give: <bool>              # OPTIONAL. Can be gifted.
-    effects_on_give: { ... }      # OPTIONAL. Effects when given. See the Effects section.
     
     # --- Unlocks ---
     unlocks:                      # OPTIONAL. Lists zones and/or locations unlocked by this item.
@@ -627,10 +625,10 @@ items:
       location: ["<location_id>", ...]  # OPTIONAL. Location IDs.
     
     # --- Dynamic effects ---
-    effects_on_get:  { ... }       # OPTIONAL. Effects applied when get item. See the Effects section.
-    effects_on_own:  { ... }       # OPTIONAL. Effects applied when own item. See the Effects section.
-    effects_on_lost: { ... }       # OPTIONAL. Effects applied when lost item. See the Effects section.
-    obtain_conditions: ["<expr>", ...] # OPTIONAL. Conditions to obtain.
+    on_get:  [<effect>, ... ]    # OPTIONAL. Effects applied when get item. See the Effects section.
+    on_lost: [<effect>, ... ]    # OPTIONAL. Effects applied when lost item. See the Effects section.
+    on_use:  [<effect>, ... ]    # OPTIONAL. Effects applied when used. . See the Effects section.
+    on_give: [<effect>, ... ]    # OPTIONAL. Effects when given. See the Effects section.
 ```
 
 ### Examples
@@ -646,7 +644,7 @@ items:
     consumable: true
     target: "player"
     use_text: "You crack the can and chug the sweet, fizzy boost."
-    effects_on_use:
+    on_use:
       - { type: meter_change, target: player, meter: energy, op: add, value: 25 }
   
   # Gift
@@ -656,7 +654,7 @@ items:
     value: 20
     stackable: false
     can_give: true
-    effects_on_give:
+    on_give:
       - { type: meter_change, target: "{owner|recipient}", meter: attraction, op: add, value: 10 }
   
   # Key
@@ -673,7 +671,7 @@ items:
     name: "Lucky Charm"
     category: "equipment"
     value: 15
-    effects_own:
+    on_get:
       - { type: meter_change, target: "{owner}", meter: attraction, op: add, value: 10 }
 ```
 For item effects engine recognizes the following two macros:
@@ -747,10 +745,10 @@ may extend and override the global lists.
 ```yaml
 # Top level in game manifest - alongside 'items', 'meters', 'characters'
 wardrobe:
-  slots: ["<string>",  ... ]      # Ordered list of clothing slots. 
+  slots: ["<string>",  ... ]       # Ordered list of clothing slots. 
   # E.g. ["outerwear", "top", "bottom", "underwear_top", "underwear_bottom", "feet", "accessories"] 
-  items:  [<clothing item>, ...]  # Global clothing item library
-  outfit: [<outfit>, ...]         # Global outfits library
+  items:   [<clothing item>, ...]  # Global clothing item library
+  outfits: [<outfit>, ...]         # Global outfits library
 ```
 
 ```yaml
@@ -759,8 +757,7 @@ wardrobe:
 items:
   - id: "<string>"                 # REQUIRED. Unique clothing item ID.
     name: "<string>"               # REQUIRED. Display name.
-    value: <int>                   # OPTIONAL. Shop price; non-negative.
-    slot: "<string>"               # REQUIRED. Which slot this occupies.
+    value: <float>                 # OPTIONAL. Shop price; non-negative.
     state: "intact|opened|displaced|removed"  # OPTIONAL. Default: "intact"
     look:                          # REQUIRED. Narrative description.
       intact: "<string>"           # REQUIRED. Description of the intact item.
@@ -774,7 +771,10 @@ items:
     locked: <bool>              # OPTIONAL. Default: false.
     unlock_when: "<expr>"       # OPTIONAL. Unlock condition.
     # --- Dynamic effects ---
-    effects_on_worn:  { ... }       # OPTIONAL. Effects applied when item is worn.
+    on_get:  [<effect>, ... ]      # OPTIONAL. Effects applied when get item. See the Effects section.
+    on_lost: [<effect>, ... ]      # OPTIONAL. Effects applied when lost item. See the Effects section.
+    on_put_on:  [<effect>, ... ]   # OPTIONAL. Effects applied when the item is put on.
+    on_take_off: [<effect>, ... ]  # OPTIONAL. Effects applied when the item is taken off.
 ```
 
 ```yaml
@@ -793,7 +793,7 @@ outfits:
     locked: <bool>              # OPTIONAL. Default: false.
     unlock_when: "<expr>"       # OPTIONAL. Unlock condition.
     # --- Dynamic effects ---
-    effects_on_worn:  { ... }   # OPTIONAL. Effects applied when item is worn.
+    on_worn:  { ... }   # OPTIONAL. Effects applied when item is worn.
 ```
 Note: items in outfits will be merged into slots in order of appearance. 
 If some items occupy the same slot, the last one will be used.
@@ -804,12 +804,48 @@ If some items occupy the same slot, the last one will be used.
   TODO: add examples
 ```
 ---
-## 10. Shopping System
+
+## 10. Inventory
+
+Inventory is a collection that lists items, clothing items, and outfits available in some context like shop of location.
+Each list item defines an id of the item and provides how many items are available, defines additional logic 
+and may override the price.
+
+Currentle the engine allows adding inventory to:
+ - locations to define items present in the location (e.g., book at the table, dress in the closet);
+ - shops to define items available for sale.
+
+The internal game state object tracks the same inventory structure for each character, location, and shop. 
+
+```yaml
+# Inventory definition
+# Place under shop or location nodes 
+
+inventory:
+  items: [<Inventory_item>, ...]              # OPTIONAL. Available items
+  clothing_items: [<Inventory_item>, ...      # OPTIONAL. Available clothing items
+  outfits: [<inventory_item>, ...] :          # OPTIONAL. Available outfits
+```
+```yaml
+# Inventory_item definition
+# Place inside lists in the inventory 
+
+- id: <item_id|clothing_item_id"outfit_id>  # REQUIRED.
+  count: <int>                              # OPTIONAL. Default: 1. Number of items available.
+  value: <float>                            # OPTIONAL. Price override of the item.
+  infinite: <bool>                          # OPTIONAL. Infinite (ignores count)? Default: false.
+  discovered: <bool>                        # OPTIONAL. Discovered and visible? Default: true.
+  discovered_when: "<expr>"                 # OPTIONAL. Condition to reveal.
+```
+
+---
+
+## 11. Shopping System
+
 The shopping system allows players to buy or sell item. 
-The `shop` node defines inventory items, clothing items, and outfits available for sale. 
+The `shop` node defines its own inventory with items available for sale. 
 It can also provide an option for the player to sell items. 
 Expressions allow to set price multipliers for selling and purchasing. 
-
 
 The `shop` node can be **attached** to any location or character, so characters become merchants and location become stores. 
 Once a shop node is attached, game UI allows players to enther the shop, list items and buy/sell. 
@@ -824,25 +860,14 @@ shop:                                 # OPTIONAL. Shop definition.
   can_buy: "<expr>"                   # OPTIONAL. Expression DSL. Default: true. Can buy items from the player.
   multiplier_sell: "<expr>"           # OPTIONAL. Expression DSL. Multiplier for selling to the player. Default 1.0
   multiplier_buy: "<expr>"            # OPTIONAL. Expression DSL. Multiplier for buying from the player. Default 1.0
-  # --- Items ---
-  items:                              # OPTIONAL. Available items
-    - id: <item_id>                   # REQUIRED. List of items available for sale.
-      count: <int>                    # OPTIONAL. Default: 1. Number of items available.
-      value: <int>                    # OPTIONAL. Price override of the item.
-  # --- Clothing Items ---
-  clothing:                              # OPTIONAL. Available items
-    - id: <clothing_item_id>                   # REQUIRED. List of items available for sale.
-      count: <int>                    # OPTIONAL. Default: 1. Number of items available.
-      value: <int>                    # OPTIONAL. Price override of the item.
-  # --- Clothing Items ---
-  outfits:                              # OPTIONAL. Available items
-    - id: <outfit_id>                   # REQUIRED. List of items available for sale.
-      count: <int>                    # OPTIONAL. Default: 1. Number of items available.
-      value: <int>                    # OPTIONAL. Price override of the item.
-```  
+  
+  # --- Inventory ---
+  inventory: <inventory>
+```
+
 ---
 
-## 11. Locations & Zones
+## 12. Locations & Zones
 
 ### World Model
 The world model is hierarchical:
@@ -885,10 +910,10 @@ If there are no connections provides then it is possible to travel between any z
 
   # --- Transport & travel ---
   connections:                          # OPTIONAL. Travel routes between zones.
-    - to: ["<zone_id>|all", ...]          # Connects to specified zones, shortcut 'all' means all zones. 
-      except: ["<zone_id>", ...]          # OPTIONAL. Excludes zone from the connection if to='all'.
+    - to: ["<zone_id>|all", ...]          # REQUIRED. Connects to specified zones, shortcut 'all' means all zones. 
+      exceptions: ["<zone_id>", ...]      # OPTIONAL. Excludes zone from the connection if to='all'.
       methods: ["bus|car|walk", ...]      # OPTIONAL. Transport methods for the link. See the Movement Rules for details 
-      distance: <int>                     # OPTIONAL. Distance to calculate time and cost. See the Movement Rules for details.
+      distance: <float>                   # OPTIONAL. Distance to calculate time and cost. See the Movement Rules for details.
 
   # --- Inline locations (see below) ---
   locations: [ ... ]
@@ -906,6 +931,10 @@ using cardinal direction and up/down between floors.
 - Connections may be locked with conditional unlock (e.g., a closed door requires a key)
 - Locations have own inventory which defines all present items with option to collect items.
 - Dropped items may be added to a location's inventory. 
+
+> Location's inventory is not a shop, but just a list of what is available in the location and can be collected.
+>
+> **All price options in the inventory are ignored.**
 
 ```yaml
 # Location definition lives under: zones[].locations[]
@@ -931,12 +960,7 @@ using cardinal direction and up/down between floors.
       locked: <bool>                       # OPTIONAL. Default false.
       unlocked_when: "<expr>"              # OPTIONAL. Expression DSL. If true, then unlocked.
   # --- Inventory ---
-  inventory:                      # OPTIONAL. Items present in location locations
-    - item: "<item_id>"                 # REQUIRED. Item ID.
-      count: <int>|null                 # REQUIRED. Count or null for infinite.
-      replenish: <bool>                 # OPTIONAL. Regenerates? Default: false.
-      discovered: <bool>                # OPTIONAL. Discovered and visible? Default: true.
-      discovered_when: "<expr>"         # OPTIONAL. Condition to reveal.
+  inventory:   <inventory>        # OPTIONAL. Location's inventory. This is not a shop.
   shop: <shop>                    # OPTIONAL. Shop definition.
 
 ```
@@ -982,7 +1006,7 @@ movement:                         # OPTIONAL. Top level node
     - "<method_name>": <base_time>  # REQUIRED. Unique method name and base time.
 ```
 ---
-## 12. Characters
+## 13. Characters
 
 ### Character Template
 A **character** is any entity (NPC or player avatar) that participates in the story. 
@@ -1035,12 +1059,7 @@ while meters for other characters are taken from the `template`  section.
   # --- Availability ---
   availability:                   # OPTIONAL. Availability rules for following player to other zones/locations.
     available_zones:              # OPTIONAL. List of rules for following player to other zones.
-  inventory:                       # OPTIONAL. Items carried by this character.
-    items:  
-      "<item_id>": <item_count>
-    clothing_items: 
-      "<item_id>": <item_count>
-    outfits:  ["<outfit_id>", ...]
+  inventory: <inventory>          # OPTIONAL. Items carried by this character.
   shop: <shop>                    # OPTIONAL. Shop definition.
 ```
 
@@ -1144,7 +1163,7 @@ state.characters:
 
 ---
 
-## 13. Effects
+## 14. Effects
 
 ### Base Effect Definition
 
@@ -1443,7 +1462,7 @@ Changes a flag value.
 ```
 ---
 
-## 14. Modifiers
+## 15. Modifiers
 
 ### Purpose & Template 
 A **modifier** is a named, (usually) temporary state that overlays appearance/behavior rules 
@@ -1536,7 +1555,7 @@ modifiers:
 ```
 ---
 
-## 15. Actions
+## 16. Actions
 
 ### Purpose & Template
 
@@ -1585,7 +1604,7 @@ actions:
 ```
 ---
 
-## 16. Nodes
+## 17. Nodes
 
 ### Purpose & Template
 
@@ -1716,7 +1735,7 @@ state.current_node: "<node_id>"
 - For endings, always set a stable `ending_id`.
 ---
 
-## 17. Events
+## 18. Events
 
 ### Purpose & Template
 
@@ -1814,7 +1833,7 @@ Events differ from nodes:
 
 ---
 
-## 18. Arcs & Milestones
+## 19. Arcs & Milestones
 
 ### Purpose & Arc Template
 
@@ -1932,7 +1951,7 @@ state.arcs:
 
 ---
 
-## 19. AI Contracts (Writer & Checker)
+## 20. AI Contracts (Writer & Checker)
 
 ### Definition
 

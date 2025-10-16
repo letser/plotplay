@@ -12,11 +12,11 @@ from app.core.game_engine import GameEngine
 from app.services.ai_service import AIService, AIResponse, AISettings
 from app.models.game import GameDefinition, MetaConfig, StartConfig
 from app.models.character import Character
-from app.models.location import Zone, Location, LocationPrivacy
+from app.models.locations import Zone, Location, LocationPrivacy
 from app.models.node import Node, Choice
 from app.models.enums import NodeType
 from app.models.meters import Meter
-from app.models.flag import Flag
+from app.models.flags import Flag
 from app.models.time import TimeConfig, TimeStart
 
 
@@ -115,7 +115,7 @@ async def mock_game_engine(minimal_game_def, mock_ai_service):
 def sample_game_state():
     """Provides a sample game state for testing."""
     from app.core.state_manager import GameState
-    from app.models.location import LocationPrivacy
+    from app.models.locations import LocationPrivacy
 
     state = GameState()
     state.meters = {

@@ -15,13 +15,6 @@ class Tense(StrEnum):
     PAST = "past"
     PRESENT = "present"
 
-
-class TimeMode(StrEnum):
-    SLOTS = "slots"
-    CLOCK = "clock"
-    HYBRID = "hybrid"
-
-
 class NodeType(StrEnum):
     SCENE = "scene"
     HUB = "hub"
@@ -34,14 +27,6 @@ class ContentRating(StrEnum):
     TEEN = "teen"
     MATURE = "mature"
     EXPLICIT = "explicit"
-
-class ItemCategory(StrEnum):
-    CONSUMABLE = "consumable"
-    EQUIPMENT = "equipment"
-    KEY = "key"
-    GIFT = "gift"
-    TROPHY = "trophy"
-    MISC = "misc"
 
 class TransportModes(StrEnum):
     WALK = "walk"

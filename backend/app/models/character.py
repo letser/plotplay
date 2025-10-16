@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field, field_validator
 from pydantic_core.core_schema import ValidationInfo
 
 from .meters import Meter
-from .flag import Flag
+from .flags import Flag
 
 
 class Personality(BaseModel):

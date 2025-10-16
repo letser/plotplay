@@ -42,10 +42,10 @@ from app.models.effects import (
 from app.models.enums import ItemCategory
 from app.models.game import GameDefinition, MetaConfig, StartConfig
 from app.models.node import Node, NodeType
-from app.models.location import Zone, Location, LocationPrivacy
+from app.models.locations import Zone, Location, LocationPrivacy
 from app.models.character import Character, Wardrobe, Outfit
 from app.models.modifier import Modifier
-from app.models.item import Item
+from app.models.items import Item
 
 
 # =============================================================================

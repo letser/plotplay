@@ -22,7 +22,7 @@ from app.core.game_engine import GameEngine
 from app.core.arc_manager import ArcManager
 from app.models.arc import Arc, Stage
 from app.models.effects import MeterChangeEffect, FlagSetEffect, UnlockEffect
-from app.models.flag import Flag
+from app.models.flags import Flag
 
 
 # =============================================================================

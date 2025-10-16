@@ -9,7 +9,7 @@ from app.models.character import Character, Appearance, AppearanceBase
 from app.core.game_engine import GameEngine
 from app.services.prompt_builder import PromptBuilder
 from app.services.ai_service import AIResponse
-from app.models.flag import Flag
+from app.models.flags import Flag
 
 # Mark all tests in this file as async
 pytestmark = pytest.mark.asyncio

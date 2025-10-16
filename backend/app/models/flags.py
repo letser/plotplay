@@ -38,3 +38,5 @@ Flag = Annotated[
     BoolFlag | NumberFlag | StringFlag,
     Field(discriminator="type")
 ]
+
+FlagsConfig = dict[str, Flag]

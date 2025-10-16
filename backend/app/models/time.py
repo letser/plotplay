@@ -1,59 +1,56 @@
 """
-PlotPlay Game Models - Complete game definition structures.
-
- ============== Time System ==============
+PlotPlay Game Models.
+Time System.
 """
 
-from pydantic import BaseModel, Field, field_validator
-
-from app.models.enums import TimeMode
-
-class TimeStart(BaseModel):
-    """Starting time configuration."""
-    day: int = 1
-    slot: str | None = None
-    time: str | None = None  # HH:MM for clock/hybrid
+from enum import StrEnum
+from typing import NewType, Annotated
+from pydantic import Field, field_validator, StringConstraints
+from .model import SimpleModel
 
 
-class SlotWindow(BaseModel):
+TimeSlot = NewType("TimeSlot", str)
+TimeHHMM = Annotated[str, StringConstraints(pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")]
+
+class TimeMode(StrEnum):
+    SLOTS = "slots"
+    CLOCK = "clock"
+    HYBRID = "hybrid"
+
+
+class SlotWindow(SimpleModel):
     """Time window for a slot in hybrid mode."""
     start: str  # HH:MM
     end: str # HH:MM
 
-
-class ClockConfig(BaseModel):
-    """Clock configuration for time modes."""
-    minutes_per_day: int = 1440
-    slot_windows: dict[str, SlotWindow] | None = None
+WeekDay = NewType("WeekDay", str)
 
 
-class CalendarConfig(BaseModel):
-    """Calendar system for week tracking."""
-    enabled: bool = False  # Off by default for backwards compatibility
-    epoch: str = "2025-01-01"  # Reference date (optional, for flavor/documentation)
-    week_days: list[str] = Field(default_factory=lambda: [
+class TimeStart(SimpleModel):
+    """Starting time configuration."""
+    day: int = 1
+    slot: str | None = None
+    time: TimeHHMM | None = None  # HH:MM for clock/hybrid
+
+
+class TimeConfig(SimpleModel):
+    """Complete time system configuration."""
+    mode: TimeMode = TimeMode.SLOTS
+    slots: list[TimeSlot] | None = Field(default_factory=list)
+    actions_per_slot: int = 5
+    minutes_per_action: int = 30
+    slot_windows: dict[TimeSlot, SlotWindow] | None = Field(default_factory=dict)
+
+    week_days: list[WeekDay] = Field(default_factory=lambda: [
         "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"
     ])
-    start_day: str = "monday"  # What weekday is Day 1 of the game?
+    start_day: WeekDay = "monday"
 
     @field_validator('start_day')
     @classmethod
     def validate_start_day(cls, v: str, info) -> str:
         """Ensure start_day is in the week_days list."""
-        week_days = info.data.get('week_days', [
-            "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"
-        ])
+        week_days = info.data.get('week_days', [])
         if v not in week_days:
             raise ValueError(f"start_day '{v}' must be one of {week_days}")
         return v
-
-
-class TimeConfig(BaseModel):
-    """Complete time system configuration."""
-    mode: TimeMode = TimeMode.SLOTS
-    slots: list[str] | None = None
-    actions_per_slot: int = 3
-    auto_advance: bool = True
-    clock: ClockConfig | None = None
-    calendar: CalendarConfig | None = None  # New calendar configuration
-    start: TimeStart = Field(default_factory=TimeStart)
