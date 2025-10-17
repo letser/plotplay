@@ -1,258 +1,283 @@
-# ===============================
-# Nodes - Coffee Shop Date (v3 Spec)
-# Linear story with multiple endings based on relationship meters
-# ===============================
-
 nodes:
-  # ===== SCENE 1: OUTSIDE THE CAFE =====
   - id: "outside_cafe"
     type: "scene"
-    title: "Outside the Coffee Shop"
+    title: "Outside Brewed Awakenings"
+    characters_present: ["alex"]
     beats:
-      - "You stand outside 'Corner Coffee Shop'. Through the window, you can see Alex already inside."
-      - "There's a small jar of complimentary breath mints by the door."
-      - "Your first date nerves are kicking in."
+      - "You spot Alex waiting on the patio, sunlight catching the copper strands in her hair."
+      - "She lifts a hand in a tentative wave, the mint jar between you glinting invitingly."
+    on_entry:
+      - type: "meter_change"
+        target: "alex"
+        meter: "comfort"
+        op: "add"
+        value: 5
     choices:
-      - id: "take_mint_and_enter"
-        prompt: "Take a mint and head inside"
-        effects:
-          - { type: "inventory_add", owner: "player", item: "breath_mint", count: 1 }
-          - { type: "flag_set", key: "took_mint", value: true }
-          - { type: "meter_change", target: "player", meter: "confidence", op: "add", value: 5 }
-        goto: "meet_alex"
+      - id: "greet_warmly"
+        prompt: "Offer a warm compliment about her scarf."
+        on_select:
+          - type: "meter_change"
+            target: "alex"
+            meter: "comfort"
+            op: "add"
+            value: 10
+          - type: "meter_change"
+            target: "alex"
+            meter: "interest"
+            op: "add"
+            value: 6
+          - type: "meter_change"
+            target: "player"
+            meter: "confidence"
+            op: "add"
+            value: 4
+          - type: "goto"
+            node: "order_drinks"
+      - id: "arrive_rushed"
+        prompt: "Apologize for running a couple minutes late."
+        on_select:
+          - type: "meter_change"
+            target: "alex"
+            meter: "comfort"
+            op: "add"
+            value: 4
+          - type: "meter_change"
+            target: "player"
+            meter: "confidence"
+            op: "subtract"
+            value: 6
+          - type: "goto"
+            node: "order_drinks"
 
-      - id: "just_enter"
-        prompt: "Head straight inside"
-        goto: "meet_alex"
-
-    transitions:
-      - { when: "always", to: "meet_alex" }
-
-  # ===== SCENE 2: MEETING ALEX =====
-  - id: "meet_alex"
+  - id: "order_drinks"
     type: "scene"
-    title: "Meeting Alex"
-    present_characters: ["alex"]
-    entry_effects:
-      - { type: "move_to", location: "coffee_shop" }
+    title: "Ordering Drinks"
+    characters_present: ["alex"]
     beats:
-      - "You walk over to the table where Alex is sitting. She looks up and smiles nervously."
-      - "There's a moment of awkward silence as you both size each other up."
+      - "Inside, the scent of espresso wraps around you. Alex scan the chalkboard menu with a decisive nod."
+      - "\"My treat?\" you offer, already fishing out your wallet."
     choices:
-      - id: "confident_greeting"
-        prompt: "Greet her confidently: 'Hi Alex! Great to finally meet you.'"
-        effects:
-          - { type: "meter_change", target: "alex", meter: "interest", op: "add", value: 10 }
-          - { type: "meter_change", target: "player", meter: "confidence", op: "add", value: 5 }
-        goto: "order_coffee"
+      - id: "matching_lattes"
+        prompt: "Order matching vanilla lattes for the both of you."
+        when: "meters.player.money >= 12"
+        on_select:
+          - type: "meter_change"
+            target: "player"
+            meter: "money"
+            op: "subtract"
+            value: 12
+          - type: "meter_change"
+            target: "alex"
+            meter: "interest"
+            op: "add"
+            value: 8
+          - type: "meter_change"
+            target: "alex"
+            meter: "comfort"
+            op: "add"
+            value: 6
+          - type: "goto"
+            node: "table_convo"
+      - id: "let_her_choose"
+        prompt: "Ask Alex to pick anything and insist on paying."
+        when: "meters.player.money >= 10"
+        on_select:
+          - type: "meter_change"
+            target: "player"
+            meter: "money"
+            op: "subtract"
+            value: 10
+          - type: "meter_change"
+            target: "alex"
+            meter: "interest"
+            op: "add"
+            value: 10
+          - type: "goto"
+            node: "table_convo"
+      - id: "split_the_bill"
+        prompt: "Suggest splitting the cost with a light joke."
+        on_select:
+          - type: "meter_change"
+            target: "player"
+            meter: "money"
+            op: "subtract"
+            value: 6
+          - type: "meter_change"
+            target: "alex"
+            meter: "comfort"
+            op: "add"
+            value: 5
+          - type: "goto"
+            node: "table_convo"
 
-      - id: "nervous_greeting"
-        prompt: "Greet her nervously: 'Um, hi... nice place, right?'"
-        effects:
-          - { type: "meter_change", target: "alex", meter: "comfort", op: "add", value: 10 }
-          - { type: "meter_change", target: "player", meter: "confidence", op: "subtract", value: 5 }
-        goto: "order_coffee"
-
-      - id: "casual_greeting"
-        prompt: "Be casual: 'Hey! Have you been waiting long?'"
-        effects:
-          - { type: "meter_change", target: "alex", meter: "comfort", op: "add", value: 5 }
-          - { type: "meter_change", target: "alex", meter: "interest", op: "add", value: 5 }
-        goto: "order_coffee"
-
-    transitions:
-      - { when: "always", to: "order_coffee" }
-
-  # ===== SCENE 3: ORDERING COFFEE =====
-  - id: "order_coffee"
+  - id: "table_convo"
     type: "scene"
-    title: "Ordering Coffee"
-    present_characters: ["alex"]
+    title: "Corner Table Conversation"
+    characters_present: ["alex"]
     beats:
-      - "Alex suggests you both order coffee. The menu board lists various drinks, each costing $5."
-      - "You have $30 in your wallet."
+      - "Steam curls from your mugs as the afternoon crowd fades into soft chatter."
+      - "Alex rests her chin on her hand, eyes bright with curiosity."
     choices:
-      - id: "pay_for_both"
-        prompt: "Offer to pay for both coffees ($10)"
-        conditions: "meters.player.money >= 10"
-        effects:
-          - { type: "meter_change", target: "player", meter: "money", op: "subtract", value: 10 }
-          - { type: "meter_change", target: "alex", meter: "interest", op: "add", value: 15 }
-          - { type: "flag_set", key: "paid_for_alex", value: true }
-          - { type: "inventory_add", owner: "player", item: "coffee", count: 1 }
-        goto: "conversation_start"
+      - id: "ask_about_art"
+        prompt: "Ask about the mural she mentioned in her messages."
+        on_select:
+          - type: "meter_change"
+            target: "alex"
+            meter: "comfort"
+            op: "add"
+            value: 12
+          - type: "meter_change"
+            target: "alex"
+            meter: "interest"
+            op: "add"
+            value: 8
+          - type: "goto"
+            node: "share_story"
+      - id: "tell_funny_story"
+        prompt: "Share the catastrophe of your first attempt at latte art."
+        on_select:
+          - type: "meter_change"
+            target: "alex"
+            meter: "comfort"
+            op: "add"
+            value: 6
+          - type: "meter_change"
+            target: "alex"
+            meter: "interest"
+            op: "add"
+            value: 12
+          - type: "flag_set"
+            key: "shared_laugh"
+            value: true
+          - type: "goto"
+            node: "tell_joke"
+      - id: "offer_compliment"
+        prompt: "Compliment the way she pairs colors in her outfits."
+        when: "gates.alex.accept_compliment"
+        on_select:
+          - type: "meter_change"
+            target: "alex"
+            meter: "comfort"
+            op: "add"
+            value: 9
+          - type: "meter_change"
+            target: "alex"
+            meter: "interest"
+            op: "add"
+            value: 7
+          - type: "goto"
+            node: "share_story"
 
-      - id: "split_bill"
-        prompt: "Suggest splitting the bill ($5 each)"
-        effects:
-          - { type: "meter_change", target: "player", meter: "money", op: "subtract", value: 5 }
-          - { type: "meter_change", target: "alex", meter: "comfort", op: "add", value: 5 }
-          - { type: "inventory_add", owner: "player", item: "coffee", count: 1 }
-        goto: "conversation_start"
-
-      - id: "alex_pays"
-        prompt: "Let Alex pay for both"
-        effects:
-          - { type: "meter_change", target: "alex", meter: "interest", op: "subtract", value: 5 }
-          - { type: "meter_change", target: "player", meter: "confidence", op: "subtract", value: 10 }
-          - { type: "inventory_add", owner: "player", item: "coffee", count: 1 }
-        goto: "conversation_start"
-
-    entry_effects:
-      - { type: "flag_set", key: "ordered_coffee", value: true }
-
-    transitions:
-      - { when: "always", to: "conversation_start" }
-
-  # ===== SCENE 4: CONVERSATION =====
-  - id: "conversation_start"
-    type: "scene"
-    title: "Getting to Know Each Other"
-    present_characters: ["alex"]
-    beats:
-      - "You both sit down with your drinks. Time to break the ice and see if there's chemistry."
-      - "Alex seems interested but still a bit guarded."
-    choices:
-      - id: "ask_about_work"
-        prompt: "Ask about her work"
-        effects:
-          - { type: "meter_change", target: "alex", meter: "comfort", op: "add", value: 10 }
-          - { type: "meter_change", target: "alex", meter: "interest", op: "add", value: 5 }
-        goto: "conversation_deeper"
-
-      - id: "tell_joke"
-        prompt: "Tell a funny story about your week"
-        effects:
-          - { type: "meter_change", target: "alex", meter: "interest", op: "add", value: 15 }
-          - { type: "meter_change", target: "alex", meter: "comfort", op: "add", value: 10 }
-          - { type: "flag_set", key: "told_joke", value: true }
-        goto: "conversation_deeper"
-
-      - id: "compliment_appearance"
-        prompt: "Compliment her appearance"
-        conditions: "gates.alex.accept_compliment"
-        effects:
-          - { type: "meter_change", target: "alex", meter: "interest", op: "add", value: 10 }
-          - { type: "flag_set", key: "complimented_alex", value: true }
-          - { type: "apply_modifier", character: "alex", modifier_id: "flattered", duration_min: 15 }
-        goto: "conversation_deeper"
-
-      - id: "talk_interests"
-        prompt: "Ask about her interests and hobbies"
-        effects:
-          - { type: "meter_change", target: "alex", meter: "comfort", op: "add", value: 15 }
-          - { type: "meter_change", target: "alex", meter: "interest", op: "add", value: 10 }
-        goto: "conversation_deeper"
-
-    transitions:
-      - { when: "always", to: "conversation_deeper" }
-
-  # ===== SCENE 5: DEEPER CONVERSATION =====
-  - id: "conversation_deeper"
+  - id: "share_story"
     type: "scene"
     title: "Finding Common Ground"
-    present_characters: ["alex"]
+    characters_present: ["alex"]
     beats:
-      - "The conversation flows more naturally now. You're starting to learn about each other."
-      - "Alex seems more relaxed, occasionally laughing at your comments."
-    choices:
-      - id: "share_personal"
-        prompt: "Share something personal about yourself"
-        effects:
-          - { type: "meter_change", target: "alex", meter: "comfort", op: "add", value: 15 }
-          - { type: "meter_change", target: "alex", meter: "interest", op: "add", value: 10 }
-        goto: "check_chemistry"
+      - "\"I love that you notice the little things,\" she says. \"So what keeps you busy when you're not here?\""
+      - You trade stories about weekend routines, the conversation loosening every minute.
+    on_entry:
+      - type: "meter_change"
+        target: "alex"
+        meter: "comfort"
+        op: "add"
+        value: 8
+      - type: "meter_change"
+        target: "alex"
+        meter: "interest"
+        op: "add"
+        value: 6
+    triggers:
+      - when: "true"
+        on_select:
+          - type: "goto"
+            node: "closing_moment"
 
-      - id: "ask_about_dating"
-        prompt: "Ask about her dating experiences"
-        conditions: "meters.alex.comfort >= 40"
-        effects:
-          - { type: "meter_change", target: "alex", meter: "comfort", op: "add", value: 5 }
-          - { type: "meter_change", target: "alex", meter: "interest", op: "add", value: 10 }
-        goto: "check_chemistry"
-
-      - id: "suggest_second_date"
-        prompt: "Suggest plans for a second date"
-        conditions: "meters.alex.interest >= 50"
-        effects:
-          - { type: "meter_change", target: "alex", meter: "interest", op: "add", value: 15 }
-          - { type: "flag_set", key: "alex_impressed", value: true }
-        goto: "check_chemistry"
-
-      - id: "keep_it_light"
-        prompt: "Keep the conversation light and fun"
-        effects:
-          - { type: "meter_change", target: "alex", meter: "comfort", op: "add", value: 10 }
-        goto: "check_chemistry"
-
-    transitions:
-      - { when: "always", to: "check_chemistry" }
-
-  # ===== SCENE 6: DATE ENDING =====
-  - id: "check_chemistry"
+  - id: "tell_joke"
     type: "scene"
-    title: "End of the Date"
-    present_characters: ["alex"]
+    title: "Shared Laughter"
+    characters_present: ["alex"]
     beats:
-      - "An hour has passed quickly. You both realize it's time to wrap up."
-      - "You walk outside together."
-    entry_effects:
-      - { type: "move_to", location: "outside" }
-    transitions:
-      - { when: "gates.alex.accept_kiss", to: "ending_kiss" }
-      - { when: "gates.alex.share_number", to: "ending_number" }
-      - { when: "always", to: "ending_awkward" }
+      - "Alex laughs so hard she has to dab foam from the corner of her mouth."
+      - "\"Okay, you win,\" she grins. \"Next time I'm letting you handle the latte art.\""
+    on_entry:
+      - type: "meter_change"
+        target: "alex"
+        meter: "comfort"
+        op: "add"
+        value: 10
+      - type: "meter_change"
+        target: "alex"
+        meter: "interest"
+        op: "add"
+        value: 10
+    triggers:
+      - when: "true"
+        on_select:
+          - type: "goto"
+            node: "closing_moment"
 
-  # ===== ENDINGS =====
+  - id: "closing_moment"
+    type: "scene"
+    title: "Heading Out"
+    characters_present: ["alex"]
+    beats:
+      - "Dusk edges in as you step back onto the patio, mugs empty but hands lingering close."
+      - "Alex hesitates, weight shifting as though she's not quite ready to say goodbye."
+    choices:
+      - id: "propose_second_date"
+        prompt: "Suggest meeting again for the night market this weekend."
+        when_any:
+          - "meters.alex.interest >= 60"
+          - "flags.shared_laugh == true"
+        on_select:
+          - type: "meter_change"
+            target: "alex"
+            meter: "interest"
+            op: "add"
+            value: 8
+          - type: "flag_set"
+            key: "second_date_offer"
+            value: true
+          - type: "goto"
+            node: "goodbye_success"
+      - id: "graceful_farewell"
+        prompt: "Offer a warm goodbye and promise to text later."
+        on_select:
+          - type: "goto"
+            node: "goodbye_polite"
 
-  - id: "ending_kiss"
+  - id: "goodbye_success"
     type: "ending"
-    title: "Perfect First Date"
-    present_characters: ["alex"]
-    ending_id: "perfect_date"
+    title: "Promising Second Date"
+    characters_present: ["alex"]
+    ending_id: "alex_second_date"
     beats:
-      - "As you stand outside, Alex moves closer. She looks up at you with warm eyes."
-      - "The moment feels right. She leans in and kisses you softly."
-      - "'I had a wonderful time,' she says with a genuine smile. 'Let's do this again soon?'"
-    entry_effects:
-      - { type: "inventory_add", owner: "player", item: "alex_number", count: 1 }
-      - { type: "flag_set", key: "got_number", value: true }
-    credits:
-      summary: "You made a great impression. Alex is clearly interested in seeing you again."
-      epilogue:
-        - "Over the next few weeks, you and Alex go on several more dates."
-        - "The chemistry you felt on that first date only grows stronger."
+      - "Alex's smile widens. \"I'd like that a lot,\" she says, tapping her number into your phone."
+      - "\"Text me when you get home? I want to hear how the rest of your night goes.\""
+    on_entry:
+      - type: "meter_change"
+        target: "player"
+        meter: "confidence"
+        op: "add"
+        value: 6
+      - type: "meter_change"
+        target: "alex"
+        meter: "comfort"
+        op: "add"
+        value: 6
+    on_exit: []
 
-  - id: "ending_number"
+  - id: "goodbye_polite"
     type: "ending"
-    title: "Promising Start"
-    present_characters: ["alex"]
-    ending_id: "good_date"
+    title: "Polite Parting"
+    characters_present: ["alex"]
+    ending_id: "coffee_date_polite"
     beats:
-      - "Alex smiles warmly. 'I had a really nice time tonight.'"
-      - "She pulls out her phone. 'Here, let me give you my number. We should definitely hang out again.'"
-      - "You exchange numbers and she gives you a quick hug goodbye."
-    entry_effects:
-      - { type: "inventory_add", owner: "player", item: "alex_number", count: 1 }
-      - { type: "flag_set", key: "got_number", value: true }
-    credits:
-      summary: "A solid first date. Alex enjoyed your company and wants to see you again."
-      epilogue:
-        - "You text Alex the next day and make plans for a second date."
-        - "Things are off to a good start."
-
-  - id: "ending_awkward"
-    type: "ending"
-    title: "Polite Goodbye"
-    present_characters: ["alex"]
-    ending_id: "awkward_date"
-    beats:
-      - "Alex checks her phone and looks a bit distracted."
-      - "'Well, this was nice,' she says politely but without much enthusiasm."
-      - "'I should probably get going. Thanks for the coffee.' She waves and walks away quickly."
-      - "You get the feeling she won't be texting you anytime soon."
-    credits:
-      summary: "The date didn't quite click. Sometimes chemistry just isn't there."
-      epilogue:
-        - "You never hear from Alex again."
-        - "Maybe next time you'll make a better connection."
+      - "\"This was really nice,\" Alex says, giving your arm a gentle squeeze."
+      - "She heads down the sidewalk with a final wave, leaving the door open but uncertain."
+    on_entry:
+      - type: "meter_change"
+        target: "player"
+        meter: "confidence"
+        op: "add"
+        value: 2

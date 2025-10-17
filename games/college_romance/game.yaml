@@ -1,103 +1,139 @@
-# ===============================
-# Game Manifest - College Romance (v3 Spec)
-# A comprehensive college dating sim testing all engine features
-# ===============================
-
 meta:
   id: "college_romance"
-  title: "College Romance: Emma & Zoe"
-  version: "1.0.0"
-  spec_version: "3.1"
+  title: "Campus Hearts"
+  version: "1.1.0"
   authors: ["PlotPlay Team"]
-  content_rating: "explicit"
-  tags: ["romance", "college", "slice_of_life", "nsfw", "stat-building", "multiple-routes"]
-  description: "Navigate college life while building relationships with Emma and Zoe. Manage your stats, make choices, and unlock different romance paths."
+  description: "Balance lectures, late nights, and two very different crushes during your first week back on campus."
+  content_warnings: ["alcohol references", "romance"]
   nsfw_allowed: true
+  license: "CC-BY-NC-4.0"
 
-# Starting point
-start:
-  node: "intro_dorm"
-  location: { zone: "campus", id: "player_room" }
-
-# Narration style
 narration:
   pov: "second"
   tense: "present"
   paragraphs: "2-3"
-  token_budget: 350
-  checker_budget: 220
 
-# Global meters
+start:
+  location: "campus_dorm_room"
+  node: "intro_dorm"
+  day: 1
+  slot: "morning"
+  time: "08:00"
+
 meters:
   player:
-    energy: { min: 0, max: 100, default: 70, visible: true, icon: "⚡", decay_per_slot: -10 }
-    money: { min: 0, max: 999, default: 60, visible: true, icon: "💵", format: "currency" }
-    mind: { min: 0, max: 100, default: 30, visible: true, icon: "🧠" }
-    body: { min: 0, max: 100, default: 30, visible: true, icon: "💪" }
-    looks: { min: 0, max: 100, default: 40, visible: true, icon: "✨" }
-    hygiene: { min: 0, max: 100, default: 70, visible: true, icon: "🧼", decay_per_slot: -8 }
+    energy:
+      min: 0
+      max: 100
+      default: 70
+      visible: true
+      icon: "⚡"
+      decay_per_slot: -8
+    money:
+      min: 0
+      max: 500
+      default: 60
+      visible: true
+      icon: "💵"
+      format: "currency"
+    mind:
+      min: 0
+      max: 100
+      default: 35
+      visible: true
+      icon: "🧠"
+    charm:
+      min: 0
+      max: 100
+      default: 40
+      visible: true
+      icon: "✨"
+  template:
+    trust:
+      min: 0
+      max: 100
+      default: 15
+      visible: false
+      thresholds:
+        distant: { min: 0, max: 29 }
+        friendly: { min: 30, max: 59 }
+        close: { min: 60, max: 79 }
+        devoted: { min: 80, max: 100 }
+    attraction:
+      min: 0
+      max: 100
+      default: 10
+      visible: false
+      thresholds:
+        curious: { min: 0, max: 39 }
+        intrigued: { min: 40, max: 69 }
+        smitten: { min: 70, max: 100 }
+    stress:
+      min: 0
+      max: 100
+      default: 20
+      visible: false
 
-  character_template:
-    trust: {
-      min: 0, max: 100, default: 10,
-      thresholds: { stranger: [0, 19], acquaintance: [20, 39], friend: [40, 69], close: [70, 89], intimate: [90, 100] }
-    }
-    attraction: {
-      min: 0, max: 100, default: 5,
-      thresholds: { none: [0, 19], interested: [20, 39], attracted: [40, 69], infatuated: [70, 89], in_love: [90, 100] }
-    }
-    arousal: { min: 0, max: 100, default: 0, hidden_until: "meters.{character}.attraction >= 30" }
-    boldness: { min: 0, max: 100, default: 20, hidden_until: "meters.{character}.trust >= 30" }
-    corruption: { min: 0, max: 100, default: 0 }
+flags:
+  met_emma:
+    type: "bool"
+    default: false
+    visible: false
+  met_zoe:
+    type: "bool"
+    default: false
+    visible: false
+  emma_study_session:
+    type: "bool"
+    default: false
+    visible: false
+  zoe_band_invite:
+    type: "bool"
+    default: false
+    visible: false
+  evening_choice_made:
+    type: "bool"
+    default: false
+    visible: false
+  emma_final_choice:
+    type: "bool"
+    default: false
+    visible: false
+  zoe_final_choice:
+    type: "bool"
+    default: false
+    visible: false
 
-# Movement rules
-movement:
-  local:
-    base_time: 5
-    distance_modifiers:
-      immediate: 0
-      short: 1
-      medium: 2
-      long: 3
-  restrictions:
-    min_energy: 5
-    energy_cost_per_move: 2
-
-# Time system with calendar
 time:
   mode: "hybrid"
-  slots: ["morning", "noon", "afternoon", "evening", "night", "late_night"]
+  slots: ["morning", "afternoon", "evening", "night"]
   actions_per_slot: 3
-  auto_advance: true
+  minutes_per_action: 45
+  slot_windows:
+    morning: { start: "06:00", end: "10:59" }
+    afternoon: { start: "11:00", end: "16:59" }
+    evening: { start: "17:00", end: "21:59" }
+    night: { start: "22:00", end: "02:59" }
 
-  clock:
-    minutes_per_day: 1440
-    slot_windows:
-      morning:    { start: "06:00", end: "10:59" }
-      noon:       { start: "11:00", end: "13:59" }
-      afternoon:  { start: "14:00", end: "17:59" }
-      evening:    { start: "18:00", end: "20:59" }
-      night:      { start: "21:00", end: "23:59" }
-      late_night: { start: "00:00", end: "05:59" }
+economy:
+  enabled: true
+  starting_money: 60
+  max_money: 500
+  currency_name: "dollars"
+  currency_symbol: "$"
 
-  calendar:
-    enabled: true
-    epoch: "2025-09-01"
-    week_days: ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
-    start_day: "monday"
+movement:
+  base_time: 1
+  use_entry_exit: false
+  methods:
+    - walk: 1
+    - bike: 1
 
-  start:
-    day: 1
-    slot: "morning"
-    time: "08:30"
-
-# Included content files
 includes:
-  - "characters.yaml"
-  - "flags.yaml"
-  - "modifiers.yaml"
-  - "locations.yaml"
   - "items.yaml"
+  - "characters.yaml"
+  - "locations.yaml"
+  - "modifiers.yaml"
   - "actions.yaml"
   - "events.yaml"
   - "arcs.yaml"

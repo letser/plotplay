@@ -1,124 +1,136 @@
-# ===============================
-# Items - College Romance (v3 Spec)
-# ===============================
-
 items:
-  - id: "dorm_key"
-    name: "Dorm Room Key"
-    category: "key"
-    description: "Your dorm room key. Don't lose it or you'll pay a $50 replacement fee."
-    stackable: false
-    droppable: false
-    unlocks:
-      location: "player_room"
-
-  - id: "condoms"
-    name: "Condoms"
-    category: "consumable"
-    description: "A pack of condoms. Responsible protection for intimate moments."
-    icon: "🎈"
-    value: 10
-    stackable: true
-    consumable: false
-    obtain_conditions:
-      - "meters.player.confidence >= 30"
-
-  - id: "flowers"
-    name: "Bouquet of Flowers"
-    category: "gift"
-    description: "Fresh roses wrapped neatly. A classic romantic gesture."
-    icon: "💐"
-    value: 20
-    stackable: false
-    consumable: true
-    can_give: true
-    gift_effects:
-      - { type: "meter_change", target: "emma", meter: "attraction", op: "add", value: 15 }
-      - { type: "meter_change", target: "emma", meter: "trust", op: "add", value: 10 }
-      - { type: "flag_set", key: "gave_emma_flowers", value: true }
-
-  - id: "textbook"
-    name: "Psychology Textbook"
-    category: "consumable"
-    description: "A heavy textbook for your psych class. Study it to boost your mind stat."
-    icon: "📚"
-    value: 30
-    stackable: true
-    consumable: true
-    use_text: "You crack open the textbook and study for an hour, absorbing new concepts."
-    effects_on_use:
-      - { type: "meter_change", target: "player", meter: "mind", op: "add", value: 8 }
-      - { type: "meter_change", target: "player", meter: "energy", op: "subtract", value: 15 }
-      - { type: "advance_time", minutes: 60 }
-
-  - id: "protein_shake"
-    name: "Protein Shake"
-    category: "consumable"
-    description: "A chalky but effective protein shake. Good for post-workout recovery."
-    icon: "🥤"
+  - id: "coffee_cup"
+    name: "Campus Cafe Latte"
+    category: "drink"
+    description: "A steadying latte from the student cafe, sweetened with hazelnut."
     value: 5
     stackable: true
     consumable: true
-    use_text: "You chug the protein shake. It tastes awful but you feel energized."
-    effects_on_use:
-      - { type: "meter_change", target: "player", meter: "energy", op: "add", value: 15 }
-      - { type: "meter_change", target: "player", meter: "body", op: "add", value: 2 }
-
-  - id: "energy_drink"
-    name: "Energy Drink"
-    category: "consumable"
-    description: "A can of caffeinated energy drink. Restores energy quickly."
-    icon: "⚡"
-    value: 3
-    stackable: true
-    consumable: true
-    use_text: "You crack open the can and down it. A jittery surge of energy hits you."
-    effects_on_use:
-      - { type: "meter_change", target: "player", meter: "energy", op: "add", value: 25 }
-      - { type: "meter_change", target: "player", meter: "hygiene", op: "subtract", value: 3 }
-
-  - id: "shower_supplies"
-    name: "Shower Supplies"
-    category: "consumable"
-    description: "Soap, shampoo, and deodorant. Essential for basic hygiene."
-    icon: "🧼"
-    value: 8
-    stackable: true
-    consumable: true
-    use_text: "You take a refreshing shower, washing away the day's grime."
-    effects_on_use:
-      - { type: "meter_change", target: "player", meter: "hygiene", op: "set", value: 90 }
-      - { type: "meter_change", target: "player", meter: "energy", op: "add", value: 5 }
-      - { type: "advance_time", minutes: 20 }
-
-  - id: "stylish_outfit"
-    name: "Stylish New Outfit"
-    category: "equipment"
-    description: "A trendy outfit that makes you look sharp. Boosts your looks stat when you wear it."
-    icon: "👔"
-    value: 50
-    stackable: false
-    tags: ["clothing"]
-    slots: ["outfit"]
-    stat_mods:
-      looks: 15
-
-  - id: "cologne"
-    name: "Nice Cologne"
-    category: "consumable"
-    description: "A bottle of attractive cologne. Makes you smell good for dates."
-    icon: "💧"
-    value: 25
-    stackable: true
-    consumable: true
-    use_text: "You spray on some cologne. You smell great now."
-    effects_on_use:
-      - { type: "meter_change", target: "player", meter: "looks", op: "add", value: 5 }
-      - { type: "apply_modifier", character: "player", modifier_id: "smells_good", duration_min: 120 }
-
-  - id: "phone"
-    name: "Your Phone"
-    category: "misc"
-    description: "Your smartphone. Keeps you connected."
+    use_text: "You sip the latte and feel the rush of caffeine sharpen your focus."
+    on_use:
+      - type: "meter_change"
+        target: "player"
+        meter: "energy"
+        op: "add"
+        value: 8
+  - id: "textbook_stats"
+    name: "Applied Statistics Textbook"
+    category: "study"
+    description: "Emma's favorite study companion, covered in color-coded tabs."
+    value: 45
     stackable: false
     droppable: false
+    on_use:
+      - type: "meter_change"
+        target: "player"
+        meter: "mind"
+        op: "add"
+        value: 5
+  - id: "guitar_pick"
+    name: "Zoe's Lucky Guitar Pick"
+    category: "music"
+    description: "An amber pick etched with a tiny lightning bolt."
+    value: 15
+    stackable: false
+    droppable: false
+  - id: "concert_ticket"
+    name: "Basement Concert Ticket"
+    category: "event"
+    description: "Entry to Zoe's underground show—once per night only."
+    value: 12
+    stackable: false
+    droppable: false
+
+wardrobe:
+  slots: ["outerwear", "top", "bottom", "feet", "accessory"]
+  items:
+    - id: "player_outer_denim"
+      name: "Light Denim Jacket"
+      value: 60
+      look:
+        intact: "A light denim jacket with worn elbows and enamel pins."
+      occupies: ["outerwear"]
+      conceals: ["top"]
+    - id: "player_top_graphic"
+      name: "Graphic Tee"
+      value: 25
+      look:
+        intact: "A black tee with a minimalist campus skyline print."
+      occupies: ["top"]
+      conceals: []
+    - id: "player_bottom_black_jeans"
+      name: "Black Jeans"
+      value: 40
+      look:
+        intact: "Slim black jeans comfortable enough for sprints across campus."
+      occupies: ["bottom"]
+      conceals: []
+    - id: "player_shoes_sneakers"
+      name: "Canvas Sneakers"
+      value: 35
+      look:
+        intact: "Well-loved canvas sneakers with neon laces."
+      occupies: ["feet"]
+      conceals: []
+    - id: "emma_top_cable"
+      name: "Cable-Knit Sweater"
+      value: 55
+      look:
+        intact: "A soft cable-knit sweater in sage green."
+      occupies: ["top"]
+      conceals: []
+    - id: "emma_bottom_slacks"
+      name: "Tailored Slacks"
+      value: 65
+      look:
+        intact: "Sharp charcoal slacks with pressed seams."
+      occupies: ["bottom"]
+      conceals: []
+    - id: "emma_shoes_loafers"
+      name: "Leather Loafers"
+      value: 70
+      look:
+        intact: "Polished loafers that clack smartly along the library floors."
+      occupies: ["feet"]
+      conceals: []
+    - id: "zoe_top_bandtee"
+      name: "Vintage Band Tee"
+      value: 45
+      look:
+        intact: "A vintage band tee with cracked ink and rolled sleeves."
+      occupies: ["top"]
+      conceals: []
+    - id: "zoe_bottom_ripped_jeans"
+      name: "Ripped Jeans"
+      value: 50
+      look:
+        intact: "Charcoal ripped jeans dusted with a hint of stage glitter."
+      occupies: ["bottom"]
+      conceals: []
+    - id: "zoe_shoes_boots"
+      name: "Studded Boots"
+      value: 80
+      look:
+        intact: "Studded black boots with a satisfying stomp."
+      occupies: ["feet"]
+      conceals: []
+    - id: "zoe_accessory_bandana"
+      name: "Printed Bandana"
+      value: 20
+      look:
+        intact: "A red bandana knotted around her wrist."
+      occupies: ["accessory"]
+      conceals: []
+  outfits:
+    - id: "player_campus_ready"
+      name: "Campus Ready"
+      items: ["player_outer_denim", "player_top_graphic", "player_bottom_black_jeans", "player_shoes_sneakers"]
+      grant_items: true
+    - id: "emma_study_chic"
+      name: "Study Chic"
+      items: ["emma_top_cable", "emma_bottom_slacks", "emma_shoes_loafers"]
+      grant_items: true
+    - id: "zoe_stage_wear"
+      name: "Stage Wear"
+      items: ["zoe_top_bandtee", "zoe_bottom_ripped_jeans", "zoe_shoes_boots", "zoe_accessory_bandana"]
+      grant_items: true

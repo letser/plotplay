@@ -1,177 +1,90 @@
-# ===============================
-# Locations - College Romance (v3 Spec)
-# ===============================
-
 zones:
   - id: "campus"
-    name: "University Campus"
-    discovered: true
-    accessible: true
-    properties:
-      size: "large"
-      security: "medium"
-
+    name: "Northbridge University"
+    summary: "Brick dorms, sprawling greens, and students weaving between lectures."
+    privacy: "low"
+    access:
+      discovered: true
+    connections:
+      - to: ["downtown"]
+        methods: ["walk", "bike"]
+        distance: 2.0
     locations:
-      # === DORM AREA ===
-      - id: "player_room"
-        name: "Your Dorm Room"
-        type: "private"
-        privacy: "high"
-        discovered: true
-        description: "Your small but cozy dorm room. A bed, desk, closet, and mini-fridge make up your personal space."
-        features: ["bed", "desk", "closet", "mini_fridge", "shower"]
-        connections:
-          - to: "dorm_hallway"
-            type: "door"
-            distance: "immediate"
-        events:
-          on_first_enter:
-            narrative: "Welcome to your home for the year. Time to make the most of college life."
-            effects:
-              - { type: "flag_set", key: "game_started", value: true }
-
-      - id: "dorm_hallway"
-        name: "Dorm Hallway"
-        type: "public"
-        privacy: "low"
-        discovered: true
-        description: "A long corridor lined with dorm room doors. Students come and go at all hours."
-        connections:
-          - to: "player_room"
-            type: "door"
-            distance: "immediate"
-          - to: ["dorm_common", "emma_room"]
-            type: "hallway"
-            distance: "short"
-          - to: "campus_quad"
-            type: "path"
-            distance: "short"
-
-      - id: "dorm_common"
-        name: "Dorm Common Room"
-        type: "public"
-        privacy: "low"
-        discovered: true
-        description: "A communal space with worn couches, a TV, and vending machines. Students hang out here between classes."
-        features: ["couch", "tv", "vending_machine", "study_table"]
-        connections:
-          - to: "dorm_hallway"
-            type: "hallway"
-            distance: "short"
-
-      - id: "emma_room"
-        name: "Emma's Dorm Room"
-        type: "private"
-        privacy: "high"
-        discovered: false
-        description: "Emma's neatly organized room. Textbooks are stacked precisely, and photos of family decorate her desk."
-        access:
-          locked: true
-          unlocked_when: "flags.emma_invited_you_over == true"
-        connections:
-          - to: "dorm_hallway"
-            type: "door"
-            distance: "immediate"
-
-      # === ACADEMIC BUILDINGS ===
-      - id: "campus_quad"
-        name: "Campus Quad"
-        type: "public"
-        privacy: "low"
-        discovered: true
-        description: "The heart of campus. Students lounge on the grass, toss frisbees, and rush between classes."
-        features: ["benches", "fountain", "grass", "bulletin_board"]
-        connections:
-          - to: "dorm_hallway"
-            type: "path"
-            distance: "short"
-          - to: ["library", "cafeteria", "lecture_hall"]
-            type: "path"
-            distance: "short"
-          - to: "campus_cafe"
-            type: "path"
-            distance: "medium"
-
-      - id: "library"
-        name: "University Library"
-        type: "public"
+      - id: "campus_dorm_room"
+        name: "Dorm Room 215"
+        summary: "Your base of operations: mismatched posters, roommate clutter, and textbooks stacked precariously."
         privacy: "medium"
-        discovered: true
-        description: "A quiet sanctuary of books and study carrels. The smell of old paper fills the air."
-        features: ["study_desks", "computers", "quiet_floor", "group_study_rooms"]
+        access:
+          discovered: true
         connections:
           - to: "campus_quad"
-            type: "path"
-            distance: "short"
-
-      - id: "lecture_hall"
-        name: "Psychology Lecture Hall"
-        type: "public"
+            description: "Head downstairs and cut across the quad."
+            direction: "e"
+      - id: "campus_quad"
+        name: "Sunlit Quad"
+        summary: "The quad hums with frisbees, club tables, and gossip floating on the breeze."
         privacy: "low"
-        discovered: true
-        description: "A tiered lecture hall with uncomfortable seats. The professor's voice echoes from the podium."
-        features: ["seats", "projector", "whiteboard"]
+        connections:
+          - to: "campus_library"
+            description: "Follow the stone path toward the ivy-covered library."
+            direction: "n"
+          - to: "campus_cafe"
+            description: "Slip between buildings toward the student cafe."
+            direction: "s"
+          - to: "campus_dorm_room"
+            description: "Head back to the dorms."
+            direction: "w"
+      - id: "campus_library"
+        name: "Lambert Library"
+        summary: "Stacks of books, group study rooms, and hushed whispers carrying through arches."
+        privacy: "medium"
         connections:
           - to: "campus_quad"
-            type: "path"
-            distance: "short"
-
-      - id: "cafeteria"
-        name: "Campus Cafeteria"
-        type: "public"
-        privacy: "low"
-        discovered: true
-        description: "Noisy and crowded at peak hours. The food is mediocre but cheap."
-        features: ["food_counter", "tables", "drink_station"]
-        connections:
-          - to: "campus_quad"
-            type: "path"
-            distance: "short"
-
-      - id: "gym"
-        name: "Campus Recreation Center"
-        type: "public"
-        privacy: "low"
-        discovered: true
-        description: "The smell of sweat and the clang of weights. Students work out, play basketball, and stay fit."
-        features: ["weights", "treadmills", "basketball_court", "locker_rooms"]
-        connections:
-          - to: "campus_quad"
-            type: "path"
-            distance: "medium"
-
+            description: "Push through the heavy doors back into sunlight."
+            direction: "s"
+        inventory:
+          items:
+            - id: "textbook_stats"
+              count: 1
       - id: "campus_cafe"
-        name: "The Daily Grind Café"
-        type: "public"
+        name: "Bean There Cafe"
+        summary: "A student-run cafe with warm lighting and an ever-present indie playlist."
         privacy: "low"
-        discovered: true
-        description: "A cozy coffee shop on campus. Much better than cafeteria coffee, but pricier."
-        features: ["counter", "tables", "comfy_chairs", "study_nook"]
         connections:
           - to: "campus_quad"
-            type: "path"
-            distance: "medium"
+            description: "Return to the bustle of the quad."
+            direction: "n"
+        inventory:
+          items:
+            - id: "coffee_cup"
+              count: 3
 
   - id: "downtown"
-    name: "Downtown"
-    discovered: false
-    accessible: false
-    discovery_conditions:
-      - "meters.player.confidence >= 40 or flags.knows_downtown == true"
-    properties:
-      size: "medium"
-    transport_connections:
-      - to: "campus"
-        methods: ["bus", "walk"]
-        distance: 2
-
+    name: "Downtown Riverfront"
+    summary: "String lights, food trucks, and music spilling from basement venues."
+    privacy: "low"
+    access:
+      discovered: false
+      hidden_until_discovered: true
+      discovered_when: "flags.met_zoe == true or flags.met_emma == true"
+    connections:
+      - to: ["campus"]
+        methods: ["walk", "bike"]
+        distance: 2.0
     locations:
-      - id: "night_club"
-        name: "Pulse Nightclub"
-        type: "public"
+      - id: "downtown_music_venue"
+        name: "The Riff Basement"
+        summary: "Graffiti-splashed walls, dim lighting, and amps stacked to the ceiling."
+        privacy: "low"
+        connections:
+          - to: "downtown_city_rooftop"
+            description: "Climb the narrow staircase for fresh air."
+            direction: "u"
+      - id: "downtown_city_rooftop"
+        name: "Riverfront Rooftop"
+        summary: "A rooftop with twinkle lights, a view of the river, and the distant thump of bass."
         privacy: "medium"
-        discovered: false
-        description: "Pulsing music, strobe lights, and a crowded dance floor. The energy is electric."
-        features: ["dance_floor", "bar", "vip_booth", "bathroom"]
-        discovery_conditions:
-          - "meters.player.confidence >= 50 or flags.invited_to_club == true"
+        connections:
+          - to: "downtown_music_venue"
+            description: "Head back down to the show."
+            direction: "d"

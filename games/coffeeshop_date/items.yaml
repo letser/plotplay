@@ -1,42 +1,98 @@
-# ===============================
-# Items - Coffee Shop Date (v3 Spec)
-# ===============================
-
 items:
   - id: "phone"
-    name: "Your Phone"
-    category: "misc"
-    description: "Your smartphone with Alex's number programmed in."
+    name: "Smartphone"
+    category: "device"
+    description: "Your always-on companion for messages, maps, and escape plans."
+    value: 0
     stackable: false
     droppable: false
-
-  - id: "breath_mint"
-    name: "Breath Mint"
-    category: "consumable"
-    description: "A complimentary mint from the jar outside. Fresh and minty."
-    icon: "🍬"
+  - id: "vanilla_latte"
+    name: "Vanilla Latte"
+    category: "drink"
+    description: "A creamy latte with just enough sweetness to soothe nerves."
+    value: 6
     stackable: true
     consumable: true
-    use_text: "You pop the mint in your mouth, feeling a cool burst of confidence."
-    effects_on_use:
-      - { type: "meter_change", target: "player", meter: "confidence", op: "add", value: 5 }
-
-  - id: "coffee"
-    name: "Coffee"
-    category: "consumable"
-    description: "A hot cup of coffee."
-    icon: "☕"
-    value: 5
+    use_text: "You savor the latte, letting the warmth steady your voice."
+    on_use:
+      - type: "meter_change"
+        target: "player"
+        meter: "confidence"
+        op: "add"
+        value: 3
+  - id: "spiced_matcha"
+    name: "Spiced Matcha"
+    category: "drink"
+    description: "Matcha brightened with cinnamon and orange zest."
+    value: 6
     stackable: true
     consumable: true
-    use_text: "You take a sip of the warm coffee, feeling energized."
-    effects_on_use:
-      - { type: "meter_change", target: "player", meter: "confidence", op: "add", value: 3 }
+    use_text: "The citrus notes cut through the sweetness, clearing your head."
+    on_use:
+      - type: "meter_change"
+        target: "player"
+        meter: "confidence"
+        op: "add"
+        value: 2
 
-  - id: "alex_number"
-    name: "Alex's Phone Number"
-    category: "trophy"
-    description: "Alex's phone number written on a napkin with a little smiley face."
-    icon: "📱"
-    stackable: false
-    droppable: false
+wardrobe:
+  slots: ["top", "bottom", "feet", "accessory"]
+  items:
+    - id: "player_top_button_up"
+      name: "Blue Button-Up"
+      value: 45
+      look:
+        intact: "A crisp blue button-up shirt with rolled sleeves."
+      occupies: ["top"]
+      conceals: []
+    - id: "player_bottom_chinos"
+      name: "Charcoal Chinos"
+      value: 40
+      look:
+        intact: "Tailored charcoal chinos that keep things relaxed but polished."
+      occupies: ["bottom"]
+      conceals: []
+    - id: "player_shoes_leather"
+      name: "Leather Oxfords"
+      value: 60
+      look:
+        intact: "Well-kept leather oxfords with a subtle shine."
+      occupies: ["feet"]
+      conceals: []
+    - id: "alex_top_sweater"
+      name: "Cream Sweater"
+      value: 50
+      look:
+        intact: "A soft cream sweater with cuffed sleeves."
+      occupies: ["top"]
+      conceals: []
+    - id: "alex_bottom_jeans"
+      name: "Dark Jeans"
+      value: 45
+      look:
+        intact: "Dark denim jeans, relaxed but flattering."
+      occupies: ["bottom"]
+      conceals: []
+    - id: "alex_shoes_boots"
+      name: "Ankle Boots"
+      value: 55
+      look:
+        intact: "Stylish leather ankle boots with a comfortable heel."
+      occupies: ["feet"]
+      conceals: []
+    - id: "alex_accessory_scarf"
+      name: "Rust Scarf"
+      value: 25
+      look:
+        intact: "A rust-colored scarf looped casually around her neck."
+      occupies: ["accessory"]
+      conceals: []
+  outfits:
+    - id: "player_date_casual"
+      name: "Smart Casual"
+      items: ["player_top_button_up", "player_bottom_chinos", "player_shoes_leather"]
+      grant_items: true
+    - id: "alex_cafe_chic"
+      name: "Cafe Chic"
+      items: ["alex_top_sweater", "alex_bottom_jeans", "alex_shoes_boots", "alex_accessory_scarf"]
+      grant_items: true
