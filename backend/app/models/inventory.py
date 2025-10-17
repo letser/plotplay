@@ -5,8 +5,8 @@ Inventory
 
 from pydantic import Field
 from .model import SimpleModel, DSLExpression
-from .items import ItemID
-from .wardrobe import ClothingItemID, OutfitID
+from .items import ItemId
+from .wardrobe import ClothingItemId, OutfitId
 
 
 class InventoryItemBase(SimpleModel):
@@ -19,13 +19,13 @@ class InventoryItemBase(SimpleModel):
 
 
 class InventoryItem(InventoryItemBase):
-    id: ItemID
+    id: ItemId
 
 class InventoryClothingItem(InventoryItemBase):
-    id: ClothingItemID
+    id: ClothingItemId
 
 class InventoryOutfit(InventoryItemBase):
-    id: OutfitID
+    id: OutfitId
 
 
 class Inventory(SimpleModel):

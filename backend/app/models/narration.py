@@ -3,9 +3,18 @@ PlotPlay Game Models.
 Game narration parameters
 """
 
+from enum import StrEnum
 from .model import SimpleModel
-from app.models.enums import POV, Tense
 
+
+class POV(StrEnum):
+    FIRST = "first"
+    SECOND = "second"
+    THIRD = "third"
+
+class Tense(StrEnum):
+    PAST = "past"
+    PRESENT = "present"
 
 class GameNarration(SimpleModel):
     """Narration style configuration."""

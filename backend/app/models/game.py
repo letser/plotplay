@@ -5,17 +5,16 @@ Game Definition
 from pydantic import BaseModel, Field, AliasPath
 
 from .model import SimpleModel, DescriptiveModel, DSLExpression
-from .action import GameAction
-from .arc import Arc
+from .actions import Action
+from .arcs import Arc
 from .characters import Character
-from .events import Event
 from .items import Item
 from .locations import Zone, LocationId, MovementConfig
 from .meters import MetersConfig
-from .nodes import NodeId, Node
+from .nodes import NodeId, Node, Event
 from .time import TimeConfig, TimeHHMM
 from .flags import FlagsConfig
-from .modifier import ModifierSystem
+from .modifiers import ModifiersConfig
 from .narration import GameNarration
 from .economy import EconomyConfig
 from .wardrobe import WardrobeConfig
@@ -64,12 +63,11 @@ class GameDefinition(SimpleModel):
     movement: MovementConfig = Field(default_factory=MovementConfig)
 
     # Game logic
-    modifier_system: ModifierSystem | None = None
-    includes: list[str] = Field(default_factory=list)
-
-    # World and Content Lists (populated from included files)
-    world: dict | None = None
     nodes: list[Node] = Field(default_factory=list)
+    modifiers: ModifiersConfig = Field(default_factory=ModifiersConfig)
+    actions: list[Action] = Field(default_factory=list)
     events: list[Event] = Field(default_factory=list)
     arcs: list[Arc] = Field(default_factory=list)
-    actions: list[GameAction] = Field(default_factory=list)
+
+    # Extra files to include
+    includes: list[str] = Field(default_factory=list)

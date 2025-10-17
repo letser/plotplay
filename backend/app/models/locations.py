@@ -4,8 +4,8 @@ Locations and movement system
 """
 
 from enum import StrEnum
-from pydantic import BaseModel, Field
-from typing import Any, NewType, Literal
+from pydantic import Field
+from typing import NewType, Literal
 
 from .model import SimpleModel, DescriptiveModel, DSLExpression
 from .economy import Shop

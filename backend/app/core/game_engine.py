@@ -14,7 +14,7 @@ from app.core.arc_manager import ArcManager
 from app.core.modifier_manager import ModifierManager
 from app.core.inventory_manager import InventoryManager
 from app.core.state_manager import StateManager
-from app.models.action import GameAction
+from app.models.actions import GameAction
 from app.models.characters import Character
 from app.models.effects import (
     AnyEffect, MeterChangeEffect, FlagSetEffect, GotoNodeEffect,
@@ -87,8 +87,8 @@ class GameEngine:
                 "current_state": self._get_state_summary()
             }
 
-        if current_node.present_characters:
-            state.present_chars = [char for char in current_node.present_characters if char in self.characters_map]
+        if current_node.characters_present:
+            state.present_chars = [char for char in current_node.characters_present if char in self.characters_map]
             self.logger.info(f"Set present characters from node '{current_node.id}': {state.present_chars}")
 
         # Initial action formatting for logging and AI prompts
@@ -747,12 +747,12 @@ class GameEngine:
 
         # Force characters provided by effect to be in the current location
         current_node = self._get_current_node()
-        current_node.present_characters.extend(chars_to_move)
+        current_node.characters_present.extend(chars_to_move)
 
         # After moving, immediately check the destination node for characters
-        if current_node.present_characters:
+        if current_node.characters_present:
             self.state_manager.state.present_chars = [
-                char for char in current_node.present_characters if char in self.characters_map
+                char for char in current_node.characters_present if char in self.characters_map
             ]
 
     def _apply_meter_change(self, effect: MeterChangeEffect):

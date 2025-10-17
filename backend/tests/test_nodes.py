@@ -62,7 +62,7 @@ def test_node_optional_fields():
         id="full_node",
         type=NodeType.SCENE,
         title="Full Node",
-        present_characters=["char1", "char2"],
+        characters_present=["char1", "char2"],
         preconditions="flags.unlocked == true",
         once=True,
         beats=["Beat 1", "Beat 2", "Beat 3"],
@@ -72,7 +72,7 @@ def test_node_optional_fields():
         action_filters={"banned_freeform": [{"pattern": "violence"}]}
     )
 
-    assert node.present_characters == ["char1", "char2"]
+    assert node.characters_present == ["char1", "char2"]
     assert node.preconditions == "flags.unlocked == true"
     assert node.once is True
     assert len(node.beats) == 3
@@ -95,12 +95,12 @@ def test_node_type_scene():
         type=NodeType.SCENE,
         title="Coffee Date",
         beats=["Alex looks nervous", "You order coffee"],
-        present_characters=["alex"]
+        characters_present=["alex"]
     )
 
     assert node.type == NodeType.SCENE
     assert len(node.beats) > 0
-    assert len(node.present_characters) > 0
+    assert len(node.characters_present) > 0
 
     print("✅ Scene node type works")
 
@@ -488,13 +488,13 @@ def test_present_characters():
         id="group_scene",
         type=NodeType.SCENE,
         title="Study Group",
-        present_characters=["emma", "liam", "sarah"]
+        characters_present=["emma", "liam", "sarah"]
     )
 
-    assert len(node.present_characters) == 3
-    assert "emma" in node.present_characters
-    assert "liam" in node.present_characters
-    assert "sarah" in node.present_characters
+    assert len(node.characters_present) == 3
+    assert "emma" in node.characters_present
+    assert "liam" in node.characters_present
+    assert "sarah" in node.characters_present
 
     print("✅ Present characters work")
 
@@ -509,7 +509,7 @@ def test_empty_present_characters():
         title="Alone in Room"
     )
 
-    assert len(node.present_characters) == 0
+    assert len(node.characters_present) == 0
 
     print("✅ Empty present characters work")
 

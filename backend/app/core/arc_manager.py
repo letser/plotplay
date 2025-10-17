@@ -5,7 +5,7 @@ PlotPlay Arc Manager handles arc progression.
 from app.core.conditions import ConditionEvaluator
 from app.core.state_manager import GameState
 from app.models.game import GameDefinition
-from app.models.arc import Arc, Stage
+from app.models.arcs import Arc, Stage
 
 
 class ArcManager:

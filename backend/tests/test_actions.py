@@ -27,7 +27,7 @@ from pathlib import Path
 from app.core.game_loader import GameLoader
 from app.core.game_engine import GameEngine
 from app.core.conditions import ConditionEvaluator
-from app.models.action import GameAction
+from app.models.actions import GameAction
 from app.models.effects import (
     UnlockEffect, MeterChangeEffect, FlagSetEffect, AnyEffect
 )

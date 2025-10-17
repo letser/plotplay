@@ -9,14 +9,17 @@ from pydantic import Field
 from .model import SimpleModel, DescriptiveModel, DSLExpression
 from .meters import MetersDefinition
 from .inventory import Inventory
-from .wardrobe import WardrobeConfig, ClothingSlot, ClothingItemID, OutfitID
+from .wardrobe import WardrobeConfig, ClothingSlot, ClothingItemId, OutfitId
 from .locations import LocationId, MovementWillingnessConfig
 from .economy import Shop
 
 
+
+BehaviorGateId = NewType("BehaviorGateId", str)
+
 class BehaviorGate(SimpleModel):
     """Consent/behavior gate."""
-    id: str
+    id: BehaviorGateId
     when: DSLExpression | None = None
     when_any: list[DSLExpression] | None = Field(default_factory=list)
     when_all: list[DSLExpression] | None = Field(default_factory=list)
@@ -31,8 +34,8 @@ class CharacterSchedule(SimpleModel):
 
 
 class ClothingConfig(SimpleModel):
-    outfit: OutfitID | None = None
-    items: dict[ClothingSlot, ClothingItemID] = Field(default_factory=dict)
+    outfit: OutfitId | None = None
+    items: dict[ClothingSlot, ClothingItemId] = Field(default_factory=dict)
 
 
 CharacterId = NewType("CharacterId", str)
@@ -49,7 +52,7 @@ class Character(DescriptiveModel):
 
     # Personality
     personality: dict[str, str] | None = Field(default_factory=dict)
-    apperance: str | None = None
+    appearance: str | None = None
 
     # Meters override
     meters: MetersDefinition | None = None

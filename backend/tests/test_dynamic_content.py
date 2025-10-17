@@ -7,7 +7,7 @@ from app.core.event_manager import EventManager
 from app.core.arc_manager import ArcManager
 from app.models.events import Event, EventTrigger
 from app.models.nodes import Choice
-from app.models.arc import Arc, Stage
+from app.models.arcs import Arc, Stage
 from app.models.flags import Flag
 from app.models.effects import FlagSetEffect, MeterChangeEffect
 

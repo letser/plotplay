@@ -9,11 +9,11 @@ from enum import StrEnum
 from pydantic import Field
 
 from .model import SimpleModel, DescriptiveModel, DSLExpression
-from .effects import AnyEffect
+from .effects import EffectsList
 
 ClothingSlot = NewType("ClothingSlot", str)
-ClothingItemID = NewType("ClothingItemID", str)
-OutfitID = NewType("OutfitID", str)
+ClothingItemId = NewType("ClothingItemId", str)
+OutfitId = NewType("OutfitId", str)
 
 class ClothingState(StrEnum):
     """Clothing state."""
@@ -25,7 +25,7 @@ class ClothingState(StrEnum):
 
 class ClothingItem(DescriptiveModel):
     """Clothing Item definition."""
-    id: ClothingItemID
+    id: ClothingItemId
     name: str
     value: float = 0.0
     state: ClothingState = ClothingState.INTACT
@@ -47,16 +47,16 @@ class ClothingItem(DescriptiveModel):
     obtain_conditions: list[DSLExpression] = Field(default_factory=list)
 
     # Dynamic effects
-    on_get: list[AnyEffect] = Field(default_factory=list)
-    on_lost: list[AnyEffect] = Field(default_factory=list)
-    on_put_on: list[AnyEffect] = Field(default_factory=list)
-    on_take_off: list[AnyEffect] = Field(default_factory=list)
+    on_get: EffectsList = Field(default_factory=list)
+    on_lost: EffectsList = Field(default_factory=list)
+    on_put_on: EffectsList = Field(default_factory=list)
+    on_take_off: EffectsList = Field(default_factory=list)
 
 
 class Outfit(DescriptiveModel):
-    id: OutfitID
+    id: OutfitId
     name: str
-    items: list[ClothingItemID] = Field(default_factory=list)
+    items: list[ClothingItemId] = Field(default_factory=list)
 
     grant_items: bool = True
 
@@ -64,10 +64,10 @@ class Outfit(DescriptiveModel):
     unlock_when: DSLExpression | None = None
 
     # Dynamic effects
-    on_get: list[AnyEffect] = Field(default_factory=list)
-    on_lost: list[AnyEffect] = Field(default_factory=list)
-    on_put_on: list[AnyEffect] = Field(default_factory=list)
-    on_take_off: list[AnyEffect] = Field(default_factory=list)
+    on_get: EffectsList = Field(default_factory=list)
+    on_lost: EffectsList = Field(default_factory=list)
+    on_put_on: EffectsList = Field(default_factory=list)
+    on_take_off: EffectsList = Field(default_factory=list)
 
 
 class WardrobeConfig(SimpleModel):

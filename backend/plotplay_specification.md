@@ -166,7 +166,7 @@ movement: { ... }                # REQUIRED. See the Movement Rules section.
 
 # --- Game logic ---
 nodes: [ ... ]                   # See the Nodes section.
-modifiers: { ... }               # See the Modifiers section
+modifiers: [ ... ]               # See the Modifiers section
 actions: [ ... ]                 # See the Actions section.
 events: [ ... ]                  # See the Events section.
 arcs: [ ... ]                    # See the Arcs & Milestones section.
@@ -1309,7 +1309,7 @@ Changes a flag value.
   # ... common fields
   target: "player|<npc_id>"   # REQUIRED. Effect target. Ignored for the flag_set
   slot: "<slot_id>"           # REQUIRED. 
-  condition: "intact | displaced | opened | removed" # REQUIRED.
+  state: "intact | displaced | opened | removed" # REQUIRED.
 
 # Puts on all items from te outfit 
 - type: outfit_put_on
@@ -1352,7 +1352,7 @@ Changes a flag value.
   minutes: <int>                        # REQUIRED. Minutes to advance.
 
 # Time advancement for slot mode
-- type: advance_slot
+- type: advance_time_slot
   # ... common fields
   slots: <int>                          # REQUIRED.
 ```
@@ -1360,7 +1360,7 @@ Changes a flag value.
 #### Flow control
 ```yaml
 # Switches game to a specified node 
-- type: goto_node
+- type: goto
   # ... common fields
   node: "<node_id>"
 
@@ -1400,34 +1400,18 @@ Changes a flag value.
 ```
 
 
-#### Unlocks & Utilities
+#### Unlocks
 ```yaml
-# Unlocks an item
-- type: unlock_item
-  owner: "player | <npc_id>"
-  item_type: "item | outfit | clothing" # OPTIONAL. Default: "item". Type of the item
-  item: "<item_id>"
-
-# Unlocks a zone
-- type: unlock_zone
-  zone: "<zone_id>"
+# Unlocks listed entity(ies) 
+- type: unlock
+  items: ["<item_id>", ... ]
+  clothing_items: ["<clothing_item_id>", ... ]
+  outfits: ["<outfit_id>", ... ]
+  zones: ["<zone_id>", ... ]
+  locations: ["<location_id>", ... ]
+  actions: ["<action_id>", ... ]
+  endings: ["<node_id>", ... ]
   
-# Unlocks a single location
-- type: unlock_location
-  location: "<location_id>"
-  
-# Unlocks locations
-- type: unlock_locations
-  locations: ["<location_id>", ...]
- 
-# Unlocks an action
-- type: unlock_actions
-  actions: ["<action_id>", ...]
-
-# Unlocks an ending
-- type: unlock_ending
-  ending: "<ending_id>"
-
 ```
 ### Execution Order (per turn)
 
@@ -1491,8 +1475,8 @@ but don’t invent hard state changes by themselves.
 # Modifier Template
 # Place under: modifiers.library
 
-<modifier_id>:
   # --- Identity ---
+- id: "<string>"                # REQUIRED. Unique ID.
   group: "<string>"             # OPTIONAL but recommended. Category for stacking/exclusions (e.g., "intoxication", "emotional").
   priority: <int>               # OPTIONAL. Priority within a group (see below).
 
@@ -1503,13 +1487,13 @@ but don’t invent hard state changes by themselves.
   duration: <int>               # OPTIONAL. Default runtime duration in minutes/actions when applied without explicit duration.
 
   # --- Appearance & Behavior overlays (soft influence) ---
-  appearance: ["<string", ...]  # OPTIONAL. Small deltas for cards/descriptions; never hard state edits.
+  mixins: ["<string", ...]      # OPTIONAL. Small deltas for cards/descriptions; never hard state edits.
                                 #  "cheeks flushed", "eyes glossy"
-  dialogue_style: "<string>"    # OPTIONAL, Overrides dialogue style, e.g., "breathless", "slurred"
+  dialogue_style: <string>       # OPTIONAL, Overrides dialogue style.
 
   # --- Safety & Gates (hard constraints) ---
   disallow_gates: ["<gate_id>", ...]  # OPTIONAL. Gates to disable, e.g., forbid "accept_sex" while drunk
-  allow_gates: ["<gate_id>", ...]     # OPTIONAL. GAtes to force. Rarely used; prefer arcs/gates unless tightly controlled
+  allow_gates: ["<gate_id>", ...]     # OPTIONAL. Gates to force. Rarely used; prefer arcs/gates unless tightly controlled
 
   # --- Systemic Rules ---
   clamp_meters:                 # OPTIONAL. Enforce temporary boundaries on meters while active.
@@ -1538,8 +1522,8 @@ based on the `stacking` parameter:
 # In game manifest (top level)
 modifiers:
   stacking:                                   # OPTIONAL. Stacking rules
-     - <group_name>: "highest|lowest|all"         # REQUIRED. List of staking options for groups 
-  library: { <modifier>, ... }                # REQUIRED. Modifiers definition                
+     <group_name>: "highest|lowest|all"     # REQUIRED. List of staking options for groups 
+  library: [ <modifier>, ... ]                # REQUIRED. Modifiers definition                
 ```
 
 ### Examples
@@ -1622,7 +1606,7 @@ actions:
 ### Purpose & Template
 
 A **node** is the authored backbone of a PlotPlay story.
-Each node represents a discrete story unit — a scene, a hub, an encounter, or an ending. 
+Each node represents a discrete story unit — a scene, a hub, an encounter,an event, or an ending. 
 Nodes combine **authored beats and choices** with **freeform AI prose**, 
 and control how the story progresses via **transitions**.
 
@@ -1643,12 +1627,6 @@ Nodes are where most author effort goes: they set context for the Writer, define
   description: "<string>"               # OPTIONAL. Author notes.
   characters_present: ["<string>", ...] # OPTIONAL. Explicitly list character IDs present in this node.
 
-  # --- Availability ---
-  when: "<expr>"                        # OPTIONAL. Expression DSL; must be true to enter.
-  when_all: ["<expr>", ... ]            # OPTIONAL. Expression DSL; all must be true to enter.
-  when_any: ["<expr>", ... ]            # OPTIONAL. Expression DSL; any must be true to enter.
-  once: <bool>                          # OPTIONAL. If true, the node only plays once per run.
-
   # --- Writer guidance ---
   narration:                            # OPTIONAL. Override defaults from the game manifest.
     pov: "<first|second|third>"
@@ -1668,24 +1646,21 @@ Nodes are where most author effort goes: they set context for the Writer, define
       when: "<expr>"                    # OPTIONAL. Choice disabled if false.
       when_all: ["<expr>", ... ]        #   Expression DSL; all must be true to activate transition.
       when_any: ["<expr>", ... ]        #   Expression DSL; any must be true to activate transition.
-      on_select: [ <effect>, ... ]      # OPTIONAL. Effects applied when the choice is chosen.
-      goto: "<node_id>"                 # OPTIONAL. Forced transition on select.
+      on_select: [ <effect>, ... ]      # REQUIRED. Effects applied when the choice is chosen.
 
   dynamic_choices:                      # OPTIONAL. Pre-authored menu buttons. Appear only when conditions become true.
     - prompt: "<string>"                # REQUIRED. Shown to player.
       when: "<expr>"                    # OPTIONAL. Choice disabled if false.
       when_all: ["<expr>", ... ]        #   Expression DSL; all must be true to activate transition.
       when_any: ["<expr>", ... ]        #   Expression DSL; any must be true to activate transition.
-      on_select: [ <effect>, ... ]      # OPTIONAL. Effects applied when the choice is chosen.
-      goto: "<node_id>"                 # OPTIONAL. Forced transition on select.
+      on_select: [ <effect>, ... ]      # REQUIRED. Effects applied when the choice is chosen.
 
   # --- Transitions ---
-  transitions:                          # OPTIONAL. Automatic transitions. 
-                                        # REQUIRED.One of when/when_all/when_any is required. 
+  triggers:                              # OPTIONAL. Automatic effects and transitions (via goto effect). 
     - when: "<expr>"                    #   Expression DSL; must be true to activate transition.
       when_all: ["<expr>", ... ]        #   Expression DSL; all must be true to activate transition.
       when_any: ["<expr>", ... ]        #   Expression DSL; any must be true to activate transition.
-      to: "<node_id>"                   # REQUIRED. Target node ID
+      on_select: [ <effect>, ... ]      #   REQUIRED. Effects applied when conditions are met.
 
   # --- Ending-specific ---
   ending_id: "<string>"                    # REQUIRED if type == ending. Unique ending id
@@ -1765,39 +1740,84 @@ Events differ from nodes:
 - **Nodes** are the backbone of the story (explicit story beats).
 - **Events** are side-triggers, often opportunistic or reactive.
 
+- The event template follows the same structure as a node, but with a few differences:
+- **Type** is always `event`,
+- Events contain **conditions** that define when the event fires,
+- `ending_id` is ignored.
+
 **Runtime behavior:**
 - Engine evaluates all events **each turn** after node resolution, before the next node selection.
-- Eligible events are collected into a pool.
-- Events can either:
-  - **Inject beats** into the current node (overlay),
-  - **Interrupt** and redirect to a dedicated event node,
-  - **Apply effects silently** (background change).
+- An event is **eligible** to fire if:
+ - conditions are met (if any),
+ - random value fails into the probability range,
+ - the event is not at cooldown.
+- Eligible events are collected into a pool in order they defined:
+- Events are applied one by one:
+  - **On entry** effects are applied.
+  - **Add characters** to the scene,  
+  - **Inject beats** into the current node,
+  - **Inject choices and dynamic choices** into the current node,
+  - **Evaluate triggers** and **run matching triggers** 
+  - **On exit** effects are applied, even is effect triggers a transition to another node.
+- Once fired, an event is **cooled down** for a defined duration of minutes or time slots. 
+
+Depending on effects in triggers, they can be either applied silently or trigger a node transition.
+In case of transition the processing chain terminates and the engine jumps to the target node.
 
 
 ```yaml
 # Event definition lives under: events: [ ... ]
 # Place under the 'events' root node
-- id: "<string>"                  # REQUIRED. Unique event ID.
-  title: "<string>"               # REQUIRED. Display name (for logs/UI).
-  description: "<string>"         # OPTIONAL. Author notes.
-  
+- id:                                   # REQUIRED. Unique node id 
+  type: "event"                         # REQUIRED. scene | hub | encounter | ending
+  title: "<string>"                     # REQUIRED. Display name in UI/logs.
+  description: "<string>"               # OPTIONAL. Author notes.
+  characters_present: ["<string>", ...] # OPTIONAL. Explicitly list character IDs present in this node.
 
   # --- Triggering ---
   when: "<expr>"                # OPTIONAL. Expression DSL Condition to trigger an event. Required.
   when_all: ["<expr>", ... ]    # OPTIONAL. Expression DSL Condition to trigger an event. Required.
   when_any: ["<expr>", ... ]    # OPTIONAL. Expression DSL Condition to trigger an event. Required.
-  random:                       # OPTIONAL. Ramdom event firing 
-    weight: <int>               #   REQUIRED. Non-negative integer weight.
-    cooldown: <int>             #   REQUIRED. Minutes or slots before re-eligibility.
-  once: <bool>                  # OPTIONAL. Default: false. If true, fires only once per run.
+  probability: <int>            # OPTIONAL. Probability of ramdom event firing in percent. Default: 100. 
+  cooldown: <int>               # REQUIRED. Minutes or slots before re-eligibility.
+  once_per_game : <bool>        # OPTIONAL. Default: false. If true, fires only once per game run.
 
-  # --- Payload ---
-  narrative: <string>           # OPTIONAL. Custom addition to narrative 
-  beats: ["<string>", ... ]     # OPTIONAL. Extra Writer guidance.
-  effects: [ <effect>, ... ]    # OPTIONAL. Applied if the event fires.
-  choices: [<choice>, ...]      # OPTIONAL. Local player decisions. See the Nodes section for choice format
+
+  # --- Writer guidance ---
+  narration:                            # OPTIONAL. Override defaults from the game manifest.
+    pov: "<first|second|third>"
+    tense: "<present|past>"
+    paragraphs: "1-2"
+
+  beats: [<string>, ... ]               # OPTIONAL. Bullets for Writer (not shown to players).
+
+  # --- Effects ---
+  on_entry: [ <effect>, ... ]           # OPTIONAL. Applied when the node is entered.
+  on_exit:  [ <effect>, ... ]           # OPTIONAL. Applied when the node is left.
+
+  # --- Actions & choices ---
+  choices:                              # OPTIONAL. Pre-authored menu buttons. Always visible
+    - id: "<string>"                    # REQUIRED. Unique id 
+      prompt: "<string>"                # REQUIRED. Shown to player.
+      when: "<expr>"                    # OPTIONAL. Choice disabled if false.
+      when_all: ["<expr>", ... ]        #   Expression DSL; all must be true to activate transition.
+      when_any: ["<expr>", ... ]        #   Expression DSL; any must be true to activate transition.
+      on_select: [ <effect>, ... ]      # REQUIRED. Effects applied when the choice is chosen.
+
+  dynamic_choices:                      # OPTIONAL. Pre-authored menu buttons. Appear only when conditions become true.
+    - prompt: "<string>"                # REQUIRED. Shown to player.
+      when: "<expr>"                    # OPTIONAL. Choice disabled if false.
+      when_all: ["<expr>", ... ]        #   Expression DSL; all must be true to activate transition.
+      when_any: ["<expr>", ... ]        #   Expression DSL; any must be true to activate transition.
+      on_select: [ <effect>, ... ]      # REQUIRED. Effects applied when the choice is chosen.
+
+  # --- Transitions ---
+  triggers:                              # OPTIONAL. Automatic effects and transitions (via goto effect). 
+    - when: "<expr>"                    #   Expression DSL; must be true to activate transition.
+      when_all: ["<expr>", ... ]        #   Expression DSL; all must be true to activate transition.
+      when_any: ["<expr>", ... ]        #   Expression DSL; any must be true to activate transition.
+      on_select: [ <effect>, ... ]      #   REQUIRED. Effects applied when conditions are met.
 ```
-
 > Only one of `when`, `when_any`, and `when_all` may be set.
 
 ### Examples
@@ -1805,6 +1825,7 @@ Events differ from nodes:
 #### Scheduled event
 ```yaml
 - id: "emma_text_day1"
+  type: "event"
   title: "Emma Texts You"
   when: "time.slot == 'night' and time.day == 1"
   narrative: "Your phone buzzes — Emma wants to meet tomorrow."
@@ -1814,9 +1835,10 @@ Events differ from nodes:
 #### Conditional encounter
 ```yaml
 - id: "library_meet"
+  type: "event"
   title: "Chance Meeting in Library"
   when: "state.location.id == 'library' and meters.emma.trust >= 20"
-  narrative: "Emma waves shyly from behind a book."
+  beats: ["Emma waves shyly from behind a book."]
   choices:
     - id: "chat"
       prompt: "Go talk to her"
@@ -1828,12 +1850,12 @@ Events differ from nodes:
 #### Random ambient
 ```yaml
 - id: "rumor_spread"
+  type: "event"
   title: "Rumor at the Courtyard"
   when: "state.location.zone == 'campus'"
-  random:
-    weight: 30
-    cooldown: 720     # 12h before next chance
-  narrative: "You overhear whispers of your name among the students."
+  probability: 30
+  cooldown: 720     # 12h before next chance
+  beats: ["You overhear whispers of your name among the students."]
   effects:
     - { type: flag_set, key: "rumor_active", value: true }
 
@@ -1846,7 +1868,7 @@ Events differ from nodes:
 - Keep **scheduled triggers** simple (slot/day/weekday).
 - Avoid chaining too many effects — events should be light and modular.
 - For **story-critical beats**, prefer nodes to events.
-- Mark one-time story events with `once: true` to avoid repeats.
+- Mark one-time story events with `once_per_game: true` to avoid repeats.
 
 ---
 
@@ -1884,7 +1906,7 @@ Arcs ensure that stories have clear progression, and that endings are unlocked i
       advance_when: "<expr>"         # REQUIRED. DSL condition. Checked each turn.
       advance_when_all: "<expr>"     # REQUIRED. DSL condition. Checked each turn.
       advance_when_any: "<expr>"     # REQUIRED. DSL condition. Checked each turn.
-      once: <bool>                   # OPTIONAL. Default true. Fires once.
+      once_per_game: <bool>                   # OPTIONAL. Default true. Fires once.
 
       # --- Effects ---
       on_enter:   [ <effect>, ... ]  # Applied once when the stage begins.

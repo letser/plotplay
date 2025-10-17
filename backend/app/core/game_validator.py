@@ -90,7 +90,7 @@ class GameValidator:
 
         for node in self.game.nodes:
             # Validate present_characters
-            for char_id in node.present_characters:
+            for char_id in node.characters_present:
                 if char_id not in self.character_ids:
                     self.errors.append(
                         f"[Node: {node.id}] > 'present_characters' contains non-existent character ID: '{char_id}'"

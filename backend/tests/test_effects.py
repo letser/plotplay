@@ -44,7 +44,7 @@ from app.models.game import GameDefinition, MetaConfig, StartConfig
 from app.models.nodes import Node, NodeType
 from app.models.locations import Zone, Location, LocationPrivacy
 from app.models.characters import Character, Wardrobe, Outfit
-from app.models.modifier import Modifier
+from app.models.modifiers import Modifier
 from app.models.items import Item
 
 

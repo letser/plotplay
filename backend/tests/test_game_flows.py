@@ -114,7 +114,7 @@ class TestActionTypes:
         engine = mock_game_engine  # No await needed - fixture returns engine directly
 
         # Add a custom action to the game with correct fields
-        from app.models.action import GameAction
+        from app.models.actions import GameAction
 
         test_action = GameAction(
             id="meditate",
