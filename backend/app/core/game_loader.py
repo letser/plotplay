@@ -2,10 +2,10 @@
 
 from pathlib import Path
 from typing import Any
+from copy import deepcopy
 import yaml
 
 from app.models.game import GameDefinition
-from app.models.locations import LocationAccess
 from app.core.game_validator import GameValidator
 from app.core.game_settings import GameSettings
 
@@ -36,11 +36,21 @@ class GameLoader:
         # The manifest data itself becomes the base for our final game definition
         constructor_data = manifest_data.copy()
 
-        # Initialize content lists to ensure they exist even if not in includes
-        content_keys = ["characters", "nodes", "zones", "events", "arcs", "items", "actions"]
-        for key in content_keys:
+        # Ensure expected top-level collections exist so includes merge cleanly
+        defaults: dict[str, Any] = {
+            "characters": [],
+            "nodes": [],
+            "zones": [],
+            "events": [],
+            "arcs": [],
+            "items": [],
+            "actions": [],
+            "flags": {},
+            "wardrobe": {"slots": [], "items": [], "outfits": []},
+        }
+        for key, default_value in defaults.items():
             if key not in constructor_data:
-                constructor_data[key] = []
+                constructor_data[key] = self._clone(default_value)
 
         # Iterate over the included files and merge their contents
         for include_file in constructor_data.get("includes", []):
@@ -65,59 +75,39 @@ class GameLoader:
         # Now, create the GameDefinition object with the fully merged data
         game_def = GameDefinition(**constructor_data)
 
-        # Post-processing for an item unlocks
-        self._compile_item_unlocks(game_def)
-
         # Perform an integrity validation pass
         GameValidator(game_def).validate()
 
         return game_def
 
-    def _compile_item_unlocks(self, game_def: GameDefinition):
-        """
-        Dynamically adds 'unlocked_when' conditions to locations based on item 'unlocks' fields.
-        """
-        if not game_def.items or not game_def.zones:
-            return
-
-        # Create a quick-access map of all locations
-        locations_map = {loc.id: loc for zone in game_def.zones for loc in zone.locations}
-
-        for item in game_def.items:
-            if item.unlocks and "location" in item.unlocks:
-                location_id = item.unlocks["location"]
-                if location_id in locations_map:
-                    location = locations_map[location_id]
-                    if not location.access:
-                        location.access = LocationAccess()
-
-                    unlock_condition = f"has_item('{item.id}')"
-
-                    if location.access.unlocked_when:
-                        # Append with an 'or' if a condition already exists
-                        location.access.unlocked_when = f"({location.access.unlocked_when}) or ({unlock_condition})"
-                    else:
-                        location.access.unlocked_when = unlock_condition
-
-
     def list_games(self) -> list[dict[str, str]]:
         """List all available games by reading their manifests."""
         games = []
         for game_dir in self.games_dir.iterdir():
-            if game_dir.is_dir() and (game_dir / "game.yaml").exists():
-                try:
-                    manifest_data = self._load_yaml(game_dir / "game.yaml")
-                    meta = manifest_data.get("meta", {})
-
-                    games.append({
-                        'id': meta.get('id', game_dir.name),
-                        'title': meta.get('title', 'Untitled'),
-                        'author': meta.get('author', 'Unknown'),
-                        'content_rating': meta.get('content_rating', 'none'),
-                        'version': meta.get('version', 'unknown')
-                    })
-                except Exception as e:
-                    print(f"Warning: Could not load manifest for game '{game_dir.name}': {e}")
+            if not game_dir.is_dir():
+                continue
+            manifest_path = game_dir / "game.yaml"
+            if not manifest_path.exists():
+                continue
+            try:
+                manifest_data = self._load_yaml(manifest_path)
+                meta = manifest_data.get("meta", {})
+                authors = meta.get("authors") or []
+                author_name = (
+                    authors[0]
+                    if isinstance(authors, list) and authors
+                    else meta.get("author", "Unknown")
+                )
+                games.append(
+                    {
+                        "id": meta.get("id", game_dir.name),
+                        "title": meta.get("title", "Untitled"),
+                        "author": author_name,
+                        "version": meta.get("version", "unknown"),
+                    }
+                )
+            except Exception as exc:
+                print(f"Warning: Could not load manifest for game '{game_dir.name}': {exc}")
         return games
 
     @staticmethod
@@ -240,3 +230,8 @@ class GameLoader:
                 final.append(item)
 
         return final
+
+    @staticmethod
+    def _clone(value: Any) -> Any:
+        """Return a deep copy of default configuration values."""
+        return deepcopy(value)

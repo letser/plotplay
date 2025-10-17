@@ -2,20 +2,22 @@
 A safe evaluator for the PlotPlay Expression DSL using Python's AST.
 """
 
+from __future__ import annotations
+
 import ast
 import operator
 import random
-from typing import Any
+from typing import Any, Iterable
 
 from app.core.state_manager import GameState
-from app.models.locations import LocationPrivacy
 
 
 class ConditionEvaluator:
     """
-    Safely evaluates condition expressions against the current game state.
-    Implements the PlotPlay v3 Expression DSL as specified.
+    Safely evaluates PlotPlay DSL expressions against the current game state.
+    Implements §3 of the specification (Expression DSL & Condition Context).
     """
+
     ALLOWED_OPERATORS = {
         ast.And: all,
         ast.Or: any,
@@ -35,110 +37,215 @@ class ConditionEvaluator:
         ast.USub: operator.neg,
     }
 
-    def __init__(self, game_state: GameState, rng_seed: int | None = None):
-        """
-        Initialize the evaluator with game state and optional RNG seed.
-
-        Args:
-            game_state: Current game state
-            rng_seed: Seed for deterministic randomness (turn_count + game_id hash)
-        """
+    def __init__(
+        self,
+        game_state: GameState,
+        rng_seed: int | None = None,
+        *,
+        gates: dict[str, dict[str, bool]] | None = None,
+        extra_context: dict[str, Any] | None = None,
+    ) -> None:
         self.game_state = game_state
-        self.present_chars = self.game_state.present_chars
+        self.gates = gates or {}
+        self.extra_context = extra_context or {}
+        self.rng = random.Random(rng_seed) if rng_seed is not None else random.Random()
+        self.context: dict[str, Any] | None = None
 
-        # Set up deterministic random if seed provided
-        self.rng = random.Random(rng_seed) if rng_seed else random
+    # --------------------------------------------------------------------- #
+    # Public API
+    # --------------------------------------------------------------------- #
+    def evaluate(self, expression: str | None, *, refresh: bool = True) -> bool:
+        """
+        Evaluate a single DSL expression.
+        Empty/`always` conditions return True, `never`/`false` return False.
+        """
+        if expression is None:
+            return True
 
-        # Build the context dictionary with all DSL variables and functions
+        trimmed = expression.strip()
+        if trimmed.lower() in {"", "always", "true"}:
+            return True
+        if trimmed.lower() in {"false", "never"}:
+            return False
+
+        if refresh or self.context is None:
+            self._refresh_context()
+
+        try:
+            tree = ast.parse(trimmed, mode="eval")
+            result = self._eval_node(tree.body)
+            return bool(result)
+        except Exception:
+            # Invalid expressions simply resolve to False (logged elsewhere in engine)
+            return False
+
+    def evaluate_all(self, expressions: Iterable[str | None] | None) -> bool:
+        """
+        Evaluate a list of expressions in logical AND mode (all must be true).
+        An empty or None collection is treated as satisfied.
+        """
+        if not expressions:
+            return True
+
+        expr_list = [expr for expr in expressions if expr and expr.strip()]
+        if not expr_list:
+            return True
+
+        self._refresh_context()
+        for expr in expr_list:
+            if not self.evaluate(expr, refresh=False):
+                return False
+        return True
+
+    def evaluate_any(self, expressions: Iterable[str | None] | None) -> bool:
+        """
+        Evaluate a list of expressions in logical OR mode (any must be true).
+        An empty or None collection is treated as unsatisfied.
+        """
+        if not expressions:
+            return False
+
+        expr_list = [expr for expr in expressions if expr and expr.strip()]
+        if not expr_list:
+            return False
+
+        self._refresh_context()
+        for expr in expr_list:
+            if self.evaluate(expr, refresh=False):
+                return True
+        return False
+
+    def evaluate_conditions(
+        self,
+        *,
+        when: str | None = None,
+        when_all: Iterable[str | None] | None = None,
+        when_any: Iterable[str | None] | None = None,
+    ) -> bool:
+        """
+        Convenience helper for evaluating the spec's (when, when_all, when_any) trio.
+        """
+        if when and not self.evaluate(when):
+            return False
+        if when_all and not self.evaluate_all(when_all):
+            return False
+        if when_any is not None:
+            return self.evaluate_any(when_any)
+        return True
+
+    # --------------------------------------------------------------------- #
+    # Context construction & helpers
+    # --------------------------------------------------------------------- #
+    def _refresh_context(self) -> None:
         self.context = self._build_context()
 
     def _build_context(self) -> dict[str, Any]:
-        """Build the complete context for expression evaluation."""
-        return {
-            # === Time & Calendar ===
+        """Construct the evaluation context described in the specification."""
+        modifiers = self._normalize_modifiers(self.game_state.modifiers)
+        arcs = {
+            arc_id: {"stage": stage, "history": []}
+            for arc_id, stage in (self.game_state.active_arcs or {}).items()
+        }
+
+        context: dict[str, Any] = {
+            # Time & calendar
             "time": {
                 "day": self.game_state.day,
                 "slot": self.game_state.time_slot,
-                "time_hhmm": self.game_state.time_hhmm,  # For clock/hybrid modes
-                "weekday": self.game_state.weekday,  # From calendar system
+                "time_hhmm": self.game_state.time_hhmm,
+                "weekday": self.game_state.weekday,
             },
-
-            # === Location ===
+            # Location
             "location": {
                 "id": self.game_state.location_current,
                 "zone": self.game_state.zone_current,
-                "privacy": self._get_location_privacy(),  # Need to implement
+                "privacy": self._get_location_privacy(),
             },
-
-            # === Characters & Presence ===
-            "characters": list(self.game_state.meters.keys()),  # All known character IDs
-            "present": self.present_chars,  # NPCs in current location
-
-            # === Meters ===
-            "meters": self.game_state.meters,
-
-            # === Flags ===
-            "flags": self.game_state.flags,
-
-            # === Modifiers ===
-            "modifiers": self.game_state.modifiers,
-
-            # === Inventory ===
-            "inventory": self.game_state.inventory,
-
-            # === Clothing (runtime state) ===
-            "clothing": self.game_state.clothing_states,
-
-            # === Gates (derived from meters/flags) ===
-            # Gates are computed dynamically by the engine, not stored in state
-            # We'll need to pass these in if needed
-
-            # === Arcs ===
-            "arcs": {
-                arc_id: {
-                    "stage": stage,
-                    "history": self.game_state.completed_milestones  # Simplified
-                }
-                for arc_id, stage in self.game_state.active_arcs.items()
-            },
-
-            # === Built-in Functions (spec section 6.6) ===
-            "has": self._has_item,  # Renamed from has_item to match spec
-            "npc_present": lambda npc_id: npc_id in self.present_chars,
-            "rand": lambda p: self.rng.random() < p,  # Now uses seeded RNG
+            # Characters & presence
+            "characters": list((self.game_state.meters or {}).keys()),
+            "present": list(self.game_state.present_chars or []),
+            # State namespaces
+            "meters": self.game_state.meters or {},
+            "flags": self.game_state.flags or {},
+            "inventory": self.game_state.inventory or {},
+            "modifiers": modifiers,
+            "clothing": self.game_state.clothing_states or {},
+            "gates": self.gates,
+            "arcs": arcs,
+            # Built-in functions (§3.6)
+            "has": self._has_item,
+            "npc_present": self._npc_present,
+            "rand": self._rand,
             "min": min,
             "max": max,
             "abs": abs,
             "clamp": lambda x, lo, hi: max(lo, min(x, hi)),
             "get": self._safe_get,
-
-            # === Boolean literals ===
+            # Boolean helpers
             "true": True,
             "True": True,
             "false": False,
             "False": False,
+            "null": None,
+            "None": None,
         }
 
-    def _has_item(self, item_id: str) -> bool:
-        """Check if player has an item. Matches spec's has() function."""
-        return self.game_state.inventory.get("player", {}).get(item_id, 0) > 0
+        # Allow callers to extend/override context if needed
+        context.update(self.extra_context)
+        return context
 
-    def _get_location_privacy(self) -> LocationPrivacy:
-        """Get the privacy level of current location."""
-        return self.game_state.location_privacy
+    def _normalize_modifiers(self, modifiers: dict[str, Any] | None) -> dict[str, list[str]]:
+        """Return modifiers as dict[target_id] -> list[modifier_id]."""
+        if not modifiers:
+            return {}
+
+        normalised: dict[str, list[str]] = {}
+        for owner, entries in modifiers.items():
+            ids: list[str] = []
+            if isinstance(entries, list):
+                for entry in entries:
+                    if isinstance(entry, str):
+                        ids.append(entry)
+                    elif isinstance(entry, dict) and entry.get("id"):
+                        ids.append(entry["id"])
+            normalised[owner] = ids
+        return normalised
+
+    def _has_item(self, item_id: str, owner: str = "player") -> bool:
+        """Default helper to test inventory possession."""
+        inventory = self.game_state.inventory or {}
+        owner_inventory = inventory.get(owner, {})
+        if not isinstance(owner_inventory, dict):
+            return False
+        return owner_inventory.get(item_id, 0) > 0
+
+    def _npc_present(self, npc_id: str) -> bool:
+        return npc_id in (self.game_state.present_chars or [])
+
+    def _rand(self, probability: Any) -> bool:
+        """Deterministic Bernoulli helper used by rand()."""
+        try:
+            p = float(probability)
+        except (TypeError, ValueError):
+            return False
+        if p <= 0.0:
+            return False
+        if p >= 1.0:
+            return True
+        return self.rng.random() < p
+
+    def _get_location_privacy(self) -> str | None:
+        """Return location privacy as a lowercase string."""
+        privacy = getattr(self.game_state, "location_privacy", None)
+        return getattr(privacy, "value", privacy)
 
     def _safe_get(self, path: str, default: Any = None) -> Any:
-        """
-        Safely gets a value from the nested context using a dot-separated path.
-        Implements the get() function from spec section 6.6.
+        """Implementation of get('path', default) helper from the spec."""
+        if self.context is None:
+            self._refresh_context()
 
-        Examples:
-            get("flags.route_locked", false)
-            get("meters.emma.trust", 0)
-        """
-        keys = path.split('.')
-        value = self.context
-        for key in keys:
+        value: Any = self.context
+        for key in path.split("."):
             if isinstance(value, dict):
                 value = value.get(key)
             elif hasattr(value, key):
@@ -149,46 +256,17 @@ class ConditionEvaluator:
                 return default
         return value
 
-    def evaluate(self, expression: str | None) -> bool:
-        """
-        Evaluate a condition expression against the current game state.
-
-        Args:
-            expression: Expression string in PlotPlay DSL syntax
-
-        Returns:
-            Boolean result of evaluation
-        """
-        # Handle empty/always true cases
-        if not expression or expression.lower() in ['always', 'true']:
-            return True
-        if expression.lower() in ['false', 'never']:
-            return False
-
-        try:
-            # Parse and evaluate the expression
-            tree = ast.parse(expression, mode='eval')
-            result = self._eval_node(tree.body)
-            # Ensure we return a boolean
-            return bool(result)
-        except Exception as e:
-            # Log error in production, for now just return False
-            # print(f"Expression evaluation error: {e} in expression: {expression}")
-            return False
-
+    # --------------------------------------------------------------------- #
+    # AST evaluation
+    # --------------------------------------------------------------------- #
     def _eval_node(self, node: ast.AST) -> Any:
-        """Recursively evaluate an AST node."""
-
-        # === Literals ===
         if isinstance(node, ast.Constant):
             return node.value
 
-        # === Variables ===
-        elif isinstance(node, ast.Name):
-            return self.context.get(node.id)
+        if isinstance(node, ast.Name):
+            return self.context.get(node.id) if self.context else None
 
-        # === Path access (dots) ===
-        elif isinstance(node, ast.Attribute):
+        if isinstance(node, ast.Attribute):
             value = self._eval_node(node.value)
             if value is None:
                 return None
@@ -196,87 +274,75 @@ class ConditionEvaluator:
                 return value.get(node.attr)
             return getattr(value, node.attr, None)
 
-        # === Subscript access (brackets) ===
-        elif isinstance(node, ast.Subscript):
+        if isinstance(node, ast.Subscript):
             value = self._eval_node(node.value)
             if value is None:
                 return None
             key = self._eval_node(node.slice)
             if isinstance(value, dict):
                 return value.get(key)
-            elif isinstance(value, (list, tuple)):
+            if isinstance(value, (list, tuple)):
                 try:
                     return value[key]
-                except (IndexError, TypeError):
+                except (IndexError, TypeError, KeyError):
                     return None
             return None
 
-        # === List literals ===
-        elif isinstance(node, ast.List):
+        if isinstance(node, ast.List):
             return [self._eval_node(elem) for elem in node.elts]
 
-        # === Comparisons ===
-        elif isinstance(node, ast.Compare):
+        if isinstance(node, ast.Compare):
             left = self._eval_node(node.left)
-            for op, comp in zip(node.ops, node.comparators):
+            for op, comparator in zip(node.ops, node.comparators):
                 op_func = self.ALLOWED_OPERATORS.get(type(op))
                 if not op_func:
                     return False
-                right = self._eval_node(comp)
-                # Handle None values safely
-                if op_func in (operator.eq, operator.ne):
-                    # Allow equality comparison with None
-                    pass
-                elif left is None or right is None:
+                right = self._eval_node(comparator)
+                if op_func not in (operator.eq, operator.ne) and (
+                    left is None or right is None
+                ):
                     return False
                 if not op_func(left, right):
                     return False
                 left = right
             return True
 
-        # === Binary operations ===
-        elif isinstance(node, ast.BinOp):
+        if isinstance(node, ast.BinOp):
             op = self.ALLOWED_OPERATORS.get(type(node.op))
             if not op:
                 return False
             left = self._eval_node(node.left)
             right = self._eval_node(node.right)
-            # Division by zero protection
-            if isinstance(node.op, ast.Div) and right == 0:
-                return False
             if left is None or right is None:
+                return False
+            if isinstance(node.op, ast.Div) and right == 0:
                 return False
             return op(left, right)
 
-        # === Boolean operations (and/or) ===
-        elif isinstance(node, ast.BoolOp):
+        if isinstance(node, ast.BoolOp):
             op = self.ALLOWED_OPERATORS.get(type(node.op))
             if not op:
                 return False
-            values = [self._eval_node(v) for v in node.values]
+            values = (self._eval_node(v) for v in node.values)
             return op(values)
 
-        # === Unary operations (not) ===
-        elif isinstance(node, ast.UnaryOp):
+        if isinstance(node, ast.UnaryOp):
             op = self.ALLOWED_OPERATORS.get(type(node.op))
             if not op:
                 return False
-            return op(self._eval_node(node.operand))
+            operand = self._eval_node(node.operand)
+            return op(operand)
 
-        # === Function calls ===
-        elif isinstance(node, ast.Call):
-            # Only allow calls to functions in our context
-            if isinstance(node.func, ast.Name):
-                func = self.context.get(node.func.id)
-                if callable(func):
-                    args = [self._eval_node(arg) for arg in node.args]
-                    try:
-                        return func(*args)
-                    except Exception:
-                        return False
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+            if self.context is None:
+                self._refresh_context()
+            func = self.context.get(node.func.id)
+            if callable(func):
+                args = [self._eval_node(arg) for arg in node.args]
+                try:
+                    return func(*args)
+                except Exception:
+                    return False
             return False
 
-        # === Disallowed operations ===
-        else:
-            # For safety, reject any other AST node types
-            raise TypeError(f"Disallowed operation in expression: {type(node).__name__}")
+        raise TypeError(f"Disallowed operation in expression: {type(node).__name__}")

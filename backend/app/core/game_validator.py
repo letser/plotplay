@@ -5,13 +5,28 @@ from app.models.effects import (
     AnyEffect,
     MeterChangeEffect,
     FlagSetEffect,
-    InventoryChangeEffect,
-    ClothingChangeEffect,
+    InventoryAddEffect,
+    InventoryRemoveEffect,
+    InventoryTakeEffect,
+    InventoryDropEffect,
+    InventoryPurchaseEffect,
+    InventorySellEffect,
+    ClothingPutOnEffect,
+    ClothingTakeOffEffect,
+    ClothingStateEffect,
+    ClothingSlotStateEffect,
+    OutfitPutOnEffect,
+    OutfitTakeOffEffect,
+    MoveEffect,
     MoveToEffect,
-    GotoNodeEffect,
+    TravelToEffect,
+    AdvanceTimeEffect,
+    AdvanceTimeSlotEffect,
     UnlockEffect,
+    LockEffect,
     ApplyModifierEffect,
     RemoveModifierEffect,
+    GotoEffect,
     ConditionalEffect,
     RandomEffect,
 )
@@ -32,18 +47,26 @@ class GameValidator:
         self.location_ids: set[str] = {
             loc.id for zone in self.game.zones for loc in zone.locations
         }
-        self.outfit_ids: set[str] = {
-            outfit.id
-            for char in self.game.characters
-            if char.wardrobe and char.wardrobe.outfits
-            for outfit in char.wardrobe.outfits
+        self.location_to_zone: dict[str, str] = {
+            loc.id: zone.id for zone in self.game.zones for loc in zone.locations
         }
+        self.outfit_ids: set[str] = set()
+        self.clothing_ids: set[str] = set()
+
+        if self.game.wardrobe:
+            self.outfit_ids.update(outfit.id for outfit in self.game.wardrobe.outfits)
+            self.clothing_ids.update(item.id for item in self.game.wardrobe.items)
+
+        for char in self.game.characters:
+            if char.wardrobe and char.wardrobe.outfits:
+                self.outfit_ids.update(outfit.id for outfit in char.wardrobe.outfits)
+            if char.wardrobe and char.wardrobe.items:
+                self.clothing_ids.update(item.id for item in char.wardrobe.items)
+
         self.action_ids: set[str] = {action.id for action in self.game.actions}
-        self.modifier_ids: set[str] = (
-            set(self.game.modifier_system.library.keys())
-            if self.game.modifier_system
-            else set()
-        )
+        self.modifier_ids: set[str] = {
+            modifier.id for modifier in (self.game.modifiers.library or [])
+        } if self.game.modifiers else set()
 
     def validate(self) -> None:
         """
@@ -53,7 +76,6 @@ class GameValidator:
         self._validate_start_config()
         self._validate_nodes()
         self._validate_events()
-        self._validate_items()
         self._validate_effects_globally()
 
         if self.errors:
@@ -70,13 +92,20 @@ class GameValidator:
 
     def _validate_start_config(self):
         """Validates the 'start' block of the game manifest."""
-        if self.game.start.node not in self.node_ids:
+        start_node = self.game.start_node
+        start_location = self.game.start_location
+
+        if start_node not in self.node_ids:
             self.errors.append(
-                f"[Start Config] > Start node '{self.game.start.node}' does not exist."
+                f"[Start Config] > Start node '{start_node}' does not exist."
             )
-        if self.game.start.location["id"] not in self.location_ids:
+        if start_location not in self.location_ids:
             self.errors.append(
-                f"[Start Config] > Start location '{self.game.start.location['id']}' does not exist."
+                f"[Start Config] > Start location '{start_location}' does not exist."
+            )
+        elif start_location not in self.location_to_zone:
+            self.errors.append(
+                f"[Start Config] > Start location '{start_location}' is not assigned to any zone."
             )
 
     def _validate_nodes(self):
@@ -124,15 +153,6 @@ class GameValidator:
                     f"[Event: {event.id}] > 'location' points to non-existent location ID: '{event.location}'"
                 )
 
-    def _validate_items(self):
-        """Validates all references within the item list."""
-        for item in self.game.items:
-            if item.unlocks and "location" in item.unlocks:
-                if item.unlocks["location"] not in self.location_ids:
-                    self.errors.append(
-                        f"[Item: {item.id}] > 'unlocks.location' points to non-existent location ID: '{item.unlocks['location']}'"
-                    )
-
     def _validate_effects_globally(self):
         """Iterates through all effects in the game and validates them."""
         for node in self.game.nodes:
@@ -174,22 +194,46 @@ class GameValidator:
                     self.errors.append(
                         f"[{context}] > Effect '{effect.type}' references non-existent target ID: '{effect.target}'"
                     )
-            case InventoryChangeEffect():
-                if effect.item not in self.item_ids:
+            case InventoryAddEffect() | InventoryRemoveEffect() | InventoryTakeEffect() | InventoryDropEffect() | InventoryPurchaseEffect() | InventorySellEffect():
+                if effect.item_type == "item" and effect.item not in self.item_ids:
                     self.errors.append(
-                        f"[{context}] > Effect '{effect.type}' references non-existent item ID: '{effect.item}'"
+                        f"[{context}] > Effect '{effect.type}' references unknown item ID: '{effect.item}'"
                     )
-            case ClothingChangeEffect():
-                if effect.outfit and effect.outfit not in self.outfit_ids:
+                if effect.item_type == "clothing" and effect.item not in self.clothing_ids:
                     self.errors.append(
-                        f"[{context}] > Effect '{effect.type}' references non-existent outfit ID: '{effect.outfit}'"
+                        f"[{context}] > Effect '{effect.type}' references unknown clothing ID: '{effect.item}'"
                     )
-            case MoveToEffect():
+                if effect.item_type == "outfit" and effect.item not in self.outfit_ids:
+                    self.errors.append(
+                        f"[{context}] > Effect '{effect.type}' references unknown outfit ID: '{effect.item}'"
+                    )
+            case ClothingPutOnEffect() | ClothingTakeOffEffect() | ClothingStateEffect():
+                if effect.item not in self.clothing_ids:
+                    self.errors.append(
+                        f"[{context}] > Effect '{effect.type}' references unknown clothing ID: '{effect.item}'"
+                    )
+            case ClothingSlotStateEffect():
+                # No static validation for slots yet (defined per wardrobe)
+                pass
+            case OutfitPutOnEffect() | OutfitTakeOffEffect():
+                if effect.item not in self.outfit_ids:
+                    self.errors.append(
+                        f"[{context}] > Effect '{effect.type}' references unknown outfit ID: '{effect.item}'"
+                    )
+            case MoveEffect():
+                for companion in effect.with_characters:
+                    if companion not in self.character_ids:
+                        self.errors.append(
+                            f"[{context}] > Effect '{effect.type}' references unknown character '{companion}' in with_characters"
+                        )
+            case MoveToEffect() | TravelToEffect():
                 if effect.location not in self.location_ids:
                     self.errors.append(
                         f"[{context}] > Effect '{effect.type}' references non-existent location ID: '{effect.location}'"
                     )
-            case GotoNodeEffect():
+            case AdvanceTimeEffect() | AdvanceTimeSlotEffect():
+                pass
+            case GotoEffect():
                 if effect.node not in self.node_ids:
                     self.errors.append(
                         f"[{context}] > Effect '{effect.type}' references non-existent node ID: '{effect.node}'"
@@ -199,17 +243,37 @@ class GameValidator:
                     self.errors.append(
                         f"[{context}] > Effect '{effect.type}' references non-existent modifier ID: '{effect.modifier_id}'"
                     )
-            case UnlockEffect():
-                if effect.actions:
-                    for action_id in effect.actions:
-                        if action_id not in self.action_ids:
-                            self.errors.append(
-                                f"[{context}] > Effect '{effect.type}' references non-existent action ID: '{action_id}'"
-                            )
-                if effect.outfit and effect.outfit not in self.outfit_ids:
-                    self.errors.append(
-                        f"[{context}] > Effect '{effect.type}' references non-existent outfit ID: '{effect.outfit}'"
-                    )
+            case UnlockEffect() | LockEffect():
+                for item_id in effect.items or []:
+                    if item_id not in self.item_ids:
+                        self.errors.append(
+                            f"[{context}] > Effect '{effect.type}' references unknown item ID: '{item_id}'"
+                        )
+                for clothing_id in effect.clothing or []:
+                    if clothing_id not in self.clothing_ids:
+                        self.errors.append(
+                            f"[{context}] > Effect '{effect.type}' references unknown clothing ID: '{clothing_id}'"
+                        )
+                for outfit_id in effect.outfits or []:
+                    if outfit_id not in self.outfit_ids:
+                        self.errors.append(
+                            f"[{context}] > Effect '{effect.type}' references unknown outfit ID: '{outfit_id}'"
+                        )
+                for location_id in effect.locations or []:
+                    if location_id not in self.location_ids:
+                        self.errors.append(
+                            f"[{context}] > Effect '{effect.type}' references non-existent location ID: '{location_id}'"
+                        )
+                for action_id in effect.actions or []:
+                    if action_id not in self.action_ids:
+                        self.errors.append(
+                            f"[{context}] > Effect '{effect.type}' references non-existent action ID: '{action_id}'"
+                        )
+                for node_id in effect.endings or []:
+                    if node_id not in self.node_ids:
+                        self.errors.append(
+                            f"[{context}] > Effect '{effect.type}' references non-existent node ID: '{node_id}'"
+                        )
 
             # Recursively validate nested effects
             case ConditionalEffect():
