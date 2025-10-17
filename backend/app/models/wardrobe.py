@@ -29,7 +29,7 @@ class Clothing(DescriptiveModel):
     name: str
     value: float = 0.0
     state: ClothingState = ClothingState.INTACT
-    look: dict[ClothingState, str] = Field(default_factory=dict)
+    look: dict[ClothingState, str] | None = Field(default_factory=dict)
 
     occupies: list[ClothingSlot] = Field(default_factory=list)
     conceals: list[ClothingSlot] = Field(default_factory=list)

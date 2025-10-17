@@ -6,7 +6,7 @@ from enum import StrEnum
 
 from pydantic import Field
 from typing import NewType
-from .model import SimpleModel, DescriptiveModel, DSLExpression
+from .model import SimpleModel, DescriptiveModel, DSLExpression, OptionalConditionalMixin
 from .effects import EffectsList
 from .characters import BehaviorGateId
 from .meters import MeterId
@@ -17,10 +17,11 @@ class MeterClamp(SimpleModel):
 
 ModifierId = NewType("ModifierId", str)
 
-class Modifier(DescriptiveModel):
+class Modifier(OptionalConditionalMixin, DescriptiveModel):
     id: ModifierId
     group: str | None = None
 
+    # No conditions at all or exactly one must be set
     when: DSLExpression | None = None
     when_all: list[DSLExpression] | None = None
     when_any: list[DSLExpression] | None = None

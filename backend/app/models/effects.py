@@ -8,7 +8,7 @@ from __future__ import annotations
 from typing import Literal, ForwardRef, Annotated, Union
 from pydantic import Field
 
-from .model import SimpleModel, DSLExpression
+from .model import SimpleModel, DSLExpression, RequiredConditionalMixin
 from .characters import CharacterId
 from .items import ItemId
 from .wardrobe import ClothingId, OutfitId, ClothingState, ClothingSlot
@@ -20,7 +20,7 @@ from .nodes import NodeId
 
 AnyEffect = ForwardRef('AnyEffect')
 
-class Effect(SimpleModel):
+class Effect(RequiredConditionalMixin, SimpleModel):
     """Base effect structure."""
     type: Literal["effect"] = "effect"
     when: DSLExpression = 'always'
@@ -188,7 +188,7 @@ class RemoveModifierEffect(Effect):
     modifier_id: ModifierId
 
 
-# Unlocks
+# Unlocks & locks
 
 class UnlockEffect(Effect):
     """Unlock game content."""
@@ -201,6 +201,16 @@ class UnlockEffect(Effect):
     actions: list[str] | None = None
     endings: list[NodeId] | None = None
 
+class LockEffect(Effect):
+    """Lock game content."""
+    type: Literal["lock"] = "lock"
+    items: list[ItemId] | None = None
+    clothing: list[ClothingId] | None = None
+    outfits: list[OutfitId] | None = None
+    zones: list[ZoneId] | None = None
+    locations: list[LocationId] | None = None
+    actions: list[str] | None = None
+    endings: list[NodeId] | None = None
 
 # Flow control
 
@@ -233,7 +243,7 @@ AnyEffect = Annotated[
     ClothingPutOnEffect, ClothingTakeOffEffect,ClothingStateEffect, ClothingSlotStateEffect,
     OutfitPutOnEffect, OutfitTakeOffEffect,
     MoveEffect, MoveToEffect, TravelToEffect, AdvanceTimeEffect, AdvanceTimeSlotEffect,
-    ApplyModifierEffect, RemoveModifierEffect, UnlockEffect,
+    ApplyModifierEffect, RemoveModifierEffect, UnlockEffect, LockEffect,
     GotoEffect, ConditionalEffect, RandomEffect
 ],
     Field(discriminator="type")

@@ -14,7 +14,7 @@ class Item(DescriptiveModel):
     """Item definition."""
     id: ItemId
     name: str
-    category: str
+    category: str | None = None
     icon: str | None = None
 
     # Economy
@@ -34,7 +34,7 @@ class Item(DescriptiveModel):
     on_get: EffectsList = Field(default_factory=list)
     on_lost: EffectsList = Field(default_factory=list)
     on_use: EffectsList = Field(default_factory=list)
-    on_gift: EffectsList = Field(default_factory=list)
+    on_give: EffectsList = Field(default_factory=list)
 
 
 class InventoryItem(SimpleModel):

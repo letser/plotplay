@@ -380,7 +380,8 @@ which may introduce additional meters for this specific NPC or override meters f
   format: "integer|percent|currency"  # OPTIONAL. UI hint: "integer" (default) | "percent" | "currency".
 
   # --- Behavior & Dynamics ---
-  decay_per_day: <int>  # OPTIONAL. Applied at day rollover; negative = decay, positive = regen.
+  decay_per_day: <int>   # OPTIONAL. Applied at day rollover; negative = decay, positive = regen.
+  decay_per_slot: <int>  # OPTIONAL. Applied when slot advances; negative = decay, positive = regen.
   delta_cap_per_turn: <int>  # OPTIONAL. Max absolute change allowed per turn for this meter.
                              # Overrides any game-wide default cap for this meter only.
 
@@ -613,21 +614,15 @@ items:
     obtain_conditions: ["<expr>", ...] # OPTIONAL. Conditions to obtain.
 
     consumable: <bool>            # OPTIONAL. Destroyed on use.
-    target: "<enum>"              # OPTIONAL. "player" | "character" | "any"
     use_text: "<string>"          # OPTIONAL. Flavor text when used.
     
     # --- Gifting ---
     can_give: <bool>              # OPTIONAL. Can be gifted.
     
-    # --- Unlocks ---
-    unlocks:                      # OPTIONAL. Lists zones and/or locations unlocked by this item.
-      zone: ["<zone_id>", ...]          # OPTIONAL. Zone IDs.         
-      location: ["<location_id>", ...]  # OPTIONAL. Location IDs.
-    
     # --- Dynamic effects ---
     on_get:  [<effect>, ... ]    # OPTIONAL. Effects applied when get item. See the Effects section.
     on_lost: [<effect>, ... ]    # OPTIONAL. Effects applied when lost item. See the Effects section.
-    on_use:  [<effect>, ... ]    # OPTIONAL. Effects applied when used. . See the Effects section.
+    on_use:  [<effect>, ... ]    # OPTIONAL. Effects applied when used. See the Effects section.
     on_give: [<effect>, ... ]    # OPTIONAL. Effects when given. See the Effects section.
 ```
 
@@ -759,14 +754,14 @@ items:
     name: "<string>"               # REQUIRED. Display name.
     value: <float>                 # OPTIONAL. Shop price; non-negative.
     state: "intact|opened|displaced|removed"  # OPTIONAL. Default: "intact"
-    look:                          # REQUIRED. Narrative description.
-      intact: "<string>"           # REQUIRED. Description of the intact item.
+    look:                          # OPTIONAL. Narrative description.
+      intact: "<string>"           # OPTIONAL. Description of the intact item.
       opened: "<string>"           # OPTIONAL. Description of the opened item.
       displaced: "<string>"        # OPTIONAL. Description of the displaced item.
       removed: "<string>"          # OPTIONAL. Description of the removed item.
     occupies: ["<slot>", ...]      # REQUIRED. Which slot(s) the current item occupies? Items like dresses that use multiple slots.
     conceals: ["<slot>", ...]      # OPTIONAL. Which slots are under the current slot? Engine can generate a description based on this. 
-    can_open: <bool>               # OPTIONAL. Default: false. Can be opened/unfastened?
+    can_open: <bool>               # OPTIONAL. Default: true. Can be opened/unfastened?
     # --- Locking ---
     locked: <bool>              # OPTIONAL. Default: false.
     unlock_when: "<expr>"       # OPTIONAL. Unlock condition.
@@ -793,7 +788,10 @@ outfits:
     locked: <bool>              # OPTIONAL. Default: false.
     unlock_when: "<expr>"       # OPTIONAL. Unlock condition.
     # --- Dynamic effects ---
-    on_worn:  { ... }   # OPTIONAL. Effects applied when item is worn.
+    on_get:  [<effect>, ... ]      # OPTIONAL. Effects applied when get outfit. See the Effects section.
+    on_lost: [<effect>, ... ]      # OPTIONAL. Effects applied when lost outfit. See the Effects section.
+    on_put_on:  [<effect>, ... ]   # OPTIONAL. Effects applied when the outfit is put on.
+    on_take_off: [<effect>, ... ]  # OPTIONAL. Effects applied when the outfit is taken off.
 ```
 Note: items in outfits will be merged into slots in order of appearance. 
 If some items occupy the same slot, the last one will be used.
@@ -955,7 +953,7 @@ using cardinal direction and up/down between floors.
   # --- Connections (intra-zone travel) ---
   connections:                    # OPTIONAL. Connection to adjacent locations 
     - to: "<location_id>"         # REQUIRED. Target location in the same zone
-      description: "<string>"         # OPTIONAL. Short description to show in UI and pass to Writer. 
+      description: "<string>"     # OPTIONAL. Short description to show in UI and pass to Writer. 
       direction: "n|s|w|e|nw|ne|sw|se|u|d"   # REQUIRED. Cardinal directions and up/down.
       locked: <bool>                       # OPTIONAL. Default false.
       unlocked_when: "<expr>"              # OPTIONAL. Expression DSL. If true, then unlocked.
@@ -1060,21 +1058,30 @@ while meters for other characters are taken from the `template`  section.
   # --- Schedule ---
   schedule:                      # OPTIONAL. Controls where the character is by time/day. List of schedules 
     - when: "<expr>"              # A condition, typically checking time.slot or time.weekday
+      when_all: ["<expr>", ...]   # A list of conditions, all must be true.
+      when_any: ["<expr>", ...]   # A list of conditions, at least one must be true.
       location: "<location_id>"   # A location where a character will appear when condition met
+      # Exactly one of when, when_all, or when_any must be set.
 
   # --- Movement willingness ---
   movement:                       # OPTIONAL. Rules for following player to other zones/locations.
     willing_zones:                # OPTIONAL. List of rules for following player to other zones.
       - zone: "<zone_id>>"          # REQUIRED. Target zone.
         when: "<expr>"              # OPTIONAL. Condition when willing to move. Can be 'always', it is the same as not having a rule at all.
-        methods: ["<method>", ... ] # OPTIONAL. Methods to which rule is applicable 
+        when_all: ["<expr>", ...]   # OPTIONAL. List of conditions, all must be true.
+        when_any: ["<expr>", ...]   # OPTIONAL. List of conditions, at least one must be true.
+        # Exactly one of when, when_all, or when_any must be set.
     willing_locations:            # OPTIONAL. List of rules for following player to other locations.
       - location: "<location_id>>"  # REQUIRED. Target location.
         when: "<expr>"              # OPTIONAL. Condition when willing to move. Can be 'always', it is the same as not having a rule at all.
+        when_all: ["<expr>", ...]   # OPTIONAL. List of conditions, all must be true.
+        when_any: ["<expr>", ...]   # OPTIONAL. List of conditions, at least one must be true.
+        # Exactly one of when, when_all, or when_any must be set.
 
   inventory: <inventory>          # OPTIONAL. Items carried by this character.
   shop: <shop>                    # OPTIONAL. Shop definition.
 ```
+> Exactly one of `location` or `zone` must be set where applicable.
 
 ###  Gates 
 Behavioral **gates** are a powerful tool for defining the conditions under which a character 
@@ -1095,7 +1102,7 @@ gates:                        # OPTIONAL. A list of consent/behavior gates.
     acceptance: "<string>"      # OPTIONAL. Text to pass to Writer and Checker if a gate is active
     refusal: "<string>"         # OPTIONAL. Text to pass to Writer and Checker if a gate is not active
 ```
-> Only one of `when`, `when_any`, and `when_all` may be set.
+> Exactly one of `when`, `when_any`, and `when_all` may be set.
 > 
 > Either `acceptance` or `refusal` must be set.`
 
@@ -1401,10 +1408,20 @@ Changes a flag value.
 ```
 
 
-#### Unlocks
+#### Unlocks & Locks
 ```yaml
 # Unlocks listed entity(ies) 
 - type: unlock
+  items: ["<item_id>", ... ]
+  clothing: ["<clothing_id>", ... ]
+  outfits: ["<outfit_id>", ... ]
+  zones: ["<zone_id>", ... ]
+  locations: ["<location_id>", ... ]
+  actions: ["<action_id>", ... ]
+  endings: ["<node_id>", ... ]
+  
+# Locks listed entity(ies) 
+- type: lock
   items: ["<item_id>", ... ]
   clothing: ["<clothing_id>", ... ]
   outfits: ["<outfit_id>", ... ]
@@ -1504,7 +1521,7 @@ but don’t invent hard state changes by themselves.
   on_entry: [<effect>, ... ]    # OPTIONAL. Apply once when the modifier becomes active.
   on_exit:  [<effect>, ... ]    # OPTIONAL. Apply once when it ends.
 ```
-> Only one of `when`, `when_any`, and `when_all` may be set.
+> No conditions at all or exactly one of `when`, `when_any`, and `when_all` must be set.
 
 ### Modifiers Node & Stacking Rules 
 
@@ -1776,11 +1793,11 @@ In case of transition the processing chain terminates and the engine jumps to th
   characters_present: ["<string>", ...] # OPTIONAL. Explicitly list character IDs present in this node.
 
   # --- Triggering ---
-  when: "<expr>"                # OPTIONAL. Expression DSL Condition to trigger an event. Required.
-  when_all: ["<expr>", ... ]    # OPTIONAL. Expression DSL Condition to trigger an event. Required.
-  when_any: ["<expr>", ... ]    # OPTIONAL. Expression DSL Condition to trigger an event. Required.
+  when: "<expr>"                # OPTIONAL. Expression DSL Condition to trigger an event.
+  when_all: ["<expr>", ... ]    # OPTIONAL. Expression DSL Condition to trigger an event.
+  when_any: ["<expr>", ... ]    # OPTIONAL. Expression DSL Condition to trigger an event.
   probability: <int>            # OPTIONAL. Probability of ramdom event firing in percent. Default: 100. 
-  cooldown: <int>               # REQUIRED. Minutes or slots before re-eligibility.
+  cooldown: <int>               # OPTIONAL. Default 0. Minutes or slots before re-eligibility.
   once_per_game : <bool>        # OPTIONAL. Default: false. If true, fires only once per game run.
 
 

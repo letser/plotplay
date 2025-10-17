@@ -4,9 +4,9 @@ Characters.
 """
 
 from typing import NewType
-from pydantic import Field
+from pydantic import Field, model_validator
 
-from .model import SimpleModel, DescriptiveModel, DSLExpression
+from .model import SimpleModel, DescriptiveModel, DSLExpression, RequiredConditionalMixin
 from .meters import MetersDefinition
 from .inventory import Inventory
 from .wardrobe import WardrobeConfig, ClothingSlot, ClothingId, OutfitId
@@ -17,7 +17,7 @@ from .economy import Shop
 
 BehaviorGateId = NewType("BehaviorGateId", str)
 
-class BehaviorGate(SimpleModel):
+class BehaviorGate(RequiredConditionalMixin, SimpleModel):
     """Consent/behavior gate."""
     id: BehaviorGateId
     when: DSLExpression | None = None
@@ -26,10 +26,20 @@ class BehaviorGate(SimpleModel):
     acceptance: str | None = None
     refusal: str | None = None
 
+    @model_validator(mode='after')
+    def validate_textx(self):
+        if not any([self.acceptance, self.refusal]):
+            raise ValueError(
+                "At least one of 'acceptance' or 'refusal' must be defined."
+            )
+        return self
 
-class CharacterSchedule(SimpleModel):
+
+class CharacterSchedule(RequiredConditionalMixin, SimpleModel):
     """Character schedule."""
-    when: DSLExpression
+    when: DSLExpression | None = None
+    when_any: list[DSLExpression] | None = Field(default_factory=list)
+    when_all: list[DSLExpression] | None = Field(default_factory=list)
     location: LocationId
 
 
@@ -45,7 +55,7 @@ class Character(DescriptiveModel):
     """Complete character definition."""
     id: CharacterId
     name: str
-    age: int | None = None  # Optional for player character
+    age: int
     gender: str
     pronouns: list[str] | None = None
     dialogue_style: str | None = None

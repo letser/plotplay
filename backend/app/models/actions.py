@@ -5,12 +5,12 @@ Actions.
 from typing import NewType
 from pydantic import Field
 
-from .model import DescriptiveModel, DSLExpression
+from .model import DescriptiveModel, DSLExpression, OptionalConditionalMixin
 from .effects import EffectsList
 
 ActionId = NewType("ActionId", str)
 
-class Action(DescriptiveModel):
+class Action(OptionalConditionalMixin, DescriptiveModel):
     """A globally available, unlockable action."""
     id: ActionId
     prompt: str

@@ -7,7 +7,7 @@ from enum import StrEnum
 from pydantic import Field
 from typing import NewType, Literal
 
-from .model import SimpleModel, DescriptiveModel, DSLExpression
+from .model import SimpleModel, DescriptiveModel, DSLExpression, RequiredConditionalMixin
 from .economy import Shop
 from .inventory import Inventory
 
@@ -97,12 +97,12 @@ MovementMethod = NewType("MovementMethod", str)
 class MovementConfig(SimpleModel):
     base_time: int | None = 1
     use_entry_exit: bool = False
-    methods: list[MovementMethod] = Field(default_factory=lambda: ["walk"])
+    methods: dict[MovementMethod, int] = Field(default_factory=dict)
 
 
-class ZoneConnection(SimpleModel):
+class ZoneConnection(DescriptiveModel):
     """Connection between zones."""
-    to: list[LocationId | Literal["all"]] = Field(default_factory=list)
+    to: list[ZoneId | Literal["all"]] = Field(default_factory=list)
     exceptions: list[LocationId] | None = Field(default_factory=list)
     methods: list[MovementMethod] = Field(default_factory=list)
     distance: float | None = 1.0
@@ -113,6 +113,7 @@ class Zone(DescriptiveModel):
     id: ZoneId
     name: str
     summary: str | None = None
+    privacy: LocationPrivacy = LocationPrivacy.LOW
 
     access: LocationAccess  = Field(default_factory=LocationAccess)
     connections: list[ZoneConnection] = Field(default_factory=list)
@@ -123,17 +124,21 @@ class Zone(DescriptiveModel):
     exits: list[LocationId] = Field(default_factory=list)
 
 
-class ZoneMovementWillingness(SimpleModel):
+class ZoneMovementWillingness(RequiredConditionalMixin, SimpleModel):
     """Defines an NPC's willingness to move with the player."""
     zone: ZoneId
     when: DSLExpression | None = None
+    when_all: list[DSLExpression] | None = Field(default_factory=list)
+    when_any: list[DSLExpression] | None = Field(default_factory=list)
     methods: list[MovementMethod] = Field(default_factory=list)
 
 
-class LocationMovementWillingness(SimpleModel):
+class LocationMovementWillingness(RequiredConditionalMixin, SimpleModel):
     """Defines an NPC's willingness to move with the player."""
     location: LocationId
     when: DSLExpression | None = None
+    when_all: list[DSLExpression] | None = Field(default_factory=list)
+    when_any: list[DSLExpression] | None = Field(default_factory=list)
 
 
 class MovementWillingnessConfig(SimpleModel):

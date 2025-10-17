@@ -23,13 +23,13 @@ class ArcStage(DescriptiveModel):
     on_advance: EffectsList = Field(default_factory=list)
 
     @model_validator(mode='after')
-    def validate_advancement(self):
-        """Ensure at least one advancement condition is defined."""
-        if not (self.advance_when or self.advance_when_any or self.advance_when_all):
+    def validate_conditions(self):
+        if sum(bool(x) for x in (self.advance_when, self.advance_when_any, self.advance_when_all)) != 1:
             raise ValueError(
-                "Arc stage requires one of 'advance_when', 'advance_when_any', or 'advance_when_all'"
+                "Exactly one of 'when', 'when_any', or 'when_all' must be defined."
             )
         return self
+
 
 ArcId = NewType("ArcId", str)
 

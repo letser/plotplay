@@ -29,7 +29,7 @@ class Meter(DescriptiveModel):
     delta_cap_per_turn: int | None = None
 
     # Named thresholds
-    thresholds: list[MeterThreshold] | None = Field(default_factory=list)
+    thresholds: dict[str, MeterThreshold] | None = Field(default_factory=dict)
 
 
 MeterId = NewType("MeterId", str)

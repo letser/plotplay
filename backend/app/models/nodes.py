@@ -8,7 +8,7 @@ from enum import StrEnum
 
 from pydantic import Field, model_validator
 
-from .model import SimpleModel, DescriptiveModel, DSLExpression
+from .model import SimpleModel, DescriptiveModel, DSLExpression, OptionalConditionalMixin
 from .effects import EffectsList
 from .narration import GameNarration
 from .characters import CharacterId
@@ -25,7 +25,7 @@ class NodeType(StrEnum):
 NodeId = NewType("NodeId", str)
 
 
-class NodeCondition(SimpleModel):
+class NodeCondition(OptionalConditionalMixin, SimpleModel):
     """Node transition rule."""
     when: DSLExpression | None = None
     when_any: list[DSLExpression] | None = Field(default_factory=list)
@@ -37,7 +37,7 @@ class NodeTrigger(NodeCondition):
 
 class NodeChoice(NodeTrigger):
     """Player choice in a node."""
-    id: str | None = None
+    id: str
     prompt: str
 
 class Node(DescriptiveModel):
@@ -77,4 +77,4 @@ class EventTrigger(NodeCondition):
     once_per_game: bool | None = False
 
 class Event(EventTrigger, Node):
-    id: NodeId = NodeType.EVENT
+    type: NodeType = NodeType.EVENT
