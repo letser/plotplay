@@ -21,9 +21,11 @@ class Modifier(DescriptiveModel):
     id: ModifierId
     group: str | None = None
 
-    where: DSLExpression | None = None
+    when: DSLExpression | None = None
     when_all: list[DSLExpression] | None = None
     when_any: list[DSLExpression] | None = None
+
+    priority: int | None = None
 
     duration: int | None = None
 

@@ -11,7 +11,7 @@ from pydantic import Field
 from .model import SimpleModel, DSLExpression
 from .characters import CharacterId
 from .items import ItemId
-from .wardrobe import ClothingItemId, OutfitId, ClothingState, ClothingSlot
+from .wardrobe import ClothingId, OutfitId, ClothingState, ClothingSlot
 from .meters import MeterId
 from .flags import FlagId
 from .locations import LocationId, LocalDirection, MovementMethod, ZoneId
@@ -47,8 +47,8 @@ class FlagSetEffect(Effect):
 
 # Inventory
 
-ItemType = Literal["item", "clothing_item", "outfit"]
-AnyItemId = ItemId | ClothingItemId | OutfitId
+ItemType = Literal["item", "clothing", "outfit"]
+AnyItemId = ItemId | ClothingId | OutfitId
 
 class InventoryAddEffect(Effect):
     """Add an item to the inventory."""
@@ -108,20 +108,20 @@ class ClothingPutOnEffect(Effect):
     """Put on a clothing item and set its state """
     type: Literal["clothing_put_on"] = "clothing_put_on"
     target: CharacterId
-    item: ClothingItemId
-    state: ClothingState
+    item: ClothingId
+    state: ClothingState | None = ClothingState.INTACT
 
 class ClothingTakeOffEffect(Effect):
     """Take off a clothing item."""
     type: Literal["clothing_take_off"] = "clothing_take_off"
     target: CharacterId
-    item: ClothingItemId
+    item: ClothingId
 
-class ClothingItemStateEffect(Effect):
+class ClothingStateEffect(Effect):
     """Change the state of a clothing item."""
-    type: Literal["clothing_item_state"] = "clothing_item_state"
+    type: Literal["clothing_state"] = "clothing_state"
     target: CharacterId
-    item: ClothingItemId
+    item: ClothingId
     state: ClothingState
 
 class ClothingSlotStateEffect(Effect):
@@ -178,13 +178,13 @@ class AdvanceTimeSlotEffect(Effect):
 
 class ApplyModifierEffect(Effect):
     type: Literal["apply_modifier"] = "apply_modifier"
-    character: CharacterId
+    target: CharacterId
     modifier_id: ModifierId
-    duration_min: int | None = None
+    duration: int | None = None
 
 class RemoveModifierEffect(Effect):
     type: Literal["remove_modifier"] = "remove_modifier"
-    character: CharacterId
+    target: CharacterId
     modifier_id: ModifierId
 
 
@@ -194,7 +194,7 @@ class UnlockEffect(Effect):
     """Unlock game content."""
     type: Literal["unlock"] = "unlock"
     items: list[ItemId] | None = None
-    clothing_items: list[ClothingItemId] | None = None
+    clothing: list[ClothingId] | None = None
     outfits: list[OutfitId] | None = None
     zones: list[ZoneId] | None = None
     locations: list[LocationId] | None = None
@@ -230,7 +230,7 @@ AnyEffect = Annotated[
     Union[MeterChangeEffect, FlagSetEffect,
     InventoryAddEffect, InventoryRemoveEffect, InventoryTakeEffect, InventoryDropEffect,
     InventoryPurchaseEffect, InventorySellEffect,
-    ClothingPutOnEffect, ClothingTakeOffEffect,ClothingItemStateEffect, ClothingSlotStateEffect,
+    ClothingPutOnEffect, ClothingTakeOffEffect,ClothingStateEffect, ClothingSlotStateEffect,
     OutfitPutOnEffect, OutfitTakeOffEffect,
     MoveEffect, MoveToEffect, TravelToEffect, AdvanceTimeEffect, AdvanceTimeSlotEffect,
     ApplyModifierEffect, RemoveModifierEffect, UnlockEffect,

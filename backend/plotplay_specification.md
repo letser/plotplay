@@ -747,7 +747,7 @@ may extend and override the global lists.
 wardrobe:
   slots: ["<string>",  ... ]       # Ordered list of clothing slots. 
   # E.g. ["outerwear", "top", "bottom", "underwear_top", "underwear_bottom", "feet", "accessories"] 
-  items:   [<clothing item>, ...]  # Global clothing item library
+  items:   [<clothing>, ...]  # Global clothing item library
   outfits: [<outfit>, ...]         # Global outfits library
 ```
 
@@ -786,7 +786,7 @@ outfits:
     description: "<string>"     # OPTIONAL. Author notes.
 
     # --- Items ---
-    items: [<item_id>, ...]             # Items in the outfit by slot. 
+    items: [<clothing>, ...]             # Items in the outfit by slot. 
     grant_items: <bool>                 # OPTIONAL. Auto-grant items.
           
     # --- Locking ---
@@ -823,14 +823,14 @@ The internal game state object tracks the same inventory structure for each char
 
 inventory:
   items: [<Inventory_item>, ...]              # OPTIONAL. Available items
-  clothing_items: [<Inventory_item>, ...      # OPTIONAL. Available clothing items
+  clothing: [<Inventory_item>, ...            # OPTIONAL. Available clothing items
   outfits: [<inventory_item>, ...] :          # OPTIONAL. Available outfits
 ```
 ```yaml
 # Inventory_item definition
 # Place inside lists in the inventory 
 
-- id: <item_id|clothing_item_id"outfit_id>  # REQUIRED.
+- id: <item_id|clothing_id"outfit_id>  # REQUIRED.
   count: <int>                              # OPTIONAL. Default: 1. Number of items available.
   value: <float>                            # OPTIONAL. Price override of the item.
   infinite: <bool>                          # OPTIONAL. Infinite (ignores count)? Default: false.
@@ -1231,33 +1231,34 @@ Changes a flag value.
 # Add item to inventory
 - type: inventory_add
   # ... common fields
-  target: "player|<npc_id>"   # REQUIRED. Effect target. Ignored for the flag_set
-  item_type: "item | outfit | clothing" # OPTIONAL. Default: "item". Type of the item
-  item: "<item_id>"
-  count: <int>                   # OPTIONAL. Default: 1.
+  target: "player | <npc_id>"                 # REQUIRED. Effect target. Ignored for the flag_set
+  item_type: "item | clothing | outfit"       # REQUIRED. Type of the item
+  item: "<item_id | clothing_id | outfit_id>" # REQUIRED 
+  count: <int>                                # OPTIONAL. Default: 1.
 
 # Remove item from inventory
 - type: inventory_remove
   # ... common fields
-  target: "player|<npc_id>"   # REQUIRED. Effect target. Ignored for the flag_set
-  item_type: "item | outfit | clothing" # OPTIONAL. Default: "item". Type of the item
-  item: "<item_id>"
-  count: <int>                  # OPTIONAL. Default: 1.
+  target: "player | <npc_id>"                 # REQUIRED. Effect target. Ignored for the flag_set
+  item_type: "item | clothing | outfit"       # REQUIRED. Type of the item
+  item: "<item_id | clothing_id | outfit_id>" # REQUIRED 
+  count: <int>                                # OPTIONAL. Default: 1.
 
 # Take item from the current location; checks availability 
 - type: inventory_take
   # ... common fields
-  target: "player|<npc_id>"   # REQUIRED. Effect target. Ignored for the flag_set
-  item_type: "item | outfit | clothing" # OPTIONAL. Default: "item". Type of the item
-  item: "<item_id>"
-  count: <int>                   # OPTIONAL. Default: 1.
+  target: "player | <npc_id>"                 # REQUIRED. Effect target. Ignored for the flag_set
+  item_type: "item | clothing | outfit"       # REQUIRED. Type of the item
+  item: "<item_id | clothing_id | outfit_id>" # REQUIRED 
+  count: <int>                                # OPTIONAL. Default: 1.
 
 # Drops item at the current location inventory
 - type: inventory_drop
-  # ... common fields
-  item_type: "item | outfit | clothing" # OPTIONAL. Default: "item". Type of the item
-  item: "<item_id>"
-  count: <int>                  # OPTIONAL. Default: 1.
+  # ... common fields 
+  target: "player | <npc_id>"                 # REQUIRED. Effect target. Ignored for the flag_set
+  item_type: "item | clothing | outfit"       # REQUIRED. Type of the item
+  item: "<item_id | clothing_id | outfit_id>" # REQUIRED 
+  count: <int>                                # OPTIONAL. Default: 1.
 ```
 
 #### Shopping
@@ -1265,63 +1266,63 @@ Changes a flag value.
 # Purchase item 
 - type: inventory_purchase
   # ... common fields
-  target: "player|<npc_id>"             # REQUIRED. Effect target. Ignored for the flag_set
-  source: "<location_id>|<npc_id>"      # REQUIRED. Source of the item (npc or location with a shop).
-  item_type: "item | outfit | clothing" # OPTIONAL. Default: "item". Type of the item
-  item: "<item_id>"                     # REQUIRED 
-  count: <int>                          # OPTIONAL. Default: 1.
-  price: <float>                        # OPTIONAL. Default: defined by item or shop 
+  target: "player | <npc_id>"                  # REQUIRED. Effect target. Ignored for the flag_set
+  source: "<location_id | npc_id>"             # REQUIRED. Source of the item (npc or location with a shop).
+  item_type: "item | outfit | clothing"        # REQUIRED. Type of the item
+  item: "<item_id | outfit_id | clothing_id>"  # REQUIRED 
+  count: <int>                                 # OPTIONAL. Default: 1.
+  price: <float>                               # OPTIONAL. Default: defined by item or shop 
 
 # Sell item from inventory
 - type: inventory_sell
   # ... common fields
-  target: "<location_id>|<npc_id>"      # REQUIRED. Source of the item (npc or location with a shop).
-  source: "player|<npc_id>"             # REQUIRED. Effect target. Ignored for the flag_set
-  item_type: "item | outfit | clothing" # OPTIONAL. Default: "item". Type of the item
-  item: "<item_id>"                     # REQUIRED 
-  count: <int>                          # OPTIONAL. Default: 1.
-  price: <float>                        # OPTIONAL. Default: defined by item or shop 
+  target: "<location_id | npc_id>"             # REQUIRED. Source of the item (npc or location with a shop).
+  source: "player | <npc_id>"                  # REQUIRED. Effect target. Ignored for the flag_set
+  item_type: "item | outfit | clothing"        # REQUIRED. Type of the item
+  item: "<item_id | outfit_id | clothing_id>"  # REQUIRED 
+  count: <int>                                 # OPTIONAL. Default: 1.
+  price: <float>                               # OPTIONAL. Default: defined by item or shop 
 ```
 #### Clothing
 ````yaml
 # Puts an item from the wardrobe on
 - type: clothing_put_on
   # ... common fields
-  target: "player|<npc_id>"   # REQUIRED. Effect target. Ignored for the flag_set
-  item: "<item_id>"           # REQUIRED. Clothing item will occupy corresponding slot(s).
+  target: "player | <npc_id>"    # REQUIRED. Effect target. Ignored for the flag_set
+  item: "<clothing_id>"          # REQUIRED. Clothing item will occupy corresponding slot(s).
   state: "intact | displaced | opened | removed" # OPTIONAL. Default: taken from the item or intact.
 
 # Takes an item off and keeps it in the wardrobe 
 - type: clothing_take_off
   # ... common fields
-  target: "player|<npc_id>"   # REQUIRED. Effect target. Ignored for the flag_set
-  item: "<item_id>"           # REQUIRED. 
+  target: "player | <npc_id>"     # REQUIRED. Effect target. Ignored for the flag_set
+  item: "<clothing_id>"           # REQUIRED. 
 
 # Applies state to item  
-- type: clothing_item_state
+- type: clothing_state
   # ... common fields
-  target: "player|<npc_id>"   # REQUIRED. Effect target. Ignored for the flag_set
-  item: "<item_id>"           # REQUIRED. 
+  target: "player | <npc_id>"     # REQUIRED. Effect target. Ignored for the flag_set
+  item: "<clothing_id>"           # REQUIRED. 
   state: "intact | displaced | opened | removed" # REQUIRED.
 
 # Applies state to the item that occupies the slot
 - type: clothing_slot_state
   # ... common fields
-  target: "player|<npc_id>"   # REQUIRED. Effect target. Ignored for the flag_set
-  slot: "<slot_id>"           # REQUIRED. 
+  target: "player | <npc_id>"   # REQUIRED. Effect target. Ignored for the flag_set
+  slot: "<slot_id>"             # REQUIRED. 
   state: "intact | displaced | opened | removed" # REQUIRED.
 
 # Puts on all items from te outfit 
 - type: outfit_put_on
   # ... common fields
-  target: "player|<npc_id>"   # REQUIRED. Effect target. Ignored for the flag_set
-  item: "<outfit_id>"         # REQUIRED. 
+  target: "player | <npc_id>"   # REQUIRED. Effect target. Ignored for the flag_set
+  item: "<outfit_id>"           # REQUIRED. 
 
 # Takes off all items from the outfit  
 - type: outfit_take_off
   # ... common fields
-  target: "player|<npc_id>"    # REQUIRED. Effect target. Ignored for the flag_set
-  item: "<outfit_id>"          # REQUIRED.
+  target: "player | <npc_id>"    # REQUIRED. Effect target. Ignored for the flag_set
+  item: "<outfit_id>"            # REQUIRED.
 ````
 
 #### Movement & Time
@@ -1405,7 +1406,7 @@ Changes a flag value.
 # Unlocks listed entity(ies) 
 - type: unlock
   items: ["<item_id>", ... ]
-  clothing_items: ["<clothing_item_id>", ... ]
+  clothing: ["<clothing_id>", ... ]
   outfits: ["<outfit_id>", ... ]
   zones: ["<zone_id>", ... ]
   locations: ["<location_id>", ... ]

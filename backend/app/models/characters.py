@@ -9,7 +9,7 @@ from pydantic import Field
 from .model import SimpleModel, DescriptiveModel, DSLExpression
 from .meters import MetersDefinition
 from .inventory import Inventory
-from .wardrobe import WardrobeConfig, ClothingSlot, ClothingItemId, OutfitId
+from .wardrobe import WardrobeConfig, ClothingSlot, ClothingId, OutfitId
 from .locations import LocationId, MovementWillingnessConfig
 from .economy import Shop
 
@@ -35,7 +35,7 @@ class CharacterSchedule(SimpleModel):
 
 class ClothingConfig(SimpleModel):
     outfit: OutfitId | None = None
-    items: dict[ClothingSlot, ClothingItemId] = Field(default_factory=dict)
+    items: dict[ClothingSlot, ClothingId] = Field(default_factory=dict)
 
 
 CharacterId = NewType("CharacterId", str)

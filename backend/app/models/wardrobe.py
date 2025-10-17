@@ -12,7 +12,7 @@ from .model import SimpleModel, DescriptiveModel, DSLExpression
 from .effects import EffectsList
 
 ClothingSlot = NewType("ClothingSlot", str)
-ClothingItemId = NewType("ClothingItemId", str)
+ClothingId = NewType("ClothingId", str)
 OutfitId = NewType("OutfitId", str)
 
 class ClothingState(StrEnum):
@@ -23,9 +23,9 @@ class ClothingState(StrEnum):
     REMOVED = "removed"
 
 
-class ClothingItem(DescriptiveModel):
+class Clothing(DescriptiveModel):
     """Clothing Item definition."""
-    id: ClothingItemId
+    id: ClothingId
     name: str
     value: float = 0.0
     state: ClothingState = ClothingState.INTACT
@@ -56,7 +56,7 @@ class ClothingItem(DescriptiveModel):
 class Outfit(DescriptiveModel):
     id: OutfitId
     name: str
-    items: list[ClothingItemId] = Field(default_factory=list)
+    items: list[ClothingId] = Field(default_factory=list)
 
     grant_items: bool = True
 
@@ -73,5 +73,5 @@ class Outfit(DescriptiveModel):
 class WardrobeConfig(SimpleModel):
     """Wardrobe configuration."""
     slots: list[ClothingSlot] = Field(default_factory=list)
-    items: list[ClothingItem] = Field(default_factory=list)
+    items: list[Clothing] = Field(default_factory=list)
     outfits: list[Outfit] = Field(default_factory=list)
