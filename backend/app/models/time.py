@@ -4,8 +4,8 @@ Time System.
 """
 
 from enum import StrEnum
-from typing import NewType, Annotated
-from pydantic import Field, field_validator, StringConstraints
+from typing import Annotated, NewType
+from pydantic import Field, field_validator, model_validator, StringConstraints
 from .model import SimpleModel
 
 
@@ -20,8 +20,8 @@ class TimeMode(StrEnum):
 
 class SlotWindow(SimpleModel):
     """Time window for a slot in hybrid mode."""
-    start: str  # HH:MM
-    end: str # HH:MM
+    start: TimeHHMM
+    end: TimeHHMM
 
 WeekDay = NewType("WeekDay", str)
 
@@ -37,8 +37,8 @@ class TimeConfig(SimpleModel):
     """Complete time system configuration."""
     mode: TimeMode = TimeMode.SLOTS
     slots: list[TimeSlot] | None = Field(default_factory=list)
-    actions_per_slot: int = 5
-    minutes_per_action: int = 30
+    actions_per_slot: int | None = None
+    minutes_per_action: int | None = None
     slot_windows: dict[TimeSlot, SlotWindow] | None = Field(default_factory=dict)
 
     week_days: list[WeekDay] = Field(default_factory=lambda: [
@@ -54,3 +54,40 @@ class TimeConfig(SimpleModel):
         if v not in week_days:
             raise ValueError(f"start_day '{v}' must be one of {week_days}")
         return v
+
+    @model_validator(mode='after')
+    def validate_mode_requirements(self):
+        """Ensure mode-specific requirements are satisfied."""
+        slots = self.slots or []
+        slot_windows = self.slot_windows or {}
+
+        if self.actions_per_slot is not None and self.actions_per_slot <= 0:
+            raise ValueError("actions_per_slot must be a positive integer.")
+
+        if self.minutes_per_action is not None and self.minutes_per_action <= 0:
+            raise ValueError("minutes_per_action must be a positive integer.")
+
+        if self.mode in (TimeMode.SLOTS, TimeMode.HYBRID) and not slots:
+            raise ValueError("slots mode requires at least one slot to be defined.")
+
+        if self.mode in (TimeMode.CLOCK, TimeMode.HYBRID):
+            if self.minutes_per_action is None:
+                raise ValueError(
+                    "clock and hybrid modes require 'minutes_per_action' to be set."
+                )
+
+        if self.mode == TimeMode.HYBRID:
+            if not slot_windows:
+                raise ValueError("hybrid mode requires 'slot_windows' to be defined.")
+            missing_windows = [slot for slot in slots if slot not in slot_windows]
+            if missing_windows:
+                raise ValueError(
+                    f"hybrid mode requires slot windows for all slots: missing {missing_windows}"
+                )
+        else:
+            if slot_windows:
+                raise ValueError(
+                    "slot_windows may only be provided when mode is 'hybrid'."
+                )
+
+        return self

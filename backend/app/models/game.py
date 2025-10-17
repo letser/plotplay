@@ -2,7 +2,7 @@
 PlotPlay Game Models
 Game Definition
 """
-from pydantic import BaseModel, Field, AliasPath
+from pydantic import BaseModel, Field, AliasPath, model_validator
 
 from .model import SimpleModel, DescriptiveModel, DSLExpression
 from .actions import Action
@@ -12,7 +12,7 @@ from .items import Item
 from .locations import Zone, LocationId, MovementConfig
 from .meters import MetersConfig
 from .nodes import NodeId, Node, Event
-from .time import TimeConfig, TimeHHMM
+from .time import TimeConfig, TimeHHMM, TimeMode
 from .flags import FlagsConfig
 from .modifiers import ModifiersConfig
 from .narration import GameNarration
@@ -71,3 +71,21 @@ class GameDefinition(SimpleModel):
 
     # Extra files to include
     includes: list[str] = Field(default_factory=list)
+
+    @model_validator(mode='after')
+    def validate_start_requirements(self):
+        """Ensure start slot aligns with the configured time mode."""
+        time_mode = self.time.mode
+        slots = self.time.slots or []
+
+        if time_mode in (TimeMode.SLOTS, TimeMode.HYBRID):
+            if not self.start_slot:
+                raise ValueError(
+                    "start.slot must be defined when time mode is 'slots' or 'hybrid'."
+                )
+            if slots and self.start_slot not in slots:
+                raise ValueError(
+                    f"start.slot '{self.start_slot}' is not defined in time.slots."
+                )
+
+        return self

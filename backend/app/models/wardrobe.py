@@ -6,7 +6,7 @@ Clothing and wardrobe
 from typing import  NewType
 from enum import StrEnum
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from .model import SimpleModel, DescriptiveModel, DSLExpression
 from .effects import EffectsList
@@ -23,17 +23,25 @@ class ClothingState(StrEnum):
     REMOVED = "removed"
 
 
+class ClothingLook(SimpleModel):
+    """Narrative descriptions for clothing states."""
+    intact: str
+    opened: str | None = None
+    displaced: str | None = None
+    removed: str | None = None
+
+
 class Clothing(DescriptiveModel):
     """Clothing Item definition."""
     id: ClothingId
     name: str
     value: float = 0.0
     state: ClothingState = ClothingState.INTACT
-    look: dict[ClothingState, str] | None = Field(default_factory=dict)
+    look: ClothingLook
 
     occupies: list[ClothingSlot] = Field(default_factory=list)
     conceals: list[ClothingSlot] = Field(default_factory=list)
-    can_open: bool = True
+    can_open: bool = False
 
     locked: bool = False
     unlock_when: DSLExpression | None = None
@@ -51,6 +59,12 @@ class Clothing(DescriptiveModel):
     on_lost: EffectsList = Field(default_factory=list)
     on_put_on: EffectsList = Field(default_factory=list)
     on_take_off: EffectsList = Field(default_factory=list)
+
+    @model_validator(mode='after')
+    def validate_slots(self):
+        if not self.occupies:
+            raise ValueError("Clothing item must occupy at least one slot.")
+        return self
 
 
 class Outfit(DescriptiveModel):
