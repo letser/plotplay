@@ -3,12 +3,21 @@ PlotPlay Game Models
 Items
 """
 
-from typing import NewType
+from __future__ import annotations
+
+from typing import NewType, TYPE_CHECKING
 from pydantic import Field
+
 from .model import DescriptiveModel, DSLExpression, SimpleModel
-from .effects import EffectsList
+
+if TYPE_CHECKING:
+    from .effects import EffectsList
+else:
+    EffectsList = list
+
 
 ItemId = NewType("ItemId", str)
+
 
 class Item(DescriptiveModel):
     """Item definition."""
@@ -41,6 +50,6 @@ class InventoryItem(SimpleModel):
     """Inventory item definition."""
     item: ItemId
     count: int = 1
-    replenish:  bool = False
-    discovered:  bool= True
+    replenish: bool = False
+    discovered: bool = True
     discovered_when: DSLExpression | None = None

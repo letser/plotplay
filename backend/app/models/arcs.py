@@ -3,12 +3,19 @@ PlotPlay Game Models.
 Arc System.
 """
 
-from typing import NewType
+from __future__ import annotations
+
+from typing import NewType, TYPE_CHECKING
 from pydantic import Field, model_validator
 
 from .model import DescriptiveModel, DSLExpression
-from .effects import EffectsList
 from .characters import CharacterId
+
+if TYPE_CHECKING:
+    from .effects import EffectsList
+else:
+    EffectsList = list
+
 
 class ArcStage(DescriptiveModel):
     """Arc stage/milestone."""
@@ -32,6 +39,7 @@ class ArcStage(DescriptiveModel):
 
 
 ArcId = NewType("ArcId", str)
+
 
 class Arc(DescriptiveModel):
     """Story arc definition."""

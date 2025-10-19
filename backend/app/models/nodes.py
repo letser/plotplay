@@ -3,15 +3,21 @@ PlotPlay Game Models.
 Nodes
 """
 
-from typing import NewType
+from __future__ import annotations
+
+from typing import NewType, TYPE_CHECKING
 from enum import StrEnum
 
 from pydantic import Field, model_validator
 
 from .model import SimpleModel, DescriptiveModel, DSLExpression, OptionalConditionalMixin
-from .effects import EffectsList
 from .narration import GameNarration
 from .characters import CharacterId
+
+if TYPE_CHECKING:
+    from .effects import EffectsList
+else:
+    EffectsList = list
 
 
 class NodeType(StrEnum):

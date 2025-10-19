@@ -15,9 +15,14 @@
 - React files use PascalCase components, camelCase hooks (`useStoryState`), four-space indents, and colocate Zustand stores in `stores/` as `use<Feature>Store`.
 
 ## Testing Guidelines
-- `cd backend && python run_tests.py` executes the canonical pytest order; use `pytest tests/test_events.py -k filter` for focused runs.
-- Pytest runs with asyncio auto mode; add reusable fixtures in `backend/tests/conftest.py` and prefer factory helpers over hard-coded IDs.
-- Track coverage with `pytest --cov=app --cov-report=term-missing`; call out regressions below ~80% in review notes and extend fixtures alongside new schema fields.
+- Legacy suites live under `backend/tests/`; we are building a new spec-aligned suite in `backend/tests_v2/`. Add fresh tests there using the shared fixtures in `tests_v2/conftest.py`.
+- `pytest backend/tests_v2/test_conditions.py backend/tests_v2/test_game_loader.py` exercises the DSL and loader smoke tests. Extend with additional modules as the refactor continues.
+- Once the refactor is complete we will migrate CI to the `tests_v2/` suite; avoid adding to the legacy suite unless strictly necessary.
+
+## Active Refactor Notes
+- Expression DSL implementation lives in `backend/app/core/conditions.py`; use the new helper methods (`evaluate_all`, `evaluate_any`, `evaluate_conditions`) instead of building boolean strings.
+- Game loader/validator are being modernized. Loader defaults to new schema (no backward compatibility); validator assumes nodes expose `on_entry`/`on_exit` only.
+- Two example games (`games/coffeeshop_date`, `games/college_romance`) already conform to the updated manifest shape—use them as references.
 
 ## Commit & Pull Request Guidelines
 - Commit subjects mirror the existing history: short, capitalized, present-tense lines such as `Add wardrobe validators`.

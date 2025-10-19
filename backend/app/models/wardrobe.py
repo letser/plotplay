@@ -3,13 +3,19 @@ PlotPlay Game Models
 Clothing and wardrobe
 """
 
-from typing import  NewType
+from __future__ import annotations
+
+from typing import NewType, TYPE_CHECKING
 from enum import StrEnum
 
 from pydantic import Field, model_validator
 
 from .model import SimpleModel, DescriptiveModel, DSLExpression
-from .effects import EffectsList
+
+if TYPE_CHECKING:
+    from .effects import EffectsList
+else:
+    EffectsList = list
 
 ClothingSlot = NewType("ClothingSlot", str)
 ClothingId = NewType("ClothingId", str)

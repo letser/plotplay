@@ -2,13 +2,21 @@
 PlotPlay Game Models.
 Actions.
 """
-from typing import NewType
+from __future__ import annotations
+
+from typing import NewType, TYPE_CHECKING
 from pydantic import Field
 
 from .model import DescriptiveModel, DSLExpression, OptionalConditionalMixin
-from .effects import EffectsList
+
+if TYPE_CHECKING:
+    from .effects import EffectsList
+else:
+    EffectsList = list
+
 
 ActionId = NewType("ActionId", str)
+
 
 class Action(OptionalConditionalMixin, DescriptiveModel):
     """A globally available, unlockable action."""

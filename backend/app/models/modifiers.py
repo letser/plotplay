@@ -2,14 +2,20 @@
 PlotPlay Game Models.
 Modifiers System.
 """
+from __future__ import annotations
+
 from enum import StrEnum
 
 from pydantic import Field
-from typing import NewType
+from typing import NewType, TYPE_CHECKING
 from .model import SimpleModel, DescriptiveModel, DSLExpression, OptionalConditionalMixin
-from .effects import EffectsList
 from .characters import BehaviorGateId
 from .meters import MeterId
+
+if TYPE_CHECKING:
+    from .effects import EffectsList
+else:
+    EffectsList = list
 
 class MeterClamp(SimpleModel):
     min: int
