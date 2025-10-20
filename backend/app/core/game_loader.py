@@ -9,6 +9,28 @@ from app.models.game import GameDefinition
 from app.core.game_validator import GameValidator
 from app.core.game_settings import GameSettings
 
+_ALLOWED_ROOT_KEYS: set[str] = {
+    "meta",
+    "narration",
+    "rng_seed",
+    "start",
+    "meters",
+    "flags",
+    "time",
+    "economy",
+    "items",
+    "wardrobe",
+    "characters",
+    "zones",
+    "movement",
+    "nodes",
+    "modifiers",
+    "actions",
+    "events",
+    "arcs",
+    "includes",
+}
+
 
 class GameLoader:
     """Loads and validates game definition."""
@@ -42,9 +64,10 @@ class GameLoader:
 
         # Load the main game manifest (game.yaml)
         manifest_data = self._load_yaml(game_path / "game.yaml")
+        self._validate_root_keys(manifest_data, "game.yaml")
 
         # The manifest data itself becomes the base for the final game definition
-        game_data = manifest_data.copy()
+        game_data = self._clone(manifest_data)
 
         # Ensure expected top-level collections exist so includes merge cleanly
         defaults: dict[str, Any] = {
@@ -54,7 +77,6 @@ class GameLoader:
             'economy': {},
             'start': {},
             'wardrobe': {},
-            #'wardrobe'"': {"slots": [], "items": [], "outfits": []},
             'movement': {},
 
             "items": [],
@@ -72,7 +94,13 @@ class GameLoader:
                 game_data[key] = self._clone(defaults[key])
 
         # Iterate over the included files and merge their contents
-        for include_file in game_data.get("includes", []):
+        includes = game_data.get("includes") or []
+        if not isinstance(includes, list):
+            raise ValueError("The 'includes' entry must be a list of file paths.")
+
+        for include_file in includes:
+            if not isinstance(include_file, str) or not include_file.strip():
+                raise ValueError("Include entries must be non-empty strings.")
             file_path = (game_path / include_file).resolve()
             try:
                 _ = file_path.relative_to(game_path)
@@ -80,16 +108,33 @@ class GameLoader:
                 raise ValueError(f"Invalid include file path: '{include_file}'")
             if file_path.exists():
                 included_content = self._load_yaml(file_path)
+                self._validate_root_keys(included_content, include_file)
                 merge_config = included_content.pop("__merge__", {})
-                merge_mode = merge_config.get("mode", "append")
+                if merge_config and not isinstance(merge_config, dict):
+                    raise ValueError(
+                        f"__merge__ block in '{include_file}' must be a mapping."
+                    )
+                merge_mode = merge_config.get("mode", "append") if isinstance(merge_config, dict) else "append"
+                replace_mode = self._parse_merge_mode(merge_mode, include_file)
+
+                if "includes" in included_content:
+                    raise ValueError(
+                        f"Nested includes detected in '{include_file}'. Nested includes are not supported."
+                    )
 
                 try:
-                    game_data = self._merge_dicts(game_data, included_content, merge_mode)
+                    game_data = self._merge_dicts(game_data, included_content, replace_mode)
                 except ValueError as e:
                     raise ValueError(f"Error merging included file '{include_file}': {e}")
             else:
                 # It's better to raise an error for a missing file than to warn
                 raise FileNotFoundError(f"Included file '{include_file}' not found in '{game_path}'")
+
+        meta_id = game_data.get("meta", {}).get("id")
+        if isinstance(meta_id, str) and meta_id != game_id:
+            raise ValueError(
+                f"Game '{game_id}' manifest meta.id '{meta_id}' does not match folder name."
+            )
 
         # Create the GameDefinition object with the fully merged data
         game_def = GameDefinition(**game_data)
@@ -264,3 +309,36 @@ class GameLoader:
         "return: The cloned value.
         """
         return deepcopy(value)
+
+    @staticmethod
+    def _parse_merge_mode(mode_value: Any, source: str) -> bool:
+        """Interpret merge mode config."""
+        if isinstance(mode_value, bool):
+            return mode_value
+
+        if isinstance(mode_value, str):
+            normalized = mode_value.strip().lower()
+            if normalized == "replace":
+                return True
+            if normalized == "append":
+                return False
+
+        raise ValueError(
+            f"Invalid merge mode '{mode_value}' in '{source}'. "
+            "Supported values are 'append' or 'replace'."
+        )
+
+    @staticmethod
+    def _validate_root_keys(data: dict[str, Any], source: str) -> None:
+        """Ensure only recognized top-level keys are present."""
+        if not isinstance(data, dict):
+            raise ValueError(
+                f"File '{source}' must define a mapping of root keys, got {type(data).__name__}."
+            )
+        unknown = set(data.keys()) - _ALLOWED_ROOT_KEYS - {"__merge__"}
+        if unknown:
+            raise ValueError(
+                f"Unknown top-level keys {sorted(unknown)} found in '{source}'. "
+                "Allowed keys: "
+                + ", ".join(sorted(_ALLOWED_ROOT_KEYS))
+            )

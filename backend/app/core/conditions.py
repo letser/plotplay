@@ -143,8 +143,11 @@ class ConditionEvaluator:
         """Construct the evaluation context described in the specification."""
         modifiers = self._normalize_modifiers(self.game_state.modifiers)
         arcs = {
-            arc_id: {"stage": stage, "history": []}
-            for arc_id, stage in (self.game_state.active_arcs or {}).items()
+            arc_id: {
+                "stage": arc_state.stage,
+                "history": list(arc_state.history),
+            }
+            for arc_id, arc_state in (self.game_state.arcs or {}).items()
         }
 
         context: dict[str, Any] = {

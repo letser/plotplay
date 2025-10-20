@@ -1,4 +1,17 @@
 # Repository Guidelines
+
+## Recent Engine Refactor Progress
+- Added `GameDefinition.index` caches (nodes, actions, items, wardrobe, meters, locations) for O(1) lookups across all runtime systems.
+- Rebuilt the loader to validate top-level keys, includes, merge modes, and `meta.id`, preventing malformed manifests from slipping through.
+- Reworked `StateManager` to emit spec-aligned runtime snapshots (time/location structs, per-character meters/inventory/clothing/modifiers, arc history) seeded from the new indexes.
+- Extended `backend/tests_v2` with loader, validator, and state-manager coverage; run `PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=backend pytest backend/tests_v2` before shipping.
+
+## Next Steps (high priority)
+- Update managers (event, modifier, inventory, clothing, movement) to consume `GameDefinition.index` instead of ad-hoc scans and align with the new `GameState` structure.
+- Implement effect application utilities that operate on the refactored state (meters, inventories, clothing, unlocks) and reuse them inside `GameEngine`.
+- Expand prompts/state envelopes to surface the new arc history, wardrobe, and discovery data, then update Checker/Writer scaffolding tests.
+- Audit legacy tests and services to ensure they no longer rely on removed fields (`state.location_current` dicts, etc.) and adjust fixtures via `tests_v2/conftest.py`.
+
 ## Project Structure & Module Organization
 - `backend/app/` hosts FastAPI modules: keep routers in `api/`, business rules in `services/`, and Pydantic schemas in `models/`.
 - `backend/tests/` mirrors the app tree; extend shared fixtures in `conftest.py` and adjust `run_tests.py` whenever the suite order needs updating.

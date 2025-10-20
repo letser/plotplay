@@ -1,4 +1,3 @@
-import yaml
 from pathlib import Path
 
 import pytest
@@ -6,138 +5,7 @@ import pytest
 from app.core.game_loader import GameLoader
 from app.models.game import GameDefinition
 
-
-def write_yaml(path: Path, data: dict) -> None:
-    path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
-
-
-def create_minimal_game(tmp_path: Path) -> Path:
-    game_dir = tmp_path / "campus_story"
-    game_dir.mkdir()
-
-    game_manifest = {
-        "meta": {
-            "id": "campus_story",
-            "title": "Campus Story",
-            "authors": ["Test Author"],
-            "nsfw_allowed": False,
-        },
-        "narration": {"pov": "second", "tense": "present", "paragraphs": "1-2"},
-        "start": {"location": "campus_quad", "node": "intro", "day": 1, "slot": "morning", "time": "08:00"},
-        "meters": {
-            "player": {
-                "energy": {"min": 0, "max": 100, "default": 70},
-            },
-            "template": {
-                "trust": {"min": 0, "max": 100, "default": 10},
-            },
-        },
-        "flags": {
-            "met_friend": {"type": "bool", "default": False},
-        },
-        "time": {
-            "mode": "slots",
-            "slots": ["morning", "evening"],
-            "actions_per_slot": 3,
-        },
-        "economy": {"enabled": True},
-        "movement": {
-            "base_time": 1,
-            "use_entry_exit": False,
-            "methods": [{"walk": 1}],
-        },
-        "includes": ["items.yaml", "characters.yaml", "locations.yaml", "nodes.yaml"],
-    }
-    write_yaml(game_dir / "game.yaml", game_manifest)
-
-    items_yaml = {
-        "items": [
-            {"id": "coffee", "name": "Coffee", "category": "drink", "value": 5},
-        ],
-        "wardrobe": {
-            "slots": ["top", "bottom", "feet"],
-            "items": [
-                {
-                    "id": "player_top",
-                    "name": "T-Shirt",
-                    "value": 10,
-                    "look": {"intact": "A comfy tee."},
-                    "occupies": ["top"],
-                    "conceals": [],
-                },
-            ],
-            "outfits": [
-                {
-                    "id": "player_outfit",
-                    "name": "Campus Casual",
-                    "items": ["player_top"],
-                    "grant_items": True,
-                },
-            ],
-        },
-    }
-    write_yaml(game_dir / "items.yaml", items_yaml)
-
-    characters_yaml = {
-        "characters": [
-            {
-                "id": "player",
-                "name": "You",
-                "age": 20,
-                "gender": "unspecified",
-                "clothing": {"outfit": "player_outfit"},
-                "inventory": {"items": []},
-            },
-            {
-                "id": "friend",
-                "name": "Friend",
-                "age": 20,
-                "gender": "female",
-                "inventory": {"items": []},
-            },
-        ]
-    }
-    write_yaml(game_dir / "characters.yaml", characters_yaml)
-
-    locations_yaml = {
-        "zones": [
-            {
-                "id": "campus",
-                "name": "Campus",
-                "summary": "Central campus spaces.",
-                "privacy": "low",
-                "access": {"discovered": True},
-                "locations": [
-                    {
-                        "id": "campus_quad",
-                        "name": "Campus Quad",
-                        "summary": "Students scurry between classes.",
-                        "privacy": "low",
-                        "access": {"discovered": True},
-                    }
-                ],
-                "entrances": ["campus_quad"],
-                "exits": ["campus_quad"],
-            }
-        ]
-    }
-    write_yaml(game_dir / "locations.yaml", locations_yaml)
-
-    nodes_yaml = {
-        "nodes": [
-            {
-                "id": "intro",
-                "type": "scene",
-                "title": "First Morning",
-                "characters_present": [],
-                "beats": ["You step onto the quad, ready for the day."],
-                "choices": [],
-            }
-        ]
-    }
-    write_yaml(game_dir / "nodes.yaml", nodes_yaml)
-
-    return game_dir
+from tests_v2.conftest import minimal_game, load_yaml, write_yaml
 
 # List of all game IDs that should be successfully loaded
 VALID_GAME_IDS = [
@@ -171,8 +39,8 @@ def test_load_valid_game(game_id: str):
     print(f"✅ Successfully loaded '{game_id}' with all required fields")
 
 
-def test_game_loader_parses_minimal_spec(tmp_path: Path):
-    game_dir = create_minimal_game(tmp_path)
+def test_game_loader_parses_minimal_spec(tmp_path):
+    game_dir = minimal_game(tmp_path)
     loader = GameLoader(games_dir=tmp_path)
 
     game_def = loader.load_game(game_dir.name)
@@ -184,13 +52,92 @@ def test_game_loader_parses_minimal_spec(tmp_path: Path):
     assert any(char.id == "friend" for char in game_def.characters)
 
 
-def test_game_loader_raises_for_missing_start_location(tmp_path: Path):
-    game_dir = create_minimal_game(tmp_path)
-    manifest = yaml.safe_load((game_dir / "game.yaml").read_text(encoding="utf-8"))
+def test_game_loader_raises_for_missing_start_location(tmp_path):
+    game_dir = minimal_game(tmp_path)
+    manifest = load_yaml(game_dir / "game.yaml")
     del manifest["start"]["location"]
     write_yaml(game_dir / "game.yaml", manifest)
 
     loader = GameLoader(games_dir=tmp_path)
 
     with pytest.raises(ValueError, match="start.location") as exc:
+        loader.load_game(game_dir.name)
+
+
+def test_game_loader_rejects_unknown_root_in_manifest(tmp_path: Path):
+    game_dir = minimal_game(tmp_path)
+    manifest = load_yaml(game_dir / "game.yaml")
+    manifest["mystery_block"] = {}
+    write_yaml(game_dir / "game.yaml", manifest)
+
+    loader = GameLoader(games_dir=tmp_path)
+
+    with pytest.raises(ValueError, match="Unknown top-level keys"):
+        loader.load_game(game_dir.name)
+
+
+def test_game_loader_rejects_unknown_root_in_include(tmp_path: Path):
+    game_dir = minimal_game(tmp_path)
+    write_yaml(game_dir / "extra.yaml", {"bogus": {"value": 1}})
+
+    manifest = load_yaml(game_dir / "game.yaml")
+    manifest["includes"].append("extra.yaml")
+    write_yaml(game_dir / "game.yaml", manifest)
+
+    loader = GameLoader(games_dir=tmp_path)
+
+    with pytest.raises(ValueError, match="Unknown top-level keys"):
+        loader.load_game(game_dir.name)
+
+
+def test_game_loader_rejects_nested_includes(tmp_path: Path):
+    game_dir = minimal_game(tmp_path)
+    write_yaml(game_dir / "nested.yaml", {"nodes": [], "includes": ["other.yaml"]})
+
+    manifest = load_yaml(game_dir / "game.yaml")
+    manifest["includes"].append("nested.yaml")
+    write_yaml(game_dir / "game.yaml", manifest)
+
+    loader = GameLoader(games_dir=tmp_path)
+
+    with pytest.raises(ValueError, match="Nested includes detected"):
+        loader.load_game(game_dir.name)
+
+
+def test_game_loader_requires_matching_meta_id(tmp_path: Path):
+    game_dir = minimal_game(tmp_path)
+    manifest = load_yaml(game_dir / "game.yaml")
+    manifest["meta"]["id"] = "other_story"
+    write_yaml(game_dir / "game.yaml", manifest)
+
+    loader = GameLoader(games_dir=tmp_path)
+
+    with pytest.raises(ValueError, match="does not match folder name"):
+        loader.load_game(game_dir.name)
+
+
+def test_game_loader_append_mode_prevents_duplicates(tmp_path: Path):
+    game_dir = minimal_game(tmp_path)
+
+    duplicate_nodes = {
+        "__merge__": {"mode": "append"},
+        "nodes": [
+            {
+                "id": "intro",
+                "type": "scene",
+                "title": "Duplicate Intro",
+                "characters_present": [],
+                "choices": [],
+            }
+        ],
+    }
+    write_yaml(game_dir / "duplicate_nodes.yaml", duplicate_nodes)
+
+    manifest = load_yaml(game_dir / "game.yaml")
+    manifest["includes"].append("duplicate_nodes.yaml")
+    write_yaml(game_dir / "game.yaml", manifest)
+
+    loader = GameLoader(games_dir=tmp_path)
+
+    with pytest.raises(ValueError, match="Duplicate ID 'intro'"):
         loader.load_game(game_dir.name)
