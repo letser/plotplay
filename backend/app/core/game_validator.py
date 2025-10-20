@@ -92,8 +92,8 @@ class GameValidator:
 
     def _validate_start_config(self):
         """Validates the 'start' block of the game manifest."""
-        start_node = self.game.start_node
-        start_location = self.game.start_location
+        start_node = self.game.start.node
+        start_location = self.game.start.location
 
         if start_node not in self.node_ids:
             self.errors.append(
@@ -124,9 +124,9 @@ class GameValidator:
                     self.errors.append(
                         f"[Node: {node.id}] > 'present_characters' contains non-existent character ID: '{char_id}'"
                     )
-            # Validate transitions
-            for i, transition in enumerate(node.transitions):
-                if transition.to not in self.node_ids:
+            # Validate triggers
+            for i, trigger in enumerate(node.transitions):
+                if trigger.to not in self.node_ids:
                     self.errors.append(
                         f"[Node: {node.id}] > Transition {i} points to non-existent node ID: '{transition.to}'"
                     )

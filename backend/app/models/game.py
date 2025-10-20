@@ -2,9 +2,9 @@
 PlotPlay Game Models
 Game Definition
 """
-from pydantic import BaseModel, Field, AliasPath, model_validator
+from pydantic import Field, model_validator
 
-from .model import SimpleModel, DescriptiveModel, DSLExpression
+from .model import SimpleModel, DescriptiveModel
 from .actions import Action
 from .arcs import Arc
 from .characters import Character
@@ -30,6 +30,15 @@ class MetaConfig(DescriptiveModel):
     nsfw_allowed: bool = False
     license: str | None = None
 
+
+class GameStartConfig(SimpleModel):
+    node: NodeId
+    location: LocationId
+    day: int | None = 1
+    slot: str | None = None
+    time: TimeHHMM | None = "00:00"
+
+
 class GameDefinition(SimpleModel):
     """
     The complete, fully loaded game definition, compiled from the manifest
@@ -42,11 +51,7 @@ class GameDefinition(SimpleModel):
     rng_seed: int | str | None = None
 
     # Game starting point
-    start_node: NodeId = Field(validation_alias=AliasPath('start', 'node'))
-    start_location: LocationId = Field(validation_alias=AliasPath('start', 'location'))
-    start_day: int = Field(default=1, validation_alias=AliasPath('start', 'day'))
-    start_slot: str | None = Field(default=None, validation_alias=AliasPath('start', 'slot'))
-    start_time: TimeHHMM = Field(default="00:00", validation_alias=AliasPath('start', 'time'))
+    start: GameStartConfig = Field(default_factory=GameStartConfig)
 
     # Meters and flags
     meters: MetersConfig = Field(default_factory=MetersConfig)
@@ -74,16 +79,16 @@ class GameDefinition(SimpleModel):
 
     @model_validator(mode='after')
     def validate_start_requirements(self):
-        """Ensure start slot aligns with the configured time mode."""
+        """Ensure the start slot aligns with the configured time mode."""
         time_mode = self.time.mode
         slots = self.time.slots or []
 
         if time_mode in (TimeMode.SLOTS, TimeMode.HYBRID):
-            if not self.start_slot:
+            if not self.start.slot:
                 raise ValueError(
                     "start.slot must be defined when time mode is 'slots' or 'hybrid'."
                 )
-            if slots and self.start_slot not in slots:
+            if slots and self.start.slot not in slots:
                 raise ValueError(
                     f"start.slot '{self.start_slot}' is not defined in time.slots."
                 )

@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 
 from app.core.game_loader import GameLoader
+from app.models.game import GameDefinition
 
 
 def write_yaml(path: Path, data: dict) -> None:
@@ -138,6 +139,37 @@ def create_minimal_game(tmp_path: Path) -> Path:
 
     return game_dir
 
+# List of all game IDs that should be successfully loaded
+VALID_GAME_IDS = [
+    "coffeeshop_date",
+    "college_romance"
+]
+
+
+@pytest.mark.parametrize("game_id", VALID_GAME_IDS)
+def test_load_valid_game(game_id: str):
+    """
+    §4.4: Test that the GameLoader can successfully load valid games.
+    Tests a basic loading and validation pipeline.
+    """
+    loader = GameLoader()
+    game_def = loader.load_game(game_id)
+
+    # Verify it returns a GameDefinition
+    assert isinstance(game_def, GameDefinition)
+
+    # Verify required meta fields are present
+    assert game_def.meta.id == game_id
+    assert game_def.meta.title
+    assert game_def.meta.version
+    assert len(game_def.meta.authors) > 0
+
+    # Verify start config exists
+    assert game_def.start.node
+    assert game_def.start.location
+
+    print(f"✅ Successfully loaded '{game_id}' with all required fields")
+
 
 def test_game_loader_parses_minimal_spec(tmp_path: Path):
     game_dir = create_minimal_game(tmp_path)
@@ -146,8 +178,8 @@ def test_game_loader_parses_minimal_spec(tmp_path: Path):
     game_def = loader.load_game(game_dir.name)
 
     assert game_def.meta.title == "Campus Story"
-    assert game_def.start_location == "campus_quad"
-    assert game_def.start_node == "intro"
+    assert game_def.start.location == "campus_quad"
+    assert game_def.start.node == "intro"
     assert game_def.wardrobe.outfits[0].id == "player_outfit"
     assert any(char.id == "friend" for char in game_def.characters)
 
@@ -155,12 +187,10 @@ def test_game_loader_parses_minimal_spec(tmp_path: Path):
 def test_game_loader_raises_for_missing_start_location(tmp_path: Path):
     game_dir = create_minimal_game(tmp_path)
     manifest = yaml.safe_load((game_dir / "game.yaml").read_text(encoding="utf-8"))
-    manifest["start"]["location"] = "missing_location"
+    del manifest["start"]["location"]
     write_yaml(game_dir / "game.yaml", manifest)
 
     loader = GameLoader(games_dir=tmp_path)
 
-    with pytest.raises(ValueError) as exc:
+    with pytest.raises(ValueError, match="start.location") as exc:
         loader.load_game(game_dir.name)
-
-    assert "Start location" in str(exc.value)

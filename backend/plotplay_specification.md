@@ -1673,7 +1673,7 @@ Nodes are where most author effort goes: they set context for the Writer, define
       when_any: ["<expr>", ... ]        #   Expression DSL; any must be true to activate transition.
       on_select: [ <effect>, ... ]      # REQUIRED. Effects applied when the choice is chosen.
 
-  # --- Transitions ---
+  # --- Triggers ---
   triggers:                              # OPTIONAL. Automatic effects and transitions (via goto effect). 
     - when: "<expr>"                    #   Expression DSL; must be true to activate transition.
       when_all: ["<expr>", ... ]        #   Expression DSL; all must be true to activate transition.
