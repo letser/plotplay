@@ -83,10 +83,10 @@ uvicorn app.main:app --reload
 # API available at http://localhost:8000
 # Docs at http://localhost:8000/docs
 
-# Run legacy test suite
+# Run legacy test suite (from backend/ directory)
 python run_tests.py
 
-# Run new test suite (preferred)
+# Run new test suite (preferred, from backend/ directory)
 pytest tests_v2/
 
 # Run specific new tests
@@ -94,6 +94,9 @@ pytest tests_v2/test_game_loader.py tests_v2/test_conditions.py
 
 # Run with coverage
 pytest tests_v2/ --cov=app --cov-report=html
+
+# Note: pytest.ini points to tests/, but new development uses tests_v2/
+# When running pytest without arguments, it runs the legacy suite
 ```
 
 ### Frontend Development
@@ -107,8 +110,11 @@ npm install
 npm run dev
 # UI available at http://localhost:5173
 
-# Build (catches TypeScript errors)
+# Type checking and build (catches TypeScript errors)
 npm run build
+
+# Preview production build
+npm run preview
 ```
 
 ### Docker Development
@@ -173,6 +179,22 @@ See `REFACTORING_PLAN.md` and `AGENTS.md` for detailed status and guidelines.
 - Legacy code in `app/core/` is being gradually migrated to `app/engine/`
 - Game loader/validator now assume v3 spec (no backward compatibility)
 
+### Working Directory Context
+
+- Backend commands should be run from the `backend/` directory
+- Frontend commands should be run from the `frontend/` directory
+- Docker commands should be run from the project root
+- The game engine resolves game paths differently in Docker vs native mode (see `backend/app/core/env.py`)
+
+## Environment Configuration
+
+Before running the backend, copy `backend/.env.example` to `backend/.env` and configure:
+- AI model API keys (OpenRouter, OpenAI, Anthropic, etc.)
+- Model identifiers for Writer and Checker
+- Optional: logging levels, game paths
+
+Never commit `.env` files or API keys to the repository.
+
 ## Common Gotchas
 
 ### Path Management for Games
@@ -219,12 +241,19 @@ Use these as references when building game content or testing.
 - **Fixture-based** - reusable game definitions in conftest files
 - **Spec-driven** - tests validate against `shared/plotplay_specification.md`
 
-When adding features:
+### When Adding Features
+
 1. Add Pydantic models in `app/models/`
 2. Add service logic in `app/engine/` (or extend existing service)
-3. Add tests in `tests_v2/` with fixtures
+3. Add tests in `tests_v2/` with fixtures (NOT in legacy `tests/`)
 4. Update game YAML schema if needed
 5. Update `shared/plotplay_specification.md`
+
+### Test Fixture Organization
+
+- `tests_v2/conftest.py` - Core game definition fixtures (minimal games, characters, locations)
+- `tests_v2/conftest_services.py` - Engine service fixtures (runtime, managers, composed engine)
+- Individual test files can add specialized fixtures as needed
 
 ## API Structure
 

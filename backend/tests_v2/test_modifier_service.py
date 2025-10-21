@@ -1,7 +1,7 @@
 """Tests for ModifierService (migrated from ModifierManager)."""
 
 import pytest
-from tests_v2.conftest_services import engine_fixture
+from tests_v2.conftest_services import engine_fixture, engine_with_modifiers
 from app.engine.modifiers import ModifierService
 from app.models.effects import ApplyModifierEffect, RemoveModifierEffect
 
@@ -14,7 +14,6 @@ def test_modifier_service_initialization(engine_fixture):
     assert modifiers.engine == engine_fixture
     assert modifiers.game_def == engine_fixture.game_def
     assert isinstance(modifiers.library, dict)
-    assert isinstance(modifiers.exclusions, list)
 
 
 def test_modifier_library_loads_from_game_def(engine_fixture):
@@ -32,16 +31,13 @@ def test_modifier_library_loads_from_game_def(engine_fixture):
         assert len(modifiers.library) == 0
 
 
-def test_apply_effect_adds_modifier_to_character(engine_fixture):
+def test_apply_effect_adds_modifier_to_character(engine_with_modifiers):
     """Test that ApplyModifierEffect adds a modifier to character state."""
-    modifiers = engine_fixture.modifiers
-    state = engine_fixture.state_manager.state
+    modifiers = engine_with_modifiers.modifiers
+    state = engine_with_modifiers.state_manager.state
 
-    # Find a modifier in the library
-    if not modifiers.library:
-        pytest.skip("No modifiers in test game")
-
-    modifier_id = list(modifiers.library.keys())[0]
+    # Use a known modifier from the fixture
+    modifier_id = "energized"
 
     # Ensure player has modifiers list
     if "player" not in state.modifiers:
@@ -65,15 +61,13 @@ def test_apply_effect_adds_modifier_to_character(engine_fixture):
     assert active_mod["duration"] == 60
 
 
-def test_apply_effect_removes_modifier_from_character(engine_fixture):
+def test_apply_effect_removes_modifier_from_character(engine_with_modifiers):
     """Test that RemoveModifierEffect removes a modifier from character state."""
-    modifiers = engine_fixture.modifiers
-    state = engine_fixture.state_manager.state
+    modifiers = engine_with_modifiers.modifiers
+    state = engine_with_modifiers.state_manager.state
 
-    if not modifiers.library:
-        pytest.skip("No modifiers in test game")
-
-    modifier_id = list(modifiers.library.keys())[0]
+    # Use a known modifier from the fixture
+    modifier_id = "energized"
 
     # Ensure player has modifiers list and add a test modifier
     if "player" not in state.modifiers:
@@ -94,15 +88,13 @@ def test_apply_effect_removes_modifier_from_character(engine_fixture):
     assert modifier_id not in active_ids
 
 
-def test_modifier_not_added_twice(engine_fixture):
+def test_modifier_not_added_twice(engine_with_modifiers):
     """Test that applying the same modifier twice doesn't duplicate it."""
-    modifiers = engine_fixture.modifiers
-    state = engine_fixture.state_manager.state
+    modifiers = engine_with_modifiers.modifiers
+    state = engine_with_modifiers.state_manager.state
 
-    if not modifiers.library:
-        pytest.skip("No modifiers in test game")
-
-    modifier_id = list(modifiers.library.keys())[0]
+    # Use a known modifier from the fixture
+    modifier_id = "energized"
 
     if "player" not in state.modifiers:
         state.modifiers["player"] = []
@@ -123,15 +115,13 @@ def test_modifier_not_added_twice(engine_fixture):
     assert len(state.modifiers["player"]) == initial_count
 
 
-def test_tick_durations_decrements_time(engine_fixture):
+def test_tick_durations_decrements_time(engine_with_modifiers):
     """Test that tick_durations reduces modifier durations."""
-    modifiers = engine_fixture.modifiers
-    state = engine_fixture.state_manager.state
+    modifiers = engine_with_modifiers.modifiers
+    state = engine_with_modifiers.state_manager.state
 
-    if not modifiers.library:
-        pytest.skip("No modifiers in test game")
-
-    modifier_id = list(modifiers.library.keys())[0]
+    # Use a known modifier from the fixture
+    modifier_id = "energized"
 
     if "player" not in state.modifiers:
         state.modifiers["player"] = []
@@ -146,15 +136,13 @@ def test_tick_durations_decrements_time(engine_fixture):
     assert active_mod["duration"] == 70
 
 
-def test_tick_durations_removes_expired_modifiers(engine_fixture):
+def test_tick_durations_removes_expired_modifiers(engine_with_modifiers):
     """Test that expired modifiers are removed after ticking."""
-    modifiers = engine_fixture.modifiers
-    state = engine_fixture.state_manager.state
+    modifiers = engine_with_modifiers.modifiers
+    state = engine_with_modifiers.state_manager.state
 
-    if not modifiers.library:
-        pytest.skip("No modifiers in test game")
-
-    modifier_id = list(modifiers.library.keys())[0]
+    # Use a known modifier from the fixture
+    modifier_id = "energized"
 
     if "player" not in state.modifiers:
         state.modifiers["player"] = []
@@ -169,15 +157,13 @@ def test_tick_durations_removes_expired_modifiers(engine_fixture):
     assert modifier_id not in active_ids
 
 
-def test_tick_durations_with_zero_minutes(engine_fixture):
+def test_tick_durations_with_zero_minutes(engine_with_modifiers):
     """Test that ticking 0 minutes does nothing."""
-    modifiers = engine_fixture.modifiers
-    state = engine_fixture.state_manager.state
+    modifiers = engine_with_modifiers.modifiers
+    state = engine_with_modifiers.state_manager.state
 
-    if not modifiers.library:
-        pytest.skip("No modifiers in test game")
-
-    modifier_id = list(modifiers.library.keys())[0]
+    # Use a known modifier from the fixture
+    modifier_id = "energized"
 
     if "player" not in state.modifiers:
         state.modifiers["player"] = []
@@ -241,23 +227,13 @@ def test_remove_effect_ignores_unknown_modifier(engine_fixture):
     modifiers.apply_effect(effect, state)
 
 
-def test_modifier_duration_uses_default_if_not_specified(engine_fixture):
+def test_modifier_duration_uses_default_if_not_specified(engine_with_modifiers):
     """Test that modifiers use default duration when no override provided."""
-    modifiers = engine_fixture.modifiers
-    state = engine_fixture.state_manager.state
+    modifiers = engine_with_modifiers.modifiers
+    state = engine_with_modifiers.state_manager.state
 
-    if not modifiers.library:
-        pytest.skip("No modifiers in test game")
-
-    # Find a modifier with a default duration
-    modifier_with_default = None
-    for mod_id, mod_def in modifiers.library.items():
-        if mod_def.duration_default_min is not None:
-            modifier_with_default = mod_id
-            break
-
-    if not modifier_with_default:
-        pytest.skip("No modifiers with default duration in test game")
+    # Use a known modifier with default duration from the fixture
+    modifier_with_default = "energized"  # Has duration=60
 
     if "player" not in state.modifiers:
         state.modifiers["player"] = []
@@ -273,19 +249,17 @@ def test_modifier_duration_uses_default_if_not_specified(engine_fixture):
 
     # Should use default duration
     active_mod = next(m for m in state.modifiers["player"] if m["id"] == modifier_with_default)
-    expected_duration = modifiers.library[modifier_with_default].duration_default_min
+    expected_duration = modifiers.library[modifier_with_default].duration
     assert active_mod["duration"] == expected_duration
 
 
-def test_tick_durations_handles_none_duration(engine_fixture):
+def test_tick_durations_handles_none_duration(engine_with_modifiers):
     """Test that modifiers with None duration are not decremented."""
-    modifiers = engine_fixture.modifiers
-    state = engine_fixture.state_manager.state
+    modifiers = engine_with_modifiers.modifiers
+    state = engine_with_modifiers.state_manager.state
 
-    if not modifiers.library:
-        pytest.skip("No modifiers in test game")
-
-    modifier_id = list(modifiers.library.keys())[0]
+    # Use a known modifier from the fixture
+    modifier_id = "energized"
 
     if "player" not in state.modifiers:
         state.modifiers["player"] = []

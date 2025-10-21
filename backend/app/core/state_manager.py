@@ -267,7 +267,8 @@ class StateManager:
             baseline = {}
             if character.id == "player":
                 baseline.update(player_defaults)
-            baseline.update(template_defaults)
+            else:
+                baseline.update(template_defaults)
 
             if character.meters:
                 for meter_id, meter_def in character.meters.items():

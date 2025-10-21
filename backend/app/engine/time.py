@@ -36,26 +36,28 @@ class TimeService:
         original_slot = state.time_slot
 
         minutes_passed = 0
-        if time_config.mode in ("hybrid", "clock") and time_config.clock:
-            minutes_passed = minutes if minutes is not None else 10
+        if time_config.mode in ("hybrid", "clock"):
+            # Clock/hybrid modes track time in HH:MM
+            minutes_passed = minutes if minutes is not None else (time_config.minutes_per_action or 10)
             time_cost = minutes_passed
 
-            if time_cost != 0:
+            if time_cost != 0 and state.time_hhmm:
                 current_hh, current_mm = map(int, state.time_hhmm.split(':'))
                 total_minutes_today = current_hh * 60 + current_mm
                 total_minutes_today += time_cost
 
-                if total_minutes_today >= time_config.clock.minutes_per_day:
+                minutes_per_day = 24 * 60  # Standard day
+                if total_minutes_today >= minutes_per_day:
                     state.day += 1
-                    total_minutes_today %= time_config.clock.minutes_per_day
+                    total_minutes_today %= minutes_per_day
 
                 new_hh = total_minutes_today // 60
                 new_mm = total_minutes_today % 60
                 state.time_hhmm = f"{new_hh:02d}:{new_mm:02d}"
 
-                if time_config.mode == "hybrid" and time_config.clock.slot_windows:
+                if time_config.mode == "hybrid" and time_config.slot_windows:
                     new_slot_found = False
-                    for slot, window in time_config.clock.slot_windows.items():
+                    for slot, window in time_config.slot_windows.items():
                         start_hh, start_mm = map(int, window.start.split(':'))
                         end_hh, end_mm = map(int, window.end.split(':'))
 

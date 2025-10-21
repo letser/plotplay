@@ -13,7 +13,9 @@ from app.models.effects import (
     ClothingChangeEffect,
     ConditionalEffect,
     FlagSetEffect,
-    GotoNodeEffect,
+    GotoEffect,
+    InventoryAddEffect,
+    InventoryRemoveEffect,
     InventoryChangeEffect,
     MeterChangeEffect,
     MoveToEffect,
@@ -51,10 +53,19 @@ class EffectResolver:
                     self.apply_meter_change(effect)
                 case FlagSetEffect():
                     self.apply_flag_set(effect)
-                case GotoNodeEffect():
+                case GotoEffect():
                     self.apply_goto_node(effect)
                 case MoveToEffect():
                     self._apply_move_to(effect)
+                case InventoryAddEffect() | InventoryRemoveEffect():
+                    # Convert new effect types to legacy InventoryChangeEffect
+                    legacy_effect = InventoryChangeEffect(
+                        type="inventory_add" if isinstance(effect, InventoryAddEffect) else "inventory_remove",
+                        owner=effect.target,
+                        item=effect.item,
+                        count=effect.count
+                    )
+                    self.engine.inventory.apply_effect(legacy_effect)
                 case InventoryChangeEffect():
                     self.engine.inventory.apply_effect(effect)
                 case ClothingChangeEffect():

@@ -29,11 +29,9 @@ class ModifierService:
 
         modifiers_config = getattr(self.game_def, "modifiers", None)
         if modifiers_config and modifiers_config.library:
-            self.library = modifiers_config.library
-            self.exclusions = modifiers_config.exclusions or []
+            self.library = {mod.id: mod for mod in modifiers_config.library}
         else:
             self.library = {}
-            self.exclusions = []
 
     def update_modifiers_for_turn(self, state: GameState, rng_seed: int | None = None) -> None:
         """
@@ -140,25 +138,30 @@ class ModifierService:
         if modifier_id in active_ids:
             return  # Already active
 
-        # Exclusion logic: remove other modifiers in the same exclusive group
+        # Apply stacking rules for modifiers with groups
         if modifier_def.group:
-            for exclusion_rule in self.exclusions:
-                if exclusion_rule.group == modifier_def.group and exclusion_rule.exclusive:
-                    # Find and remove any other modifier from the same exclusive group
-                    mods_to_remove = [
-                        m["id"] for m in active_mods
-                        if self.library.get(m["id"]) and self.library[m["id"]].group == modifier_def.group
-                    ]
-                    for mod_to_remove_id in mods_to_remove:
-                        self._remove_modifier(char_id, mod_to_remove_id, state)
+            modifiers_config = getattr(self.game_def, "modifiers", None)
+            stacking_rule = None
+            if modifiers_config and modifiers_config.stacking:
+                stacking_rule = modifiers_config.stacking.get(modifier_def.group)
+
+            # If stacking rule is "highest" or "lowest", remove other modifiers in the group
+            if stacking_rule in ("highest", "lowest"):
+                same_group_mods = [
+                    m for m in active_mods
+                    if m["id"] in self.library and self.library[m["id"]].group == modifier_def.group
+                ]
+
+                for mod in same_group_mods:
+                    self._remove_modifier(char_id, mod["id"], state)
 
         # Add modifier with duration
-        duration = duration_override if duration_override is not None else modifier_def.duration_default_min
+        duration = duration_override if duration_override is not None else (modifier_def.duration or 0)
         state.modifiers[char_id].append({"id": modifier_id, "duration": duration})
 
         # Trigger entry effects
-        if modifier_def.entry_effects:
-            self.engine.apply_effects(modifier_def.entry_effects)
+        if modifier_def.on_entry:
+            self.engine.apply_effects(modifier_def.on_entry)
 
     def _remove_modifier(self, char_id: str, modifier_id: str, state: GameState) -> None:
         """
@@ -175,7 +178,7 @@ class ModifierService:
             modifier_def = self.library.get(modifier_id)
 
             # Trigger exit effects
-            if modifier_def and modifier_def.exit_effects:
-                self.engine.apply_effects(modifier_def.exit_effects)
+            if modifier_def and modifier_def.on_exit:
+                self.engine.apply_effects(modifier_def.on_exit)
 
             state.modifiers[char_id] = [m for m in state.modifiers[char_id] if m.get("id") != modifier_id]

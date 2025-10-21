@@ -240,11 +240,6 @@ class GotoEffect(Effect):
     node: NodeId
 
 
-class GotoNodeEffect(GotoEffect):
-    """Legacy alias for goto effect."""
-    type: Literal["goto_node"] = "goto_node"
-
-
 class ConditionalEffect(Effect):
     """An effect that branches based on a condition."""
     type: Literal["conditional"] = "conditional"
@@ -269,7 +264,7 @@ AnyEffect = Annotated[
     OutfitPutOnEffect, OutfitTakeOffEffect, ClothingChangeEffect,
     MoveEffect, MoveToEffect, TravelToEffect, AdvanceTimeEffect, AdvanceTimeSlotEffect,
     ApplyModifierEffect, RemoveModifierEffect, UnlockEffect, LockEffect,
-    GotoEffect, GotoNodeEffect, ConditionalEffect, RandomEffect
+    GotoEffect, ConditionalEffect, RandomEffect
 ],
     Field(discriminator="type")
     ]

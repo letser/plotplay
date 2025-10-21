@@ -40,10 +40,16 @@ class MovementService:
         if choice_id.startswith("travel_"):
             destination_zone_id = choice_id.removeprefix("travel_")
             current_zone = engine.zones_map.get(state.zone_current)
-            if current_zone and current_zone.transport_connections:
-                for connection in current_zone.transport_connections:
-                    if connection.get("to") == destination_zone_id:
-                        return await self._execute_zone_travel(destination_zone_id, connection)
+            if current_zone and current_zone.connections:
+                for connection in current_zone.connections:
+                    # Check if destination is in the connection's 'to' list
+                    if destination_zone_id in connection.to:
+                        # Convert ZoneConnection to dict for compatibility
+                        connection_dict = {
+                            "to": destination_zone_id,
+                            "distance": connection.distance or 1.0
+                        }
+                        return await self._execute_zone_travel(destination_zone_id, connection_dict)
 
         return {
             "narrative": "You can't seem to go that way.",
@@ -71,7 +77,7 @@ class MovementService:
 
         return {
             "narrative": "You try to move, but there's no clear path forward.",
-            "choices": engine._generate_choices(current_location, []),
+            "choices": engine._generate_choices(engine._get_current_node(), []),
             "current_state": engine._get_state_summary(),
         }
 
@@ -94,11 +100,18 @@ class MovementService:
 
         destination_location_id = dest_zone.locations[0].id
 
+        # Zone travel time calculation
+        # According to spec: base_time * distance for the travel method
+        distance = connection.get("distance", 1.0)
+
+        # Default to 15 minutes if no methods configured
         time_cost_minutes = 15
-        if move_rules and move_rules.zone_travel:
-            distance = connection.get("distance", 1)
-            base_time = 10
-            time_cost_minutes = base_time * distance
+
+        if move_rules and move_rules.methods:
+            # Use first available method's base_time
+            # (Spec allows connections to specify available methods, defaulting to all)
+            base_time = move_rules.methods[0].base_time
+            time_cost_minutes = int(base_time * distance)
 
         state.location_previous = state.location_current
         state.zone_current = destination_zone_id
@@ -139,6 +152,14 @@ class MovementService:
         evaluator = ConditionEvaluator(state, rng_seed=engine._get_turn_seed())
         move_rules = engine.game_def.movement
 
+        # Check if destination is discovered
+        if destination_id not in state.discovered_locations:
+            return {
+                "narrative": "You haven't discovered that location yet.",
+                "choices": engine._generate_choices(engine._get_current_node(), []),
+                "current_state": engine._get_state_summary(),
+            }
+
         moving_companions: list[str] = []
         for char_id in state.present_chars:
             if char_id == "player":
@@ -150,55 +171,24 @@ class MovementService:
 
             is_willing = False
             for rule in character_def.movement.willing_locations:
-                if rule.get("location") == destination_id and evaluator.evaluate(rule.get("when")):
+                if rule.location == destination_id and evaluator.evaluate(rule.when or "always"):
                     is_willing = True
                     break
 
             if is_willing:
                 moving_companions.append(char_id)
             else:
-                refusal_text = (
-                    character_def.movement.refusal_text.get("low_trust")
-                    if character_def.movement.refusal_text
-                    else "They don't want to go there right now."
-                )
                 return {
-                    "narrative": f"{character_def.name} seems hesitant. \"{refusal_text}\"",
+                    "narrative": f"{character_def.name} seems hesitant. They don't want to go there right now.",
                     "choices": engine._generate_choices(engine._get_current_node(), []),
                     "current_state": engine._get_state_summary(),
                 }
 
-        if move_rules and move_rules.restrictions:
-            if move_rules.restrictions.requires_consciousness:
-                is_conscious = state.flags.get("is_conscious", True)
-                if not is_conscious:
-                    return {
-                        "narrative": "You are unconscious and cannot move.",
-                        "choices": engine._generate_choices(engine._get_current_node(), []),
-                        "current_state": engine._get_state_summary(),
-                    }
-
-            min_energy = move_rules.restrictions.min_energy or 0
-            if state.meters.get("player", {}).get("energy", 100) < min_energy:
-                return {
-                    "narrative": "You are too exhausted to move.",
-                    "choices": engine._generate_choices(engine._get_current_node(), []),
-                    "current_state": engine._get_state_summary(),
-                }
-
-            energy_cost = move_rules.restrictions.energy_cost_per_move or 0
-            if energy_cost:
-                engine.effect_resolver.apply_meter_change(
-                    MeterChangeEffect(target="player", meter="energy", op="subtract", value=energy_cost)
-                )
-        else:
-            energy_cost = 0
-
+        # Calculate time cost for local movement
+        # According to spec: base_time is minutes in hybrid/clock modes, actions in slots mode
         time_cost_minutes = 0
-        if move_rules and move_rules.local:
-            base_cost = move_rules.local.base_time or 0
-            modifier = move_rules.local.distance_modifiers.get(connection.distance, 1) if connection.distance else 1
-            time_cost_minutes = base_cost * modifier
+        if move_rules and move_rules.base_time:
+            time_cost_minutes = move_rules.base_time
 
         state.location_previous = state.location_current
         state.location_current = destination_id
@@ -227,11 +217,10 @@ class MovementService:
         )
 
         self.logger.info(
-            "Movement from '%s' to '%s' completed. Time cost: %sm, Energy cost: %s.",
+            "Movement from '%s' to '%s' completed. Time cost: %sm.",
             state.location_previous,
             destination_id,
             time_cost_minutes,
-            energy_cost if move_rules else 0,
         )
 
         return {
