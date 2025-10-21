@@ -19,13 +19,11 @@ from app.engine import (
     PresenceService,
     DiscoveryService,
     NarrativeReconciler,
+    InventoryService,
+    ClothingService,
+    ModifierService,
 )
-from app.core.clothing_manager import ClothingManager
 from app.core.conditions import ConditionEvaluator
-from app.core.event_manager import EventManager
-from app.core.arc_manager import ArcManager
-from app.core.modifier_manager import ModifierManager
-from app.core.inventory_manager import InventoryManager
 from app.models.actions import GameAction
 from app.models.characters import Character
 from app.models.effects import AnyEffect, InventoryChangeEffect, MeterChangeEffect, FlagSetEffect
@@ -45,15 +43,12 @@ class GameEngine:
         self.state_manager = self.runtime.state_manager
         self.index = self.runtime.index
 
-        self.clothing_manager = ClothingManager(self.game_def, self.state_manager.state)
-        self.arc_manager = ArcManager(self.game_def)
-        self.event_manager = EventManager(self.game_def)
-        self.inventory_manager = InventoryManager(self.game_def)
         self.ai_service = AIService()
-        self.prompt_builder = PromptBuilder(self.game_def, self.clothing_manager)
 
-        self.modifier_manager = ModifierManager(self.game_def, self)
+        self.modifiers = ModifierService(self)
         self.effect_resolver = EffectResolver(self)
+        self.clothing = ClothingService(self)
+        self.inventory = InventoryService(self)
         self.movement = MovementService(self)
         self.time = TimeService(self)
         self.choices = ChoiceService(self)
@@ -64,9 +59,9 @@ class GameEngine:
         self.presence = PresenceService(self)
         self.discovery = DiscoveryService(self)
         self.narrative = NarrativeReconciler(self)
-        self.state_summary = StateSummaryService(self)
-        self.action_formatter = ActionFormatter(self)
-        self.presence = PresenceService(self)
+
+        # PromptBuilder must be initialized AFTER clothing service
+        self.prompt_builder = PromptBuilder(self.game_def, self)
 
         self.nodes_map: dict[str, Node] = dict(self.index.nodes)
         self.actions_map: dict[str, GameAction] = dict(self.index.actions)
@@ -156,9 +151,9 @@ class GameEngine:
                                    "inventory_add" if items.get(list(items.keys())[0], 0) > 0 else "inventory_remove")
                 for item_id, count in items.items():
                     effect = InventoryChangeEffect(type=effect_type, owner=owner_id, item=item_id, count=abs(count))
-                    self.inventory_manager.apply_effect(effect, self.state_manager.state)
+                    self.inventory.apply_effect(effect)
         if clothing_changes := deltas.get("clothing_changes"):
-            self.clothing_manager.apply_ai_changes(clothing_changes)
+            self.clothing.apply_ai_changes(clothing_changes)
 
     def _format_player_action(self, action_type, action_text, target, choice_id, item_id) -> str:
         return self.action_formatter.format(action_type, action_text, target, choice_id, item_id)

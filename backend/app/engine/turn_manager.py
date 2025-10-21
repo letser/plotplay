@@ -124,14 +124,13 @@ class TurnManager:
             if target not in state.present_chars:
                 engine.logger.warning(f"Player tried to give item to '{target}' who is not present.")
             else:
-                item_def = engine.inventory_manager.item_defs.get(item_id)
+                item_def = engine.inventory.item_defs.get(item_id)
                 if item_def and item_def.can_give:
                     engine.apply_effects(item_def.gift_effects)
-                    engine.inventory_manager.apply_effect(
+                    engine.inventory.apply_effect(
                         InventoryChangeEffect(
                             type="inventory_remove", owner="player", item=item_id, count=1
-                        ),
-                        engine.state_manager.state,
+                        )
                     )
                     engine.logger.info(f"Player gave item '{item_id}' to '{target}'.")
                 else:
@@ -145,17 +144,17 @@ class TurnManager:
         state.narrative_history.append(final_narrative)
 
         if action_type == "use" and item_id:
-            item_effects = engine.inventory_manager.use_item("player", item_id, state)
+            item_effects = engine.inventory.use_item("player", item_id)
             engine.apply_effects(item_effects)
 
         engine._check_and_apply_node_transitions()
-        engine.modifier_manager.update_modifiers_for_turn(state, rng_seed=engine._get_turn_seed())
+        engine.modifiers.update_modifiers_for_turn(state, rng_seed=engine._get_turn_seed())
         engine._update_discoveries()
 
         time_info = engine.time.advance()
-        engine.modifier_manager.tick_durations(state, time_info.minutes_passed)
+        engine.modifiers.tick_durations(state, time_info.minutes_passed)
         engine.time.apply_meter_dynamics(time_info)
-        engine.event_manager.decrement_cooldowns(state)
+        engine.events.decrement_cooldowns()
 
         final_node = engine._get_current_node()
         choices = engine._generate_choices(final_node, event_choices)

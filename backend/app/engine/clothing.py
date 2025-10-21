@@ -1,28 +1,40 @@
-"""
-PlotPlay Clothing Manager handles clothing changes and appearance.
-"""
+"""Clothing management service for PlotPlay."""
 
-from typing import Dict, Any
+from __future__ import annotations
 
-from app.models.game import GameDefinition
-from app.core.state_manager import GameState
+from typing import TYPE_CHECKING, Dict, Any
+
 from app.models.effects import ClothingChangeEffect
 
+if TYPE_CHECKING:
+    from app.core.game_engine import GameEngine
 
-class ClothingManager:
-    """Manages clothing states for all characters, directly modifying the game state."""
 
-    def __init__(self, game_def: GameDefinition, state: GameState):
-        self.game_def = game_def
-        self.state = state
+class ClothingService:
+    """
+    Manages clothing states for all characters.
+
+    Responsibilities:
+    - Initialize default outfits for all characters
+    - Apply authored clothing effects (outfit changes, layer state changes)
+    - Generate appearance descriptions based on layer states
+    - Process AI clothing changes (displaced/removed layers)
+    """
+
+    def __init__(self, engine: "GameEngine"):
+        self.engine = engine
+        self.game_def = engine.game_def
+        self.state = engine.state_manager.state
         self._initialize_all_character_clothing()
 
     def _initialize_all_character_clothing(self):
         """Initialize clothing for all characters based on their default outfits."""
         for char in self.game_def.characters:
             if char.wardrobe and char.wardrobe.outfits:
-                default_outfit = next((o for o in char.wardrobe.outfits if "default" in o.tags),
-                                      char.wardrobe.outfits[0])
+                default_outfit = next(
+                    (o for o in char.wardrobe.outfits if "default" in o.tags),
+                    char.wardrobe.outfits[0]
+                )
                 if default_outfit:
                     self.state.clothing_states[char.id] = {
                         'current_outfit': default_outfit.id,
@@ -30,7 +42,12 @@ class ClothingManager:
                     }
 
     def apply_effect(self, effect: ClothingChangeEffect):
-        """Applies an authored clothing change effect."""
+        """
+        Applies an authored clothing change effect.
+
+        Args:
+            effect: The clothing change effect to apply (outfit_change or clothing_set)
+        """
         char_id = effect.character
         if char_id not in self.state.clothing_states:
             return
@@ -54,7 +71,16 @@ class ClothingManager:
     def get_character_appearance(self, char_id: str) -> str:
         """
         Get a descriptive string of what a character is wearing, reflecting layer states.
-        This now dynamically reads the layer order from the character's definition.
+
+        Dynamically reads the layer order from the character's definition and generates
+        a comma-separated list of visible clothing items based on their states (intact,
+        displaced, or removed).
+
+        Args:
+            char_id: The character ID to get appearance for
+
+        Returns:
+            Appearance description string (e.g., "blue jeans, white t-shirt")
         """
         char_clothing_state = self.state.clothing_states.get(char_id)
         if not char_clothing_state:
@@ -74,7 +100,10 @@ class ClothingManager:
             layer_order = char_def.wardrobe.rules.layer_order
         else:
             # Fallback to a default order if not specified
-            layer_order = ["outerwear", "dress", "top", "bottom", "feet", "accessories", "underwear_top", "underwear_bottom"]
+            layer_order = [
+                "outerwear", "dress", "top", "bottom", "feet",
+                "accessories", "underwear_top", "underwear_bottom"
+            ]
 
         visible_items = []
         for layer_name in layer_order:
@@ -86,7 +115,11 @@ class ClothingManager:
                     visible_items.append(desc.strip())
             elif layer_state == "displaced":
                 if layer_def := outfit_def.layers.get(layer_name):
-                    desc = f"a displaced {layer_def.color} {layer_def.item}" if layer_def.color else f"a displaced {layer_def.item}"
+                    desc = (
+                        f"a displaced {layer_def.color} {layer_def.item}"
+                        if layer_def.color
+                        else f"a displaced {layer_def.item}"
+                    )
                     visible_items.append(desc.strip())
 
         return ", ".join(visible_items) or "nothing"
@@ -94,6 +127,10 @@ class ClothingManager:
     def apply_ai_changes(self, clothing_changes: Dict[str, Any]):
         """
         Processes clothing changes from the Checker AI and updates the game state.
+
+        Args:
+            clothing_changes: Dictionary mapping character IDs to clothing changes
+                             (e.g., {"emma": {"removed": ["top"], "displaced": ["bottom"]}})
         """
         for char_id, changes in clothing_changes.items():
             if char_id not in self.state.clothing_states:

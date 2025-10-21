@@ -14,6 +14,9 @@ from .presence import PresenceService
 from .discovery import DiscoveryService
 from .narrative import NarrativeReconciler
 from .prompt_builder import PromptBuilder
+from .inventory import InventoryService
+from .clothing import ClothingService
+from .modifiers import ModifierService
 
 __all__ = [
     "SessionRuntime",
@@ -31,4 +34,7 @@ __all__ = [
     "DiscoveryService",
     "NarrativeReconciler",
     "PromptBuilder",
+    "InventoryService",
+    "ClothingService",
+    "ModifierService",
 ]

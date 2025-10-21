@@ -16,27 +16,6 @@ def build_engine(tmp_path, monkeypatch) -> GameEngine:
 
     monkeypatch.setattr("app.engine.runtime.setup_session_logger", fake_logger)
 
-    from app.core import modifier_manager as modifier_module
-
-    class DummyModifierManager:
-        def __init__(self, game_def, engine):
-            self.game_def = game_def
-            self.engine = engine
-            self.library = {}
-            self.exclusions = []
-
-        def update_modifiers_for_turn(self, *args, **kwargs):
-            return None
-
-        def tick_durations(self, *args, **kwargs):
-            return None
-
-        def apply_effect(self, *args, **kwargs):
-            return None
-
-    monkeypatch.setattr(modifier_module, "ModifierManager", DummyModifierManager)
-    monkeypatch.setattr("app.core.game_engine.ModifierManager", DummyModifierManager)
-
     game_path = minimal_game(tmp_path)
     loader = GameLoader(games_dir=game_path.parent)
     game_def = loader.load_game(game_path.name)

@@ -13,7 +13,7 @@ def formatter(engine_fixture) -> ActionFormatter:
 
 def test_formatter_returns_item_use_text(formatter):
     engine = formatter.engine
-    engine.inventory_manager.item_defs["coffee"].use_text = "Enjoy a warm coffee."
+    engine.inventory.item_defs["coffee"].use_text = "Enjoy a warm coffee."
     result = formatter.format("use", None, None, None, "coffee")
     assert result == "Enjoy a warm coffee."
 

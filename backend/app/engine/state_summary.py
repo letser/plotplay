@@ -72,9 +72,9 @@ class StateSummaryService:
         for char_id, active_mods in state.modifiers.items():
             if active_mods:
                 summary_modifiers[char_id] = [
-                    self.engine.modifier_manager.library[mod["id"]].model_dump()
+                    self.engine.modifiers.library[mod["id"]].model_dump()
                     for mod in active_mods
-                    if mod["id"] in self.engine.modifier_manager.library
+                    if mod["id"] in self.engine.modifiers.library
                 ]
 
         character_details: dict[str, dict] = {}
@@ -85,20 +85,20 @@ class StateSummaryService:
             character_details[char_id] = {
                 "name": char_def.name,
                 "pronouns": char_def.pronouns,
-                "wearing": self.engine.clothing_manager.get_character_appearance(char_id),
+                "wearing": self.engine.clothing.get_character_appearance(char_id),
             }
 
         player_char_def = self.engine.characters_map.get("player")
         player_details = {
             "name": "You",
             "pronouns": player_char_def.pronouns if player_char_def else ["you"],
-            "wearing": self.engine.clothing_manager.get_character_appearance("player"),
+            "wearing": self.engine.clothing.get_character_appearance("player"),
         }
 
         player_inventory_details: dict[str, dict] = {}
         if player_inv := state.inventory.get("player"):
             for item_id, count in player_inv.items():
-                if count > 0 and (item_def := self.engine.inventory_manager.item_defs.get(item_id)):
+                if count > 0 and (item_def := self.engine.inventory.item_defs.get(item_id)):
                     player_inventory_details[item_id] = item_def.model_dump()
 
         summary = {

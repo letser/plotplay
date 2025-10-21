@@ -23,7 +23,7 @@ class ActionFormatter:
         item_id: str | None,
     ) -> str:
         if action_type == "use" and item_id:
-            item_def = self.engine.inventory_manager.item_defs.get(item_id)
+            item_def = self.engine.inventory.item_defs.get(item_id)
             if item_def and getattr(item_def, "use_text", None):
                 return item_def.use_text
             return f"Player uses {item_id}."

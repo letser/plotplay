@@ -56,11 +56,11 @@ class EffectResolver:
                 case MoveToEffect():
                     self._apply_move_to(effect)
                 case InventoryChangeEffect():
-                    self.engine.inventory_manager.apply_effect(effect, state)
+                    self.engine.inventory.apply_effect(effect)
                 case ClothingChangeEffect():
-                    self.engine.clothing_manager.apply_effect(effect)
+                    self.engine.clothing.apply_effect(effect)
                 case ApplyModifierEffect() | RemoveModifierEffect():
-                    self.engine.modifier_manager.apply_effect(effect, state)
+                    self.engine.modifiers.apply_effect(effect, state)
                 case UnlockEffect():
                     self._apply_unlock(effect)
                 case AdvanceTimeEffect():
@@ -121,7 +121,7 @@ class EffectResolver:
 
         active_modifiers = self.engine.state_manager.state.modifiers.get(effect.target, [])
         for mod_state in active_modifiers:
-            mod_def = self.engine.modifier_manager.library.get(mod_state["id"])
+            mod_def = self.engine.modifiers.library.get(mod_state["id"])
             if mod_def and mod_def.clamp_meters:
                 if meter_clamp := mod_def.clamp_meters.get(effect.meter):
                     if "min" in meter_clamp:

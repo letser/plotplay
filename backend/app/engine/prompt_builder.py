@@ -5,14 +5,16 @@ Builds prompts for the Writer and Checker AI models based on the game state.
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
 from app.core.state_manager import GameState
-from app.core.clothing_manager import ClothingManager
 from app.core.conditions import ConditionEvaluator
 from app.models.characters import Character
 from app.models.game import GameDefinition
 from app.models.nodes import Node
+
+if TYPE_CHECKING:
+    from app.core.game_engine import GameEngine
 
 
 class PromptBuilder:
@@ -22,9 +24,9 @@ class PromptBuilder:
     RECENT_NARRATIVE_COUNT = 2
     MEMORY_CUTOFF_OFFSET = 2
 
-    def __init__(self, game_def: GameDefinition, clothing_manager: ClothingManager):
+    def __init__(self, game_def: GameDefinition, engine: "GameEngine"):
         self.game_def = game_def
-        self.clothing_manager = clothing_manager
+        self.engine = engine
         self.characters_map: dict[str, Character] = {char.id: char for char in self.game_def.characters}
 
     # ------------------------------------------------------------------ #
@@ -317,7 +319,7 @@ class PromptBuilder:
                 f"  - {modifier_str}",
                 f"  - Behavior: {behavior_str}",
                 f"  - {refusal_str}",
-                f"  - Wearing: {self.clothing_manager.get_character_appearance(char_id)}",
+                f"  - Wearing: {self.engine.clothing.get_character_appearance(char_id)}",
             ]
             cards.append("\n".join(card_lines))
 

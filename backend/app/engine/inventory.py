@@ -1,28 +1,46 @@
-""""
-PlotPlay inventory manager handles inventory changes.
-"""
+"""Inventory management service for PlotPlay."""
 
-from typing import List
-from app.models.game import GameDefinition
-from app.core.state_manager import GameState
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, List
+
 from app.models.effects import InventoryChangeEffect, AnyEffect
 
+if TYPE_CHECKING:
+    from app.core.game_engine import GameEngine
 
-class InventoryManager:
+
+class InventoryService:
     """
     Manages character and player inventories.
+
+    Responsibilities:
+    - Process item usage and return effects to apply
+    - Apply inventory add/remove effects to state
+    - Validate item and owner references
+    - Enforce stackable limits
     """
 
-    def __init__(self, game_def: GameDefinition):
-        self.game_def = game_def
+    def __init__(self, engine: "GameEngine"):
+        self.engine = engine
+        self.game_def = engine.game_def
         self.item_defs = {item.id: item for item in self.game_def.items}
 
-    def use_item(self, owner_id: str, item_id: str, state: GameState) -> List[AnyEffect]:
+    def use_item(self, owner_id: str, item_id: str) -> List[AnyEffect]:
         """
         Handles the logic for a character using an item.
         Returns a list of effects to be applied.
+
+        Args:
+            owner_id: The character/player using the item
+            item_id: The ID of the item to use
+
+        Returns:
+            List of effects to apply (item effects + consumable removal)
         """
+        state = self.engine.state_manager.state
         owner_inventory = state.inventory.setdefault(owner_id, {})
+
         if owner_inventory.get(item_id, 0) <= 0:
             return []
 
@@ -43,8 +61,14 @@ class InventoryManager:
 
         return effects_to_apply
 
-    def apply_effect(self, effect: InventoryChangeEffect, state: GameState):
-        """Applies a single inventory change effect to the state."""
+    def apply_effect(self, effect: InventoryChangeEffect):
+        """
+        Applies a single inventory change effect to the state.
+
+        Args:
+            effect: The inventory change effect to apply
+        """
+        state = self.engine.state_manager.state
 
         # Ignore invalid item references
         if effect.item not in self.item_defs:
