@@ -4,9 +4,12 @@ Connects to external AI services
 
 import json
 from typing import Dict, Optional, Any
+
 import httpx
 from pydantic import BaseModel, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from app.core.env import ENV_FILE_PATH
 
 
 class AISettings(BaseSettings):
@@ -29,7 +32,7 @@ class AISettings(BaseSettings):
     checker_top_p: float = 0.95
     checker_max_tokens: int = 300
 
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_file=str(ENV_FILE_PATH), extra="ignore")
 
 
 
