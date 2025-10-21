@@ -66,6 +66,14 @@ class InventoryRemoveEffect(Effect):
     item: AnyItemId
     count: int = 1
 
+
+class InventoryChangeEffect(Effect):
+    """Legacy wrapper used by the current engine to mutate inventories."""
+    type: Literal["inventory_add", "inventory_remove"]
+    owner: CharacterId
+    item: AnyItemId
+    count: int = 1
+
 class InventoryTakeEffect(Effect):
     """Take an item from the current location."""
     type: Literal["inventory_take"] = "inventory_take"
@@ -143,6 +151,15 @@ class OutfitTakeOffEffect(Effect):
     target: CharacterId
     item: OutfitId
 
+
+class ClothingChangeEffect(Effect):
+    """Legacy outfit/clothing adjustments used by the current engine."""
+    type: Literal["outfit_change", "clothing_set"]
+    character: CharacterId
+    outfit: OutfitId | None = None
+    layer: ClothingSlot | None = None
+    state: ClothingState | None = None
+
 # Movement & Time
 
 class MoveEffect(Effect):
@@ -192,7 +209,10 @@ class RemoveModifierEffect(Effect):
 
 class UnlockEffect(Effect):
     """Unlock game content."""
-    type: Literal["unlock"] = "unlock"
+    type: Literal["unlock", "unlock_outfit", "unlock_ending", "unlock_actions"] = "unlock"
+    character: CharacterId | None = None
+    outfit: OutfitId | None = None
+    ending: NodeId | None = None
     items: list[ItemId] | None = None
     clothing: list[ClothingId] | None = None
     outfits: list[OutfitId] | None = None
@@ -220,6 +240,11 @@ class GotoEffect(Effect):
     node: NodeId
 
 
+class GotoNodeEffect(GotoEffect):
+    """Legacy alias for goto effect."""
+    type: Literal["goto_node"] = "goto_node"
+
+
 class ConditionalEffect(Effect):
     """An effect that branches based on a condition."""
     type: Literal["conditional"] = "conditional"
@@ -241,10 +266,10 @@ AnyEffect = Annotated[
     InventoryAddEffect, InventoryRemoveEffect, InventoryTakeEffect, InventoryDropEffect,
     InventoryPurchaseEffect, InventorySellEffect,
     ClothingPutOnEffect, ClothingTakeOffEffect,ClothingStateEffect, ClothingSlotStateEffect,
-    OutfitPutOnEffect, OutfitTakeOffEffect,
+    OutfitPutOnEffect, OutfitTakeOffEffect, ClothingChangeEffect,
     MoveEffect, MoveToEffect, TravelToEffect, AdvanceTimeEffect, AdvanceTimeSlotEffect,
     ApplyModifierEffect, RemoveModifierEffect, UnlockEffect, LockEffect,
-    GotoEffect, ConditionalEffect, RandomEffect
+    GotoEffect, GotoNodeEffect, ConditionalEffect, RandomEffect
 ],
     Field(discriminator="type")
     ]

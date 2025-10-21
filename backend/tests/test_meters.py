@@ -661,7 +661,7 @@ def test_threshold_label_lookup(tmp_path: Path):
     engine = GameEngine(game_def, "test_session")
 
     # Test threshold lookups via PromptBuilder
-    from app.services.prompt_builder import PromptBuilder
+    from app.engine.prompt_builder import PromptBuilder
     prompt_builder = PromptBuilder(game_def, engine.clothing_manager)
 
     # trust=25 should be "acquaintance"

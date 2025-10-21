@@ -106,3 +106,6 @@ class EventTrigger(NodeCondition):
 
 class Event(EventTrigger, Node):
     type: NodeType = NodeType.EVENT
+
+# Legacy aliases for compatibility with the current engine
+Choice = NodeChoice

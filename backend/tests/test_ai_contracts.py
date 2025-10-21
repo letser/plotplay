@@ -22,7 +22,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 from app.core.game_engine import GameEngine
 from app.core.game_loader import GameLoader
-from app.services.prompt_builder import PromptBuilder
+from app.engine.prompt_builder import PromptBuilder
 from app.services.ai_service import AIService, AIResponse, AISettings
 from app.models.characters import Character
 from app.models.narration import NarrationConfig

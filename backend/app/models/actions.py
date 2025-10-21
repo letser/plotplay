@@ -27,3 +27,6 @@ class Action(OptionalConditionalMixin, DescriptiveModel):
     when_all: list[DSLExpression] | None = None
     when_any: list[DSLExpression] | None = None
     effects: EffectsList = Field(default_factory=list)
+
+# Legacy alias preserved for engine compatibility
+GameAction = Action

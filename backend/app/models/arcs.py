@@ -49,3 +49,6 @@ class Arc(DescriptiveModel):
     category: str | None = None
     repeatable: bool = False
     stages: list[ArcStage] = Field(default_factory=list)
+
+# Legacy alias maintained for engine compatibility
+Stage = ArcStage

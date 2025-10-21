@@ -1,16 +1,16 @@
 # Repository Guidelines
 
 ## Recent Engine Refactor Progress
-- Added `GameDefinition.index` caches (nodes, actions, items, wardrobe, meters, locations) for O(1) lookups across all runtime systems.
-- Rebuilt the loader to validate top-level keys, includes, merge modes, and `meta.id`, preventing malformed manifests from slipping through.
-- Reworked `StateManager` to emit spec-aligned runtime snapshots (time/location structs, per-character meters/inventory/clothing/modifiers, arc history) seeded from the new indexes.
-- Extended `backend/tests_v2` with loader, validator, and state-manager coverage; run `PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=backend pytest backend/tests_v2` before shipping.
+- Slimmed `GameEngine` into a façade that composes dedicated services (`app/engine/*`): turn, movement, time, effects, discovery, narrative, choices, state summary, presence, and action formatting.
+- Extracted discovery, narrative reconciliation, node transitions, and state summaries into reusable services with focused tests under `backend/tests_v2/`.
+- Hardened `prompt_builder` against missing world/meters/modifier data so minimal game fixtures run through the full turn stack.
+- Added reusable `engine_fixture` in `tests_v2/conftest_services.py` plus coverage for action formatter, presence, discovery, narrative, events/arcs, nodes, choices, effects, and time utilities.
 
 ## Next Steps (high priority)
-- Update managers (event, modifier, inventory, clothing, movement) to consume `GameDefinition.index` instead of ad-hoc scans and align with the new `GameState` structure.
-- Implement effect application utilities that operate on the refactored state (meters, inventories, clothing, unlocks) and reuse them inside `GameEngine`.
-- Expand prompts/state envelopes to surface the new arc history, wardrobe, and discovery data, then update Checker/Writer scaffolding tests.
-- Audit legacy tests and services to ensure they no longer rely on removed fields (`state.location_current` dicts, etc.) and adjust fixtures via `tests_v2/conftest.py`.
+- Review API layer (`backend/app/api`) to ensure response payloads remain aligned with the slimmer engine and add integration smoke tests where needed.
+- Continue migrating any remaining monolithic helpers (AI state application, discovery logging, etc.) into engine services as required.
+- Audit FastAPI error handling/logging now that logger persistence is optional (NullHandler on permission errors).
+- Keep pruning legacy references to removed fields in fixtures/tests to avoid drift between `tests/` and `tests_v2/`.
 
 ## Project Structure & Module Organization
 - `backend/app/` hosts FastAPI modules: keep routers in `api/`, business rules in `services/`, and Pydantic schemas in `models/`.

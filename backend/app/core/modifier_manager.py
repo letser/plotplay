@@ -20,12 +20,13 @@ class ModifierManager:
     def __init__(self, game_def: GameDefinition, engine: "GameEngine"):
         self.game_def = game_def
         self.engine = engine  # Keep a reference to the engine to apply effects
-        if not self.game_def.modifier_system:
+        modifiers_config = getattr(self.game_def, "modifiers", None)
+        if modifiers_config and modifiers_config.library:
+            self.library = modifiers_config.library
+            self.exclusions = modifiers_config.exclusions or []
+        else:
             self.library = {}
             self.exclusions = []
-        else:
-            self.library = self.game_def.modifier_system.library
-            self.exclusions = self.game_def.modifier_system.exclusions or []
 
     def update_modifiers_for_turn(self, state: GameState, rng_seed: int | None = None):
         """

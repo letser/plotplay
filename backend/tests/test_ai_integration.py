@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 from app.models.characters import Character, Appearance, AppearanceBase
 from app.core.game_engine import GameEngine
-from app.services.prompt_builder import PromptBuilder
+from app.engine.prompt_builder import PromptBuilder
 from app.services.ai_service import AIResponse
 from app.models.flags import Flag
 
