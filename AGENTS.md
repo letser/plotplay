@@ -45,3 +45,26 @@
 ## Security & Configuration Tips
 - Copy `backend/.env.example` to `backend/.env`; never commit secrets or service keys.
 - Use `docker-compose down -v` to reset local data before sharing machines, and keep `shared/` specs synchronized with frontend types to avoid contract drift.
+
+## AI Prompt & API Alignment Plan
+1. **Writer Prompt Refresh**
+   - Expand `PromptBuilder` character cards to include wardrobe state, consent gates, and beat snippets strictly for AI use.
+   - Inject movement/shop context (available exits, merchant availability, currency) so the Writer can narrate new systems.
+   - Keep beats model-facing only; UI should consume summaries, not beats.
+
+2. **Checker Contract Overhaul**
+   - Redefine the checker JSON schema to cover meter/money deltas, inventory operations (add/remove/take/drop/give/purchase/sell), clothing slot changes, movement, discovery/unlocks, and modifiers.
+   - Update prompt payload examples and documentation to match the new schema.
+   - Pipe checker deltas through existing validators (`apply_meter_change`, inventory service) to enforce caps and clamps.
+
+3. **State Summary Improvements**
+   - Extend `StateSummaryService` to return a polished snapshot (location, present characters, attire, key meters) after every action, including local non-AI operations.
+   - Ensure API responses always include this summary so the UI has consistent context.
+
+4. **Deterministic Action Endpoints**
+   - Add REST endpoints for movement, shop purchase/sell, and inventory take/drop/give that execute engine services directly without invoking AI.
+   - Return updated state summaries (and optional narrative hooks) from these endpoints to keep the client in sync.
+
+5. **Testing & Tooling**
+   - Add regression tests for prompt generation (snapshot or fixture-based) and for the checker reconciliation pipeline under the new schema.
+   - Extend API integration tests to cover the new deterministic endpoints and verify session cleanup.
