@@ -61,6 +61,7 @@ class GameState:
     characters: dict[str, CharacterState] = field(default_factory=dict)
     meters: dict[str, dict[str, float]] = field(default_factory=dict)
     inventory: dict[str, dict[str, int]] = field(default_factory=dict)
+    location_inventory: dict[str, dict[str, int]] = field(default_factory=dict)
     modifiers: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
 
     clothing_states: dict[str, dict[str, str]] = field(default_factory=dict)
@@ -186,6 +187,7 @@ class StateManager:
 
         self._initialize_time(state)
         self._initialize_location(state)
+        self._initialize_location_inventories(state)
         self._initialize_flags(state)
         self._initialize_characters(state)
         self._initialize_arcs(state)
@@ -241,6 +243,29 @@ class StateManager:
 
         state.discovered_locations = sorted(discovered_locations)
         state.discovered_zones = sorted(discovered_zones)
+
+    def _initialize_location_inventories(self, state: GameState) -> None:
+        """Initialize inventories for all locations that have them defined."""
+        for zone in self.game_def.zones:
+            for location in zone.locations:
+                if location.inventory:
+                    loc_inv = {}
+                    # Initialize items from location's inventory definition
+                    if location.inventory.items:
+                        for inv_item in location.inventory.items:
+                            if inv_item.discovered:
+                                loc_inv[inv_item.id] = inv_item.count
+                    if location.inventory.clothing:
+                        for inv_item in location.inventory.clothing:
+                            if inv_item.discovered:
+                                loc_inv[inv_item.id] = inv_item.count
+                    if location.inventory.outfits:
+                        for inv_item in location.inventory.outfits:
+                            if inv_item.discovered:
+                                loc_inv[inv_item.id] = inv_item.count
+
+                    if loc_inv:
+                        state.location_inventory[location.id] = loc_inv
 
     def _initialize_flags(self, state: GameState) -> None:
         if self.game_def.flags:

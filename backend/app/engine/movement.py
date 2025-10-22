@@ -228,3 +228,116 @@ class MovementService:
             "choices": engine._generate_choices(engine._get_current_node(), []),
             "current_state": engine._get_state_summary(),
         }
+
+    def move_by_direction(self, direction: str, with_characters: list[str] | None = None) -> bool:
+        """Move in a cardinal direction. Returns True if successful."""
+        engine = self.engine
+        state = engine.state_manager.state
+        current_location = engine._get_location(state.location_current)
+
+        if not current_location or not current_location.connections:
+            return False
+
+        # Normalize direction
+        direction = direction.lower()
+
+        # Find connection matching this direction
+        for connection in current_location.connections:
+            if hasattr(connection, 'direction') and connection.direction:
+                if connection.direction.value == direction or connection.direction.name.lower() == direction:
+                    destination_id = connection.to
+
+                    # Check if destination is discovered
+                    if destination_id not in state.discovered_locations:
+                        return False
+
+                    # Update location
+                    state.location_previous = state.location_current
+                    state.location_current = destination_id
+                    state.location_privacy = engine._get_location_privacy(destination_id)
+
+                    # Handle companions
+                    if with_characters:
+                        state.present_chars = ["player"] + with_characters
+                    else:
+                        state.present_chars = ["player"]
+
+                    # Advance time
+                    move_rules = engine.game_def.movement
+                    time_cost = move_rules.base_time if move_rules and move_rules.base_time else 0
+                    if time_cost > 0:
+                        engine._advance_time(minutes=time_cost)
+
+                    engine._update_npc_presence()
+                    return True
+
+        return False
+
+    def travel_to_zone(self, location_id: str, method: str | None = None, with_characters: list[str] | None = None) -> bool:
+        """Travel to a location in another zone. Returns True if successful."""
+        engine = self.engine
+        state = engine.state_manager.state
+
+        # Find the location and its zone
+        target_location = engine._get_location(location_id)
+        if not target_location:
+            return False
+
+        target_zone_id = engine.state_manager.index.location_to_zone.get(location_id)
+        if not target_zone_id:
+            return False
+
+        # Check if it's actually a different zone
+        if target_zone_id == state.zone_current:
+            # Same zone, just do local movement
+            state.location_previous = state.location_current
+            state.location_current = location_id
+            state.location_privacy = engine._get_location_privacy(location_id)
+            if with_characters:
+                state.present_chars = ["player"] + with_characters
+            else:
+                state.present_chars = ["player"]
+            engine._update_npc_presence()
+            return True
+
+        # Calculate travel time
+        current_zone = engine.zones_map.get(state.zone_current)
+        if not current_zone:
+            return False
+
+        # Find connection and calculate time
+        distance = 1.0
+        for connection in current_zone.connections:
+            if target_zone_id in connection.to:
+                distance = connection.distance or 1.0
+                break
+
+        # Find travel method and calculate time
+        move_rules = engine.game_def.movement
+        time_cost_minutes = 15  # Default
+
+        if move_rules and move_rules.methods:
+            # If method specified, find it
+            if method:
+                for travel_method in move_rules.methods:
+                    if travel_method.name == method:
+                        time_cost_minutes = int(travel_method.base_time * distance)
+                        break
+            else:
+                # Use first available method
+                time_cost_minutes = int(move_rules.methods[0].base_time * distance)
+
+        # Execute travel
+        state.location_previous = state.location_current
+        state.zone_current = target_zone_id
+        state.location_current = location_id
+        state.location_privacy = engine._get_location_privacy(location_id)
+
+        if with_characters:
+            state.present_chars = ["player"] + with_characters
+        else:
+            state.present_chars = ["player"]
+
+        engine._advance_time(minutes=time_cost_minutes)
+        engine._update_npc_presence()
+        return True

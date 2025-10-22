@@ -1238,7 +1238,7 @@ Changes a flag value.
 # Add item to inventory
 - type: inventory_add
   # ... common fields
-  target: "player | <npc_id>"                 # REQUIRED. Effect target. Ignored for the flag_set
+  target: "player | <npc_id>"                 # REQUIRED. Effect target. 
   item_type: "item | clothing | outfit"       # REQUIRED. Type of the item
   item: "<item_id | clothing_id | outfit_id>" # REQUIRED 
   count: <int>                                # OPTIONAL. Default: 1.
@@ -1246,7 +1246,7 @@ Changes a flag value.
 # Remove item from inventory
 - type: inventory_remove
   # ... common fields
-  target: "player | <npc_id>"                 # REQUIRED. Effect target. Ignored for the flag_set
+  target: "player | <npc_id>"                 # REQUIRED. Effect target. 
   item_type: "item | clothing | outfit"       # REQUIRED. Type of the item
   item: "<item_id | clothing_id | outfit_id>" # REQUIRED 
   count: <int>                                # OPTIONAL. Default: 1.
@@ -1254,7 +1254,7 @@ Changes a flag value.
 # Take item from the current location; checks availability 
 - type: inventory_take
   # ... common fields
-  target: "player | <npc_id>"                 # REQUIRED. Effect target. Ignored for the flag_set
+  target: "player | <npc_id>"                 # REQUIRED. Effect target. 
   item_type: "item | clothing | outfit"       # REQUIRED. Type of the item
   item: "<item_id | clothing_id | outfit_id>" # REQUIRED 
   count: <int>                                # OPTIONAL. Default: 1.
@@ -1262,7 +1262,16 @@ Changes a flag value.
 # Drops item at the current location inventory
 - type: inventory_drop
   # ... common fields 
-  target: "player | <npc_id>"                 # REQUIRED. Effect target. Ignored for the flag_set
+  target: "player | <npc_id>"                 # REQUIRED. Effect target. 
+  item_type: "item | clothing | outfit"       # REQUIRED. Type of the item
+  item: "<item_id | clothing_id | outfit_id>" # REQUIRED 
+  count: <int>                                # OPTIONAL. Default: 1.
+
+# Gives item to another player/npc
+- type: inventory_give
+  # ... common fields 
+  source: "player | <npc_id>"                 # REQUIRED. Effect source - who gives the item. 
+  target: "player | <npc_id>"                 # REQUIRED. Effect target - who receives the item. 
   item_type: "item | clothing | outfit"       # REQUIRED. Type of the item
   item: "<item_id | clothing_id | outfit_id>" # REQUIRED 
   count: <int>                                # OPTIONAL. Default: 1.

@@ -21,7 +21,7 @@ from app.models.wardrobe import (
     WardrobeConfig, Clothing, ClothingLook, ClothingState, Outfit
 )
 from app.models.nodes import Node
-from app.models.effects import ClothingChangeEffect
+# Legacy ClothingChangeEffect removed - using spec-compliant methods instead
 from app.models.time import TimeConfig
 from app.models.locations import Zone, Location
 
@@ -108,22 +108,20 @@ class TestClothingEffectHandling:
 
     @pytest.mark.asyncio
     async def test_outfit_change_for_character_without_wardrobe(self, minimal_game):
-        """Test that outfit changes are ignored when character has no wardrobe."""
+        """Test that outfit changes fail gracefully when character has no wardrobe (spec-compliant)."""
         engine = GameEngine(minimal_game, session_id="test-no-ward")
         state = engine.state_manager.state
 
-        # Try to apply outfit change
-        effect = ClothingChangeEffect(
-            type="outfit_change",
-            character="player",
-            outfit="some_outfit"
+        # Try to put on outfit using spec-compliant method
+        success = engine.clothing.put_on_outfit(
+            char_id="player",
+            outfit_id="some_outfit"
         )
 
-        # Should not crash
-        engine.clothing.apply_effect(effect)
+        # Should return False for nonexistent outfit
+        assert success is False
 
-        # State may have empty clothing_states entry from initialization, which is fine
-        # The important thing is no crash occurs
+        # State may have empty clothing_states entry from initialization
         if "player" in state.clothing_states:
             # Should be empty or unchanged
             assert state.clothing_states["player"] == {} or \
@@ -131,38 +129,33 @@ class TestClothingEffectHandling:
 
     @pytest.mark.asyncio
     async def test_clothing_set_for_nonexistent_character(self, minimal_game):
-        """Test that clothing_set effects for unknown characters are ignored."""
+        """Test that clothing changes fail for nonexistent characters (spec-compliant)."""
         engine = GameEngine(minimal_game, session_id="test-bad-char")
 
-        effect = ClothingChangeEffect(
-            type="clothing_set",
-            character="nonexistent",
-            layer="top",
-            state=ClothingState.REMOVED
+        # Try to change slot state for nonexistent character
+        success = engine.clothing.set_slot_state(
+            char_id="nonexistent",
+            slot="top",
+            state="removed"
         )
 
-        # Should not crash
-        engine.clothing.apply_effect(effect)
+        # Should return False
+        assert success is False
 
     @pytest.mark.asyncio
     async def test_clothing_set_for_character_without_state(self, minimal_game):
-        """Test that clothing_set effects for character with empty state are handled."""
+        """Test that clothing changes fail for character without state (spec-compliant)."""
         engine = GameEngine(minimal_game, session_id="test-no-state")
 
-        effect = ClothingChangeEffect(
-            type="clothing_set",
-            character="player",
-            layer="top",
-            state=ClothingState.REMOVED
+        # Try to change slot state for character without clothing state
+        success = engine.clothing.set_slot_state(
+            char_id="player",
+            slot="top",
+            state="removed"
         )
 
-        # May raise KeyError if clothing_states doesn't have 'layers' key
-        # This is expected behavior with current implementation
-        try:
-            engine.clothing.apply_effect(effect)
-        except KeyError:
-            # Expected when clothing state doesn't have proper structure
-            pass
+        # Should return False (no clothing state initialized)
+        assert success is False
 
 
 class TestAIClothingChanges:
@@ -239,17 +232,17 @@ class TestClothingServiceEdgeCases:
 
     @pytest.mark.asyncio
     async def test_multiple_effect_applications(self, minimal_game):
-        """Test applying multiple effects in sequence."""
+        """Test applying multiple outfit changes in sequence (spec-compliant)."""
         engine = GameEngine(minimal_game, session_id="test-multi-effects")
 
-        # Apply multiple effects
+        # Apply multiple outfit changes
         for i in range(5):
-            effect = ClothingChangeEffect(
-                type="outfit_change",
-                character="player",
-                outfit=f"outfit_{i}"
+            # Should return False for nonexistent outfits but not crash
+            success = engine.clothing.put_on_outfit(
+                char_id="player",
+                outfit_id=f"outfit_{i}"
             )
-            engine.clothing.apply_effect(effect)
+            assert success is False  # Outfits don't exist in minimal game
 
         # Should not crash
 
@@ -278,54 +271,178 @@ class TestClothingServiceEdgeCases:
 # COMPREHENSIVE INTEGRATION TESTS (SKIPPED - AWAITING WARDROBE SYSTEM COMPLETION)
 # ==============================================================================
 
-@pytest.mark.skip(reason="Wardrobe system incomplete: outfit.layers not implemented in models")
 class TestOutfitChangesComprehensive:
-    """Comprehensive outfit change tests (skipped until wardrobe system complete)."""
+    """Comprehensive outfit change tests."""
 
     @pytest.mark.asyncio
-    async def test_initial_outfit_assignment(self):
+    async def test_initial_outfit_assignment(self, wardrobe_game):
         """Test that characters can be assigned initial outfits."""
-        pytest.skip("Requires complete wardrobe system")
+        engine = GameEngine(wardrobe_game, session_id="test-initial-outfit")
+        state = engine.state_manager.state
+
+        # Emma should have clothing.outfit="casual" in the wardrobe_game fixture
+        char = wardrobe_game.characters[0]
+        assert char.clothing is not None
+        assert char.clothing.outfit == "casual"
+
+        # Check that character has clothing state initialized
+        assert char.id in state.clothing_states
+        clothing_state = state.clothing_states[char.id]
+        assert 'current_outfit' in clothing_state
+        assert clothing_state['current_outfit'] == "casual"
+        assert 'layers' in clothing_state
+        assert len(clothing_state['layers']) > 0
+        # Should have top and bottom from casual outfit (t-shirt + jeans)
+        assert 'top' in clothing_state['layers']
+        assert 'bottom' in clothing_state['layers']
 
     @pytest.mark.asyncio
-    async def test_outfit_change_replaces_layers(self):
+    async def test_outfit_change_replaces_layers(self, wardrobe_game):
         """Test that changing outfits replaces old clothing."""
-        pytest.skip("Requires complete wardrobe system")
+        engine = GameEngine(wardrobe_game, session_id="test-outfit-replace")
+        state = engine.state_manager.state
+
+        char = wardrobe_game.characters[0]
+
+        # Character starts with casual outfit from character.clothing.outfit
+        # Check that it was initialized properly
+        assert char.id in state.clothing_states
+        clothing_state = state.clothing_states[char.id]
+        assert 'current_outfit' in clothing_state
+        assert clothing_state['current_outfit'] == "casual"
+        assert 'top' in clothing_state['layers']
+        assert 'bottom' in clothing_state['layers']
+        initial_outfit = clothing_state['current_outfit']
+
+        # Put on formal outfit (dress)
+        success = engine.clothing.put_on_outfit(char.id, "formal")
+        assert success is True
+
+        # Outfit should have changed
+        assert state.clothing_states[char.id]['current_outfit'] == "formal"
+
+        # Layers should still have top and bottom (dress occupies both)
+        # but they represent different clothing items now
+        assert 'top' in state.clothing_states[char.id]['layers']
+        assert 'bottom' in state.clothing_states[char.id]['layers']
+
+        # The outfit reference changed
+        assert state.clothing_states[char.id]['current_outfit'] != initial_outfit
 
 
-@pytest.mark.skip(reason="Wardrobe system incomplete: layer mechanics not fully implemented")
 class TestClothingLayerMechanicsComprehensive:
-    """Comprehensive layer mechanics tests (skipped until wardrobe system complete)."""
+    """Comprehensive layer mechanics tests."""
 
     @pytest.mark.asyncio
-    async def test_multi_slot_clothing(self):
+    async def test_multi_slot_clothing(self, wardrobe_game):
         """Test that clothing can occupy multiple slots."""
-        pytest.skip("Requires complete wardrobe system")
+        engine = GameEngine(wardrobe_game, session_id="test-multi-slot")
+        state = engine.state_manager.state
+
+        char = wardrobe_game.characters[0]
+
+        # Put on the dress (occupies both top and bottom)
+        success = engine.clothing.put_on_outfit(char.id, "formal")
+        assert success is True
+
+        # Check that dress occupies multiple slots
+        clothing_state = state.clothing_states[char.id]
+        assert "top" in clothing_state['layers']
+        assert "bottom" in clothing_state['layers']
+        # Dress should create the same state in both slots
+        assert clothing_state['layers']['top'] == "intact"
+        assert clothing_state['layers']['bottom'] == "intact"
 
     @pytest.mark.asyncio
-    async def test_concealment_tracking(self):
+    async def test_concealment_tracking(self, wardrobe_game):
         """Test that concealed slots are tracked correctly."""
-        pytest.skip("Requires complete wardrobe system")
+        engine = GameEngine(wardrobe_game, session_id="test-concealment")
+        state = engine.state_manager.state
+
+        char = wardrobe_game.characters[0]
+
+        # Put on casual outfit (t-shirt + jeans)
+        success = engine.clothing.put_on_outfit(char.id, "casual")
+        assert success is True
+
+        # Put on jacket (conceals top)
+        success = engine.clothing.put_on_clothing(char.id, "jacket")
+        assert success is True
+
+        # Jacket should be in top_outer slot
+        assert "top_outer" in state.clothing_states[char.id]['layers']
+
+        # The jacket conceals the top slot
+        # We can verify this by checking the wardrobe definition
+        jacket_item = next(i for i in wardrobe_game.wardrobe.items if i.id == "jacket")
+        assert "top" in jacket_item.conceals
 
 
-@pytest.mark.skip(reason="Wardrobe system incomplete: state transitions need full implementation")
 class TestClothingStateTransitionsComprehensive:
-    """Comprehensive state transition tests (skipped until wardrobe system complete)."""
+    """Comprehensive state transition tests."""
 
     @pytest.mark.asyncio
-    async def test_remove_clothing_item(self):
+    async def test_remove_clothing_item(self, wardrobe_game):
         """Test removing a single clothing item."""
-        pytest.skip("Requires complete wardrobe system")
+        engine = GameEngine(wardrobe_game, session_id="test-remove-item")
+        state = engine.state_manager.state
+
+        char = wardrobe_game.characters[0]
+
+        # Put on casual outfit
+        success = engine.clothing.put_on_outfit(char.id, "casual")
+        assert success is True
+        assert "top" in state.clothing_states[char.id]['layers']
+
+        # Remove the t-shirt
+        success = engine.clothing.take_off_clothing(char.id, "t_shirt")
+        assert success is True
+
+        # Top slot should now be empty
+        assert "top" not in state.clothing_states[char.id]['layers']
+        # Bottom (jeans) should still be there
+        assert "bottom" in state.clothing_states[char.id]['layers']
 
     @pytest.mark.asyncio
-    async def test_open_clothing_with_can_open(self):
+    async def test_open_clothing_with_can_open(self, wardrobe_game):
         """Test opening clothing that can be opened."""
-        pytest.skip("Requires complete wardrobe system")
+        engine = GameEngine(wardrobe_game, session_id="test-open-clothing")
+        state = engine.state_manager.state
+
+        char = wardrobe_game.characters[0]
+
+        # Put on the dress (has can_open=True)
+        success = engine.clothing.put_on_outfit(char.id, "formal")
+        assert success is True
+
+        # Change dress state to opened
+        success = engine.clothing.set_clothing_state(char.id, "dress", "opened")
+        assert success is True
+
+        # Both top and bottom slots should now be "opened"
+        assert state.clothing_states[char.id]['layers']['top'] == "opened"
+        assert state.clothing_states[char.id]['layers']['bottom'] == "opened"
 
     @pytest.mark.asyncio
-    async def test_displace_clothing(self):
+    async def test_displace_clothing(self, wardrobe_game):
         """Test displacing clothing."""
-        pytest.skip("Requires complete wardrobe system")
+        engine = GameEngine(wardrobe_game, session_id="test-displace")
+        state = engine.state_manager.state
+
+        char = wardrobe_game.characters[0]
+
+        # Put on casual outfit
+        success = engine.clothing.put_on_outfit(char.id, "casual")
+        assert success is True
+
+        # Displace the top
+        success = engine.clothing.set_slot_state(char.id, "top", "displaced")
+        assert success is True
+
+        # Top should be displaced
+        assert state.clothing_states[char.id]['layers']['top'] == "displaced"
+        # Bottom should still be intact
+        assert state.clothing_states[char.id]['layers']['bottom'] == "intact"
 
 
 # Note: When the wardrobe system is completed (outfit.items -> outfit.layers conversion,

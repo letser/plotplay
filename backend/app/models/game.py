@@ -158,6 +158,19 @@ class GameDefinition(SimpleModel):
                     f"start.slot '{self.start_slot}' is not defined in time.slots."
                 )
 
+        # Auto-inject money meter definition when economy is enabled
+        if self.economy and self.economy.enabled:
+            from app.models.meters import Meter
+            if not self.meters.player:
+                self.meters.player = {}
+            if "money" not in self.meters.player:
+                self.meters.player["money"] = Meter(
+                    min=0,
+                    max=int(self.economy.max_money),
+                    default=int(self.economy.starting_money),
+                    format="currency"
+                )
+
         self._index = GameIndex.from_game(self)
         return self
 

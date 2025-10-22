@@ -296,3 +296,117 @@ def sample_game_state() -> GameState:
     state.turn_count = 5
 
     return state
+
+
+@pytest.fixture
+def wardrobe_game():
+    """Game fixture with complete wardrobe system for clothing tests."""
+    from app.models.wardrobe import WardrobeConfig, Clothing, Outfit, ClothingLook
+    from app.models.characters import Character, ClothingConfig
+    from app.models.game import GameDefinition, MetaConfig, GameStartConfig
+    from app.models.time import TimeConfig
+    from app.models.locations import Zone, Location
+    from app.models.nodes import Node
+
+    # Define clothing items
+    t_shirt = Clothing(
+        id="t_shirt",
+        name="T-shirt",
+        occupies=["top"],
+        look=ClothingLook(intact="a casual t-shirt")
+    )
+
+    jeans = Clothing(
+        id="jeans",
+        name="Jeans",
+        occupies=["bottom"],
+        look=ClothingLook(intact="blue jeans")
+    )
+
+    dress = Clothing(
+        id="dress",
+        name="Dress",
+        occupies=["top", "bottom"],
+        conceals=["top", "bottom"],
+        can_open=True,
+        look=ClothingLook(
+            intact="a flowy dress",
+            opened="an unbuttoned dress"
+        )
+    )
+
+    jacket = Clothing(
+        id="jacket",
+        name="Jacket",
+        occupies=["top_outer"],
+        conceals=["top"],
+        look=ClothingLook(intact="a leather jacket")
+    )
+
+    # Define outfits
+    casual_outfit = Outfit(
+        id="casual",
+        name="Casual Outfit",
+        items=["t_shirt", "jeans"]
+    )
+
+    formal_outfit = Outfit(
+        id="formal",
+        name="Formal Outfit",
+        items=["dress"]
+    )
+
+    # Create wardrobe config
+    wardrobe = WardrobeConfig(
+        items=[t_shirt, jeans, dress, jacket],
+        outfits=[casual_outfit, formal_outfit]
+    )
+
+    # Create character with wardrobe
+    emma = Character(
+        id="emma",
+        name="Emma",
+        age=20,
+        gender="female",
+        clothing=ClothingConfig(outfit="casual"),
+        wardrobe=wardrobe
+    )
+
+    # Create game definition
+    game = GameDefinition(
+        meta=MetaConfig(
+            id="wardrobe_test",
+            title="Wardrobe Test Game",
+            version="1.0.0"
+        ),
+        start=GameStartConfig(
+            node="start",
+            location="room",
+            day=1,
+            slot="morning"
+        ),
+        time=TimeConfig(
+            mode="slots",
+            slots=["morning", "afternoon", "evening"]
+        ),
+        zones=[
+            Zone(
+                id="zone1",
+                name="Zone",
+                locations=[
+                    Location(
+                        id="room",
+                        name="Room",
+                        description="A room."
+                    )
+                ]
+            )
+        ],
+        characters=[emma],
+        nodes=[
+            Node(id="start", type="scene", title="Start")
+        ],
+        wardrobe=wardrobe
+    )
+
+    return game

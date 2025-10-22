@@ -3,7 +3,7 @@
 import pytest
 from tests_v2.conftest_services import engine_fixture
 from app.engine.clothing import ClothingService
-from app.models.effects import ClothingChangeEffect
+# Legacy ClothingChangeEffect removed - using spec-compliant methods instead
 
 
 def test_clothing_service_initialization(engine_fixture):
@@ -26,17 +26,17 @@ def test_get_character_appearance_unknown_character(engine_fixture):
 
 
 def test_apply_effect_ignores_unknown_character(engine_fixture):
-    """Test that effects for unknown characters are ignored."""
+    """Test that outfit changes for unknown characters fail gracefully (spec-compliant)."""
     clothing = engine_fixture.clothing
 
-    effect = ClothingChangeEffect(
-        type="outfit_change",
-        character="nonexistent_character_xyz",
-        outfit="some_outfit"
+    # Try to put on outfit for nonexistent character
+    success = clothing.put_on_outfit(
+        char_id="nonexistent_character_xyz",
+        outfit_id="some_outfit"
     )
 
-    # Should not crash
-    clothing.apply_effect(effect)
+    # Should return False
+    assert success is False
 
 
 def test_apply_ai_changes_ignores_unknown_character(engine_fixture):
@@ -90,7 +90,7 @@ def test_get_character_appearance_with_valid_character(engine_fixture):
 
 
 def test_apply_effect_clothing_set_with_valid_character(engine_fixture):
-    """Test changing a specific layer state for a valid character."""
+    """Test changing a specific layer state for a valid character (using spec-compliant method)."""
     clothing = engine_fixture.clothing
     state = engine_fixture.state_manager.state
 
@@ -109,16 +109,15 @@ def test_apply_effect_clothing_set_with_valid_character(engine_fixture):
     layers = state.clothing_states[valid_char]["layers"]
     layer_name = list(layers.keys())[0]
 
-    # Change layer state to displaced
-    effect = ClothingChangeEffect(
-        type="clothing_set",
-        character=valid_char,
-        layer=layer_name,
+    # Change layer state to displaced using spec-compliant method
+    success = clothing.set_slot_state(
+        char_id=valid_char,
+        slot=layer_name,
         state="displaced"
     )
-    clothing.apply_effect(effect)
 
     # Verify layer state changed
+    assert success is True
     assert state.clothing_states[valid_char]["layers"][layer_name] == "displaced"
 
 

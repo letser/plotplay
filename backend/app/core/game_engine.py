@@ -68,6 +68,7 @@ class GameEngine:
         self.characters_map: dict[str, Character] = dict(self.index.characters)
         self.locations_map: dict[str, Location] = dict(self.index.locations)
         self.zones_map = dict(self.index.zones)
+        self.items_map = dict(self.index.items)
         self.turn_meter_deltas: dict[str, dict[str, float]] = {}
 
         self.turn_manager = TurnManager(self)

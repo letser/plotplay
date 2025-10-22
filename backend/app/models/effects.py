@@ -111,6 +111,15 @@ class InventorySellEffect(Effect):
     count: int = 1
     price: float | None = None
 
+class InventoryGiveEffect(Effect):
+    """Give an item from one character to another"""
+    type: Literal["inventory_give"] = "inventory_give"
+    source: CharacterId
+    target: CharacterId
+    item_type: ItemType
+    item: AnyItemId
+    count: int = 1
+
 # Clothing
 class ClothingPutOnEffect(Effect):
     """Put on a clothing item and set its state """
@@ -259,7 +268,7 @@ class RandomEffect(Effect):
 AnyEffect = Annotated[
     Union[MeterChangeEffect, FlagSetEffect,
     InventoryAddEffect, InventoryRemoveEffect, InventoryTakeEffect, InventoryDropEffect,
-    InventoryPurchaseEffect, InventorySellEffect,
+    InventoryPurchaseEffect, InventorySellEffect, InventoryGiveEffect,
     ClothingPutOnEffect, ClothingTakeOffEffect,ClothingStateEffect, ClothingSlotStateEffect,
     OutfitPutOnEffect, OutfitTakeOffEffect, ClothingChangeEffect,
     MoveEffect, MoveToEffect, TravelToEffect, AdvanceTimeEffect, AdvanceTimeSlotEffect,

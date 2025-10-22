@@ -68,16 +68,10 @@ class ConditionEvaluator:
         if trimmed.lower() in {"false", "never"}:
             return False
 
-        if refresh or self.context is None:
-            self._refresh_context()
-
-        try:
-            tree = ast.parse(trimmed, mode="eval")
-            result = self._eval_node(tree.body)
-            return bool(result)
-        except Exception:
-            # Invalid expressions simply resolve to False (logged elsewhere in engine)
-            return False
+        value = self.evaluate_value(expression, refresh=refresh, default=False)
+        if isinstance(value, bool):
+            return value
+        return bool(value)
 
     def evaluate_all(self, expressions: Iterable[str | None] | None) -> bool:
         """
@@ -132,6 +126,38 @@ class ConditionEvaluator:
         if when_any is not None:
             return self.evaluate_any(when_any)
         return True
+
+    def evaluate_value(
+        self,
+        expression: str | None,
+        *,
+        refresh: bool = True,
+        default: Any = None,
+    ) -> Any:
+        """
+        Evaluate an expression and return its raw value (without coercing to bool).
+        Falls back to `default` if the expression is empty or invalid.
+        """
+        if expression is None:
+            return default
+
+        trimmed = expression.strip()
+        if trimmed == "":
+            return default
+        lowered = trimmed.lower()
+        if lowered in {"always", "true"}:
+            return True
+        if lowered in {"false", "never"}:
+            return False
+
+        if refresh or self.context is None:
+            self._refresh_context()
+
+        try:
+            tree = ast.parse(trimmed, mode="eval")
+            return self._eval_node(tree.body)
+        except Exception:
+            return default
 
     # --------------------------------------------------------------------- #
     # Context construction & helpers

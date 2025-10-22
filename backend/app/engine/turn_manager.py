@@ -126,12 +126,14 @@ class TurnManager:
             else:
                 item_def = engine.inventory.item_defs.get(item_id)
                 if item_def and item_def.can_give:
-                    engine.apply_effects(item_def.gift_effects)
-                    engine.inventory.apply_effect(
+                    engine.apply_effects(getattr(item_def, "gift_effects", []))
+                    hook_effects = engine.inventory.apply_effect(
                         InventoryChangeEffect(
                             type="inventory_remove", owner="player", item=item_id, count=1
                         )
                     )
+                    if hook_effects:
+                        engine.apply_effects(hook_effects)
                     engine.logger.info(f"Player gave item '{item_id}' to '{target}'.")
                 else:
                     engine.logger.warning(f"Player tried to give non-giftable item '{item_id}'.")

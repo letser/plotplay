@@ -111,7 +111,22 @@ class ClothingService:
 
         Args:
             effect: The clothing change effect to apply (outfit_change or clothing_set)
+
+        DEPRECATED: This method uses non-spec effect types (outfit_change, clothing_set).
+        Use the spec-compliant effects instead:
+        - outfit_change -> outfit_put_on / outfit_take_off
+        - clothing_set -> clothing_state / clothing_slot_state
+
+        This method will be removed in a future version.
         """
+        import warnings
+        warnings.warn(
+            f"ClothingService.apply_effect() with '{effect.type}' is deprecated. "
+            "Use spec-compliant clothing effects instead (outfit_put_on, clothing_state, etc.)",
+            DeprecationWarning,
+            stacklevel=2
+        )
+
         char_id = effect.character
 
         if effect.type == "outfit_change" and effect.outfit:
@@ -195,12 +210,13 @@ class ClothingService:
         # Check concealment - can't change state of concealed items
         if new_state in ["opened", "displaced", "removed"]:
             # Check if this slot is concealed by another item
-            if self._is_slot_concealed(char_def, char_id, slot):
+            # Pass the current clothing_item so we don't check if it conceals itself
+            if self._is_slot_concealed(char_def, char_id, slot, exclude_item=clothing_item.id):
                 return False
 
         return True
 
-    def _is_slot_concealed(self, char_def, char_id: str, slot: str) -> bool:
+    def _is_slot_concealed(self, char_def, char_id: str, slot: str, exclude_item: str | None = None) -> bool:
         """
         Check if a slot is concealed by another clothing item.
 
@@ -228,6 +244,10 @@ class ClothingService:
 
         # Check each item in the outfit
         for item_id in outfit.items:
+            # Skip if this is the excluded item (e.g., the item we're changing state on)
+            if exclude_item and item_id == exclude_item:
+                continue
+
             clothing_item = self._find_clothing_item(char_def, item_id)
             if not clothing_item:
                 continue
@@ -322,3 +342,148 @@ class ClothingService:
             for layer in changes.get("displaced", []):
                 if layer in char_layers and char_layers[layer] == "intact":
                     char_layers[layer] = "displaced"
+
+    def put_on_clothing(self, char_id: str, clothing_id: str, state: str = "intact") -> bool:
+        """Put on a clothing item. Returns True if successful."""
+        char_def = next((c for c in self.game_def.characters if c.id == char_id), None)
+        if not char_def:
+            return False
+
+        clothing_item = self._find_clothing_item(char_def, clothing_id)
+        if not clothing_item:
+            return False
+
+        # Initialize clothing state if needed
+        if char_id not in self.state.clothing_states:
+            self.state.clothing_states[char_id] = {'current_outfit': None, 'layers': {}}
+
+        # Put the item on all slots it occupies
+        for slot in clothing_item.occupies:
+            self.state.clothing_states[char_id]['layers'][slot] = state
+
+        return True
+
+    def take_off_clothing(self, char_id: str, clothing_id: str) -> bool:
+        """Take off a clothing item. Returns True if successful."""
+        char_def = next((c for c in self.game_def.characters if c.id == char_id), None)
+        if not char_def:
+            return False
+
+        clothing_item = self._find_clothing_item(char_def, clothing_id)
+        if not clothing_item:
+            return False
+
+        if char_id not in self.state.clothing_states:
+            return False
+
+        # Remove from all slots it occupies
+        for slot in clothing_item.occupies:
+            if slot in self.state.clothing_states[char_id]['layers']:
+                del self.state.clothing_states[char_id]['layers'][slot]
+
+        return True
+
+    def set_clothing_state(self, char_id: str, clothing_id: str, state: str) -> bool:
+        """Set the state of a specific clothing item. Returns True if successful."""
+        char_def = next((c for c in self.game_def.characters if c.id == char_id), None)
+        if not char_def:
+            return False
+
+        clothing_item = self._find_clothing_item(char_def, clothing_id)
+        if not clothing_item:
+            return False
+
+        if char_id not in self.state.clothing_states:
+            return False
+
+        # Validate state change
+        for slot in clothing_item.occupies:
+            if slot in self.state.clothing_states[char_id]['layers']:
+                if not self._can_change_clothing_state(char_def, char_id, slot, state, clothing_item):
+                    return False
+
+        # Apply state to all slots this item occupies
+        for slot in clothing_item.occupies:
+            if slot in self.state.clothing_states[char_id]['layers']:
+                self.state.clothing_states[char_id]['layers'][slot] = state
+
+        return True
+
+    def set_slot_state(self, char_id: str, slot: str, state: str) -> bool:
+        """Set the state of whatever clothing is in a slot. Returns True if successful."""
+        char_def = next((c for c in self.game_def.characters if c.id == char_id), None)
+        if not char_def:
+            return False
+
+        if char_id not in self.state.clothing_states:
+            return False
+
+        # Check if clothing state has proper structure
+        clothing_state = self.state.clothing_states[char_id]
+        if not isinstance(clothing_state, dict) or 'layers' not in clothing_state:
+            return False
+
+        if slot not in clothing_state['layers']:
+            return False
+
+        # Find the clothing item that occupies this slot
+        current_outfit_id = self.state.clothing_states[char_id].get('current_outfit')
+        if not current_outfit_id:
+            return False
+
+        outfit = self._find_outfit(char_def, current_outfit_id)
+        if not outfit:
+            return False
+
+        # Find which clothing item occupies this slot
+        clothing_item = None
+        for item_id in outfit.items:
+            item = self._find_clothing_item(char_def, item_id)
+            if item and slot in item.occupies:
+                clothing_item = item
+                break
+
+        if not clothing_item:
+            return False
+
+        # Validate state change
+        if not self._can_change_clothing_state(char_def, char_id, slot, state, clothing_item):
+            return False
+
+        # Apply state
+        self.state.clothing_states[char_id]['layers'][slot] = state
+        return True
+
+    def put_on_outfit(self, char_id: str, outfit_id: str) -> bool:
+        """Put on an entire outfit. Returns True if successful."""
+        char_def = next((c for c in self.game_def.characters if c.id == char_id), None)
+        if not char_def:
+            return False
+
+        outfit = self._find_outfit(char_def, outfit_id)
+        if not outfit:
+            return False
+
+        # Build layers from outfit and apply
+        layers_dict = self._build_layers_from_outfit(outfit, char_def)
+        self.state.clothing_states[char_id] = {
+            'current_outfit': outfit.id,
+            'layers': layers_dict
+        }
+        return True
+
+    def take_off_outfit(self, char_id: str, outfit_id: str) -> bool:
+        """Take off an entire outfit. Returns True if successful."""
+        if char_id not in self.state.clothing_states:
+            return False
+
+        current_outfit = self.state.clothing_states[char_id].get('current_outfit')
+        if current_outfit != outfit_id:
+            return False
+
+        # Remove all layers
+        self.state.clothing_states[char_id] = {
+            'current_outfit': None,
+            'layers': {}
+        }
+        return True

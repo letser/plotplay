@@ -146,3 +146,54 @@ class TimeService:
                         )
                     )
         self.logger.info("Applied '%s' meter decay.", decay_type)
+
+    def advance_slot(self, slots: int = 1) -> TimeAdvance:
+        """Advance time by a number of slots (for slot-based time mode)."""
+        state = self.engine.state_manager.state
+        time_config = self.engine.game_def.time
+
+        if time_config.mode != "slots" or not time_config.slots:
+            self.logger.warning(
+                "advance_slot called but time mode is not 'slots'. Current mode: %s",
+                time_config.mode
+            )
+            # Fallback: estimate minutes
+            estimated_minutes = slots * 240  # Rough estimate: 1 slot ≈ 4 hours
+            return self.advance(minutes=estimated_minutes)
+
+        day_advanced = False
+        slot_advanced = False
+        original_day = state.day
+        original_slot = state.time_slot
+
+        # Advance by the specified number of slots
+        for _ in range(slots):
+            current_slot_index = time_config.slots.index(state.time_slot) if state.time_slot in time_config.slots else 0
+
+            if current_slot_index + 1 < len(time_config.slots):
+                state.time_slot = time_config.slots[current_slot_index + 1]
+            else:
+                # Wrap around to next day
+                state.day += 1
+                state.time_slot = time_config.slots[0]
+
+        # Reset actions counter for the new slot
+        state.actions_this_slot = 0
+
+        if state.day > original_day:
+            day_advanced = True
+            state.weekday = self.engine.state_manager.calculate_weekday()
+            self.logger.info("Day advanced to %s, weekday is %s", state.day, state.weekday)
+
+        if state.time_slot != original_slot:
+            slot_advanced = True
+            self.logger.info("Time slot advanced to '%s'.", state.time_slot)
+
+        # Estimate minutes passed (for compatibility)
+        minutes_passed = slots * 240  # Rough estimate
+
+        return TimeAdvance(
+            day_advanced=day_advanced,
+            slot_advanced=slot_advanced,
+            minutes_passed=minutes_passed,
+        )
