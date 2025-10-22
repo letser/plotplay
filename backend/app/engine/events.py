@@ -69,10 +69,10 @@ class EventPipeline:
         for event in triggered_events:
             if event.choices:
                 choices.extend(event.choices)
-            if event.narrative:
-                narratives.append(event.narrative)
-            if event.effects:
-                self.engine.apply_effects(list(event.effects))
+            if event.beats:
+                narratives.extend(event.beats)
+            if event.on_entry:
+                self.engine.apply_effects(list(event.on_entry))
 
         return EventResult(choices=choices, narratives=narratives)
 
@@ -98,21 +98,23 @@ class EventPipeline:
             if not self._is_event_eligible(event, state, evaluator):
                 continue
 
-            # If it's a random event, add it to the pool instead of triggering immediately
-            if event.trigger and event.trigger.random:
+            # If it's a random event (probability < 100), add it to the pool instead of triggering immediately
+            if event.probability is not None and event.probability < 100:
                 random_pool.append(event)
             else:
+                # Conditional events trigger immediately
                 triggered_events.append(event)
                 self._set_cooldown(event, state)
 
-        # Process the random event pool
+        # Process the random event pool using probability-based selection
         if random_pool:
-            total_weight = sum(e.trigger.random.weight for e in random_pool)
+            # Use probability as weight for selection
+            total_weight = sum(e.probability for e in random_pool)
             if total_weight > 0:
                 roll = evaluator.rng.uniform(0, total_weight)
                 current_weight = 0
                 for event in random_pool:
-                    current_weight += event.trigger.random.weight
+                    current_weight += event.probability
                     if roll <= current_weight:
                         triggered_events.append(event)
                         self._set_cooldown(event, state)
@@ -122,28 +124,29 @@ class EventPipeline:
 
     def _is_event_eligible(self, event: Event, state: GameState, evaluator: ConditionEvaluator) -> bool:
         """Check if an event meets its trigger conditions."""
-        if event.scope == "location" and event.location != state.location_current:
-            return False
-
-        if not event.trigger:
-            return False
-
-        # Random events are eligible by default if not on cooldown
-        if event.trigger.random:
+        # Random events (probability < 100) are eligible by default if not on cooldown
+        if event.probability is not None and event.probability < 100:
             return True
 
-        if event.trigger.location_enter and event.location == state.location_current:
-            return True
+        # Conditional events must have at least one condition
+        has_condition = any([
+            bool(event.when),
+            bool(event.when_any),
+            bool(event.when_all),
+        ])
 
-        if event.trigger.conditional:
-            for condition in event.trigger.conditional:
-                if evaluator.evaluate(condition.get("when")):
-                    return True
+        if not has_condition:
+            return False
 
-        if event.trigger.scheduled:
-            for condition in event.trigger.scheduled:
-                if evaluator.evaluate(condition.get("when")):
-                    return True
+        # Evaluate conditions using the evaluator
+        if event.when:
+            return evaluator.evaluate(event.when)
+
+        if event.when_any:
+            return any(evaluator.evaluate(cond) for cond in event.when_any)
+
+        if event.when_all:
+            return all(evaluator.evaluate(cond) for cond in event.when_all)
 
         return False
 
@@ -160,10 +163,8 @@ class EventPipeline:
 
     def _set_cooldown(self, event: Event, state: GameState):
         """Set the cooldown for an event after it has triggered."""
-        if event.cooldown and "turns" in event.cooldown:
-            state.cooldowns[event.id] = event.cooldown["turns"]
-        elif event.trigger and event.trigger.random and event.trigger.random.cooldown:
-            state.cooldowns[event.id] = event.trigger.random.cooldown
+        if event.cooldown and event.cooldown > 0:
+            state.cooldowns[event.id] = event.cooldown
 
     def decrement_cooldowns(self):
         """

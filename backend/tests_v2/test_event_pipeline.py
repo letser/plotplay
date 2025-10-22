@@ -36,7 +36,7 @@ def test_event_cooldown_blocks_retriggering(engine_fixture):
     # Find any event with cooldown in the game definition
     event_with_cooldown = None
     for event in engine_fixture.game_def.events:
-        if event.cooldown or (event.trigger and event.trigger.random and event.trigger.random.cooldown):
+        if event.cooldown and event.cooldown > 0:
             event_with_cooldown = event
             break
 
@@ -132,37 +132,45 @@ def test_check_and_advance_arcs_returns_tuple(engine_fixture):
 
 
 def test_is_event_eligible_respects_location_scope(engine_fixture):
-    """Test that location-scoped events check current location."""
+    """Test that events with location conditions check current location."""
     events = engine_fixture.events
     state = engine_fixture.state_manager.state
 
     from app.core.conditions import ConditionEvaluator
-    evaluator = ConditionEvaluator(state, rng_seed=12345)
 
-    # Find a location-scoped event
+    # Find an event with location in its condition
     location_event = None
     for event in engine_fixture.game_def.events:
-        if event.scope == "location" and event.location:
+        # Check if event has a condition that references location.id
+        if event.when and "location.id" in event.when:
             location_event = event
             break
 
     if not location_event:
-        pytest.skip("No location-scoped events in test game")
+        pytest.skip("No events with location conditions in test game")
 
-    # Save current location
+    # Save current location and energy
     original_location = state.location_current
+    original_energy = state.meters.get("player", {}).get("energy", 100)
 
-    # Set to wrong location
+    # Set energy to satisfy the energy condition
+    state.meters.setdefault("player", {})["energy"] = 50
+
+    # Set to wrong location - event should not be eligible
     state.location_current = "some_other_location_xyz"
+    evaluator = ConditionEvaluator(state, rng_seed=12345)
     assert events._is_event_eligible(location_event, state, evaluator) is False
 
-    # Set to correct location
-    state.location_current = location_event.location
-    # May still be False if other conditions aren't met, but location check passes
-    # We can't guarantee True without knowing all conditions
+    # Set to correct location (campus_quad) - event should now be eligible
+    state.location_current = "campus_quad"
+    # Create new evaluator after state change
+    evaluator = ConditionEvaluator(state, rng_seed=12345)
+    # Event should be eligible when location matches
+    assert events._is_event_eligible(location_event, state, evaluator) is True
 
     # Restore
     state.location_current = original_location
+    state.meters["player"]["energy"] = original_energy
 
 
 def test_get_triggered_events_returns_list(engine_fixture):
@@ -182,21 +190,28 @@ def test_random_event_weighted_selection(engine_fixture):
     events = engine_fixture.events
     state = engine_fixture.state_manager.state
 
-    # Find random events in the game
+    # Find random events in the game (events with probability < 100)
     random_events = [
         e for e in engine_fixture.game_def.events
-        if e.trigger and e.trigger.random
+        if e.probability is not None and e.probability < 100
     ]
 
     if len(random_events) < 2:
         pytest.skip("Need at least 2 random events to test weighted selection")
 
     # Run multiple times with same seed - should get same result
+    # Save cooldowns and restore between runs
+    original_cooldowns = state.cooldowns.copy()
+
     triggered_1 = events._get_triggered_events(state, rng_seed=42)
+
+    # Restore cooldowns to test determinism
+    state.cooldowns = original_cooldowns.copy()
+
     triggered_2 = events._get_triggered_events(state, rng_seed=42)
 
-    random_triggered_1 = [e for e in triggered_1 if e.trigger and e.trigger.random]
-    random_triggered_2 = [e for e in triggered_2 if e.trigger and e.trigger.random]
+    random_triggered_1 = [e for e in triggered_1 if e.probability is not None and e.probability < 100]
+    random_triggered_2 = [e for e in triggered_2 if e.probability is not None and e.probability < 100]
 
     # Same seed should produce identical results
     assert [e.id for e in random_triggered_1] == [e.id for e in random_triggered_2]

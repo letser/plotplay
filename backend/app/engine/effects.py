@@ -17,6 +17,8 @@ from app.models.effects import (
     InventoryAddEffect,
     InventoryRemoveEffect,
     InventoryChangeEffect,
+    InventoryPurchaseEffect,
+    InventorySellEffect,
     MeterChangeEffect,
     MoveToEffect,
     RandomEffect,
@@ -35,10 +37,16 @@ class EffectResolver:
         self.engine = engine
 
     def apply_effects(self, effects: Iterable[AnyEffect]) -> None:
+        from app.models.effects import parse_effect
+
         state = self.engine.state_manager.state
         evaluator = ConditionEvaluator(state, rng_seed=self.engine._get_turn_seed())
 
         for effect in effects:
+            # Handle both dict and parsed effect objects
+            if isinstance(effect, dict):
+                effect = parse_effect(effect)
+
             if isinstance(effect, ConditionalEffect):
                 self._apply_conditional_effect(effect)
                 continue
@@ -68,6 +76,10 @@ class EffectResolver:
                     self.engine.inventory.apply_effect(legacy_effect)
                 case InventoryChangeEffect():
                     self.engine.inventory.apply_effect(effect)
+                case InventoryPurchaseEffect():
+                    self._apply_purchase(effect)
+                case InventorySellEffect():
+                    self._apply_sell(effect)
                 case ClothingChangeEffect():
                     self.engine.clothing.apply_effect(effect)
                 case ApplyModifierEffect() | RemoveModifierEffect():
@@ -210,3 +222,96 @@ class EffectResolver:
             state.present_chars = [
                 char for char in current_node.characters_present if char in self.engine.characters_map
             ]
+
+    def _apply_purchase(self, effect: InventoryPurchaseEffect) -> None:
+        """Handle inventory_purchase effect: deduct money and add item."""
+        state = self.engine.state_manager.state
+        economy = self.engine.game_def.economy
+
+        if not economy or not economy.enabled:
+            return
+
+        # Get item definition to determine price
+        item_def = self.engine.items_map.get(effect.item)
+        if not item_def:
+            return
+
+        price = effect.price if effect.price is not None else item_def.value
+
+        # Check if buyer has enough money
+        buyer_meters = state.meters.get(effect.target)
+        if not buyer_meters or "money" not in buyer_meters:
+            return
+
+        if buyer_meters["money"] < price * effect.count:
+            return  # Insufficient funds
+
+        # Deduct money from buyer
+        buyer_meters["money"] -= price * effect.count
+        if economy.max_money:
+            buyer_meters["money"] = min(buyer_meters["money"], economy.max_money)
+
+        # Add item to buyer's inventory
+        add_effect = InventoryChangeEffect(
+            type="inventory_add",
+            owner=effect.target,
+            item=effect.item,
+            count=effect.count
+        )
+        self.engine.inventory.apply_effect(add_effect)
+
+        # Remove item from seller's inventory (if source is a character)
+        if effect.source in state.characters:
+            remove_effect = InventoryChangeEffect(
+                type="inventory_remove",
+                owner=effect.source,
+                item=effect.item,
+                count=effect.count
+            )
+            self.engine.inventory.apply_effect(remove_effect)
+
+    def _apply_sell(self, effect: InventorySellEffect) -> None:
+        """Handle inventory_sell effect: add money and remove item."""
+        state = self.engine.state_manager.state
+        economy = self.engine.game_def.economy
+
+        if not economy or not economy.enabled:
+            return
+
+        # Get item definition to determine price
+        item_def = self.engine.items_map.get(effect.item)
+        if not item_def:
+            return
+
+        price = effect.price if effect.price is not None else item_def.value
+
+        # Check if seller has the item
+        seller_inventory = state.inventory.get(effect.source, {})
+        if seller_inventory.get(effect.item, 0) < effect.count:
+            return  # Don't have enough items
+
+        # Remove item from seller's inventory
+        remove_effect = InventoryChangeEffect(
+            type="inventory_remove",
+            owner=effect.source,
+            item=effect.item,
+            count=effect.count
+        )
+        self.engine.inventory.apply_effect(remove_effect)
+
+        # Add money to seller
+        seller_meters = state.meters.get(effect.source)
+        if seller_meters and "money" in seller_meters:
+            seller_meters["money"] += price * effect.count
+            if economy.max_money:
+                seller_meters["money"] = min(seller_meters["money"], economy.max_money)
+
+        # Add item to buyer's inventory (if target is a character)
+        if effect.target in state.characters:
+            add_effect = InventoryChangeEffect(
+                type="inventory_add",
+                owner=effect.target,
+                item=effect.item,
+                count=effect.count
+            )
+            self.engine.inventory.apply_effect(add_effect)

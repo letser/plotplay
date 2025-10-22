@@ -47,6 +47,9 @@ def minimal_game(tmp_path: Path) -> Path:
             },
             "flags": {
                 "met_friend": {"type": "bool", "default": False},
+                "quad_event_seen": {"type": "bool", "default": False},
+                "arc_stage_meet": {"type": "bool", "default": False},
+                "arc_stage_bond": {"type": "bool", "default": False},
             },
             "time": {
                 "mode": "slots",
@@ -59,7 +62,7 @@ def minimal_game(tmp_path: Path) -> Path:
                 "use_entry_exit": False,
                 "methods": [{"walk": 1}],
             },
-            "includes": ["items.yaml", "characters.yaml", "locations.yaml", "nodes.yaml"],
+            "includes": ["items.yaml", "characters.yaml", "locations.yaml", "nodes.yaml", "events.yaml"],
         },
     )
 
@@ -67,7 +70,8 @@ def minimal_game(tmp_path: Path) -> Path:
         game_dir / "items.yaml",
         {
             "items": [
-                {"id": "coffee", "name": "Coffee", "category": "drink", "value": 5},
+                {"id": "coffee", "name": "Coffee", "category": "drink", "value": 5, "stackable": True},
+                {"id": "sword", "name": "Iron Sword", "category": "weapon", "value": 150, "stackable": False},
             ],
             "wardrobe": {
                 "slots": ["top", "bottom", "feet"],
@@ -153,6 +157,91 @@ def minimal_game(tmp_path: Path) -> Path:
                     "characters_present": [],
                     "beats": ["You step onto the quad, ready for the day."],
                     "choices": [],
+                }
+            ]
+        },
+    )
+
+    write_yaml(
+        game_dir / "events.yaml",
+        {
+            "events": [
+                {
+                    "id": "energy_boost",
+                    "title": "Morning Energy",
+                    "when": "meters.player.energy < 50",
+                    "cooldown": 5,
+                    "on_entry": [
+                        {
+                            "type": "meter_change",
+                            "target": "player",
+                            "meter": "energy",
+                            "op": "add",
+                            "value": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "location_event",
+                    "title": "Quad Event",
+                    "when": "meters.player.energy > 30 and location.id == 'campus_quad'",
+                    "on_entry": [
+                        {
+                            "type": "flag_set",
+                            "key": "quad_event_seen",
+                            "value": True
+                        }
+                    ]
+                },
+                {
+                    "id": "random_event_1",
+                    "title": "Random Event 1",
+                    "probability": 67,
+                    "cooldown": 3,
+                    "effects": []
+                },
+                {
+                    "id": "random_event_2",
+                    "title": "Random Event 2",
+                    "probability": 33,
+                    "cooldown": 3,
+                    "effects": []
+                }
+            ],
+            "arcs": [
+                {
+                    "id": "friendship_arc",
+                    "title": "Building Friendship",
+                    "description": "Develop friendships on campus",
+                    "repeatable": False,
+                    "stages": [
+                        {
+                            "id": "meet",
+                            "title": "First Meeting",
+                            "description": "Meet someone new",
+                            "advance_when": "visited_node:intro",
+                            "on_advance": [
+                                {
+                                    "type": "flag_set",
+                                    "key": "arc_stage_meet",
+                                    "value": True
+                                }
+                            ]
+                        },
+                        {
+                            "id": "bond",
+                            "title": "Bonding",
+                            "description": "Form a connection",
+                            "advance_when": "met_friend == true",
+                            "on_advance": [
+                                {
+                                    "type": "flag_set",
+                                    "key": "arc_stage_bond",
+                                    "value": True
+                                }
+                            ]
+                        }
+                    ]
                 }
             ]
         },

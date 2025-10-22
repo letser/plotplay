@@ -5,8 +5,8 @@ Effects.
 
 from __future__ import annotations
 
-from typing import Literal, ForwardRef, Annotated, Union
-from pydantic import Field
+from typing import Literal, ForwardRef, Annotated, Union, Any
+from pydantic import Field, TypeAdapter
 
 from .model import SimpleModel, DSLExpression, RequiredConditionalMixin
 from .characters import CharacterId
@@ -274,3 +274,13 @@ EffectsList = list[AnyEffect]
 ConditionalEffect.model_rebuild()
 RandomChoice.model_rebuild()
 RandomEffect.model_rebuild()
+
+# Helper function to parse effect dicts into effect objects
+_effect_adapter: TypeAdapter | None = None
+
+def parse_effect(effect_dict: dict[str, Any]) -> AnyEffect:
+    """Parse a dict into an AnyEffect object using Pydantic's discriminated union."""
+    global _effect_adapter
+    if _effect_adapter is None:
+        _effect_adapter = TypeAdapter(AnyEffect)
+    return _effect_adapter.validate_python(effect_dict)

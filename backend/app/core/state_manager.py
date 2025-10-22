@@ -261,6 +261,11 @@ class StateManager:
             for meter_id, meter in (meters_config.template or {}).items()
         } if meters_config and meters_config.template else {}
 
+        # Auto-add money meter if economy is enabled
+        if self.game_def.economy and self.game_def.economy.enabled:
+            if "money" not in player_defaults:
+                player_defaults["money"] = self.game_def.economy.starting_money
+
         for character in self.game_def.characters:
             char_state = CharacterState()
 
