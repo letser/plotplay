@@ -68,3 +68,9 @@
 5. **Testing & Tooling**
    - Add regression tests for prompt generation (snapshot or fixture-based) and for the checker reconciliation pipeline under the new schema.
    - Extend API integration tests to cover the new deterministic endpoints and verify session cleanup.
+
+6. **Frontend Alignment Plan**
+   - Refresh `frontend/src/services/gameApi.ts` and Zustand store types to match the slimmer engine contracts (`state_summary.snapshot`, `action_summary`, deterministic endpoints, `skip_ai` flag).
+   - Update core panels (narrative, choices, character/inventory) to consume the new summaries and present the action recap ahead of narrative text.
+   - Introduce deterministic UI flows (movement, shop, inventory) that call the new REST routes; keep legacy `/action` but allow the UI to set `skip_ai` when appropriate.
+   - Remove console interceptors and tighten dependency usage; retain existing Vite/React/Tailwind scaffold rather than starting a new frontend.
