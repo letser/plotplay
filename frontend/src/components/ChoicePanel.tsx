@@ -1,13 +1,14 @@
 // frontend/src/components/ChoicePanel.tsx
 import { useState } from 'react';
 import { useGameStore } from '../stores/gameStore';
-import { MessageSquare, Hand, Send, MapPin, Users, ChevronDown } from 'lucide-react';
+import { MessageSquare, Hand, Send, Users, ChevronDown, MapPin } from 'lucide-react';
 
 interface Choice {
     id: string;
     text: string;
     type: string;
     disabled?: boolean;
+    skip_ai?: boolean;
 }
 
 interface Props {
@@ -15,7 +16,7 @@ interface Props {
 }
 
 export const ChoicePanel = ({ choices }: Props) => {
-    const { sendAction, loading, gameState } = useGameStore();
+    const { sendAction, performMovement, loading, gameState, deterministicActionsEnabled } = useGameStore();
     const [inputMode, setInputMode] = useState<'say' | 'do'>('say');
     const [inputText, setInputText] = useState('');
     const [targetChar, setTargetChar] = useState<string | null>(null);
@@ -36,7 +37,12 @@ export const ChoicePanel = ({ choices }: Props) => {
     };
 
     const handleQuickAction = (choice: Choice) => {
-        sendAction('choice', choice.text, null, choice.id);
+        if (deterministicActionsEnabled && choice.type === 'movement') {
+            void performMovement(choice.id);
+        } else {
+            const shouldSkip = deterministicActionsEnabled && (choice.skip_ai ?? false);
+            sendAction('choice', choice.text, null, choice.id, undefined, { skipAi: shouldSkip });
+        }
     };
 
     const getTargetDisplay = () => {

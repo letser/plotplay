@@ -1,12 +1,15 @@
 // frontend/src/components/CharacterPanel.tsx
 import { Meter, Modifier, CharacterDetails } from '../services/gameApi';
-import { Heart, Smile, Flame, Shield, Zap, Shirt } from 'lucide-react';
+import { Shirt } from 'lucide-react';
+
+import { SnapshotCharacter } from '../services/gameApi';
 
 interface Props {
     characters: string[];
     characterDetails: Record<string, CharacterDetails>;
     meters: Record<string, Record<string, Meter>>;
     modifiers: Record<string, Modifier[]>;
+    snapshotCharacters?: SnapshotCharacter[];
 }
 
 // Helper to get the correct possessive pronoun (e.g., "Her", "His", "Their")
@@ -47,7 +50,14 @@ const getCharacterDescription = (charId: string, details: CharacterDetails | und
     return descriptions.join(' ');
 };
 
-export const CharacterPanel = ({ characters, characterDetails, meters, modifiers }: Props) => {
+export const CharacterPanel = ({ characters, characterDetails, meters, modifiers, snapshotCharacters }: Props) => {
+    const snapshotMap = snapshotCharacters
+        ? snapshotCharacters.reduce<Record<string, SnapshotCharacter>>((acc, char) => {
+              acc[char.id] = char;
+              return acc;
+          }, {})
+        : {};
+
     const getMeterIcon = (icon: string | null) => {
         if (icon) {
             return <span>{icon}</span>;
@@ -71,16 +81,26 @@ export const CharacterPanel = ({ characters, characterDetails, meters, modifiers
             <h3 className="text-lg font-semibold mb-4 text-gray-100">Characters Present</h3>
 
             {characters.map((charId) => {
-                const charMeters = meters[charId] || {};
-                const details = characterDetails[charId];
-                const modifierDescription = getCharacterDescription(charId, details, modifiers);
+            const snapshotInfo = snapshotMap[charId];
+            const charMeters = snapshotInfo?.meters || meters[charId] || {};
+            const details = snapshotInfo
+                ? {
+                      name: snapshotInfo.name ?? characterDetails[charId]?.name ?? charId,
+                      pronouns: snapshotInfo.pronouns ?? characterDetails[charId]?.pronouns,
+                      wearing: snapshotInfo.attire ?? characterDetails[charId]?.wearing,
+                  }
+                : characterDetails[charId];
+            const modifierDescription = getCharacterDescription(charId, characterDetails[charId], modifiers);
+            const wardrobeState = snapshotInfo?.wardrobe_state;
 
-                return (
-                    <div key={charId} className="mb-4 p-3 bg-gray-900/50 rounded border border-gray-700">
-                        <h4 className="font-medium mb-2 capitalize text-gray-100">{charId}</h4>
+            return (
+                <div key={charId} className="mb-4 p-3 bg-gray-900/50 rounded border border-gray-700">
+                    <h4 className="font-medium mb-2 capitalize text-gray-100">
+                        {details?.name ?? charId}
+                    </h4>
 
-                        {/* Modifier Description */}
-                        {modifierDescription && (
+                    {/* Modifier Description */}
+                    {modifierDescription && (
                             <p className="text-sm text-gray-400 italic mb-3">{modifierDescription}</p>
                         )}
 
@@ -92,8 +112,20 @@ export const CharacterPanel = ({ characters, characterDetails, meters, modifiers
                             </div>
                         )}
 
-                        {/* Meters */}
-                        <div className="space-y-2 text-sm">
+                    {/* Wardrobe State */}
+                    {wardrobeState && (
+                        <div className="text-xs text-gray-400 mb-3 space-y-1">
+                            {Object.entries(wardrobeState).map(([slot, state]) => (
+                                <div key={slot} className="flex justify-between">
+                                    <span className="capitalize">{slot.replace(/_/g, ' ')}</span>
+                                    <span className="font-mono text-gray-300">{state}</span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Meters */}
+                    <div className="space-y-2 text-sm">
                             {Object.entries(charMeters).map(([meterId, meterData]) => (
                                 <div key={meterId}>
                                     <div className="flex items-center justify-between mb-1">

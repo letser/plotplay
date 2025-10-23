@@ -9,8 +9,13 @@ export const PlayerPanel = () => {
         return null;
     }
 
-    const playerMeters = gameState.meters.player;
-    const playerDetails = gameState.player_details;
+    const playerSnapshot = gameState.snapshot?.player;
+    const playerMeters = playerSnapshot?.meters ?? gameState.meters.player;
+    const playerDetails = {
+        wearing: playerSnapshot?.attire ?? gameState.player_details?.wearing ?? null,
+        name: playerSnapshot?.name ?? 'You',
+        pronouns: playerSnapshot?.pronouns ?? gameState.player_details?.pronouns ?? null,
+    };
 
     const getMeterIcon = (icon: string | null) => {
         if (icon) {
@@ -40,7 +45,7 @@ export const PlayerPanel = () => {
             </h3>
 
             {/* Player Clothing Description */}
-            {playerDetails?.wearing && (
+            {playerDetails.wearing && (
                 <div className="text-sm text-gray-300 mb-4 flex items-start gap-2">
                     <Shirt className="w-4 h-4 mt-0.5 text-gray-500 flex-shrink-0" />
                     <span>{playerDetails.wearing}</span>

@@ -1,25 +1,6 @@
-// frontend/src/services/gameApi.ts
 import axios from 'axios';
 
 const API_BASE = '/api';
-
-// Add request interceptor for debugging
-axios.interceptors.request.use(request => {
-    console.log('Making request to:', request.url, 'with data:', request.data);
-    return request;
-});
-
-// Add a response interceptor for debugging
-axios.interceptors.response.use(
-    response => {
-        console.log('Response received:', response);
-        return response;
-    },
-    error => {
-        console.error('Request failed:', error.response?.status, error.response?.data);
-        return Promise.reject(error);
-    }
-);
 
 export interface GameInfo {
     id: string;
@@ -33,6 +14,8 @@ export interface GameChoice {
     id: string;
     text: string;
     type: string;
+    disabled?: boolean;
+    skip_ai?: boolean;
 }
 
 export interface Meter {
@@ -50,12 +33,9 @@ export interface Flag {
 
 export interface Modifier {
     id: string;
-    description: string | null;
-    appearance?: {
-        cheeks?: string;
-        eyes?: string;
-        posture?: string;
-    }
+    description?: string | null;
+    appearance?: Record<string, string | undefined>;
+    [key: string]: unknown;
 }
 
 export interface Item {
@@ -64,7 +44,10 @@ export interface Item {
     description: string | null;
     icon: string | null;
     stackable: boolean;
-    effects_on_use: any[] | null;
+    droppable?: boolean;
+    consumable?: boolean;
+    on_use?: unknown[] | null;
+    effects_on_use?: unknown[] | null;
 }
 
 export interface CharacterDetails {
@@ -79,19 +62,77 @@ export interface PlayerDetails {
     wearing: string | null;
 }
 
+export interface SnapshotExit {
+    direction: string | null;
+    to: string | null;
+    name: string;
+    available: boolean;
+    locked: boolean;
+    description: string | null;
+}
+
+export interface SnapshotLocation {
+    id: string | null;
+    name: string;
+    zone: string | null;
+    privacy: string | null;
+    summary?: string | null;
+    description?: string | null;
+    has_shop: boolean;
+    exits: SnapshotExit[];
+}
+
+export interface SnapshotTime {
+    day: number | null;
+    slot: string | null;
+    time_hhmm?: string | null;
+    weekday?: string | null;
+}
+
+export interface SnapshotCharacter {
+    id: string;
+    name?: string;
+    pronouns?: string[] | null;
+    attire?: string | null;
+    meters: Record<string, Meter>;
+    modifiers: Modifier[];
+    wardrobe_state?: Record<string, string>;
+}
+
+export interface StateSnapshot {
+    time: SnapshotTime;
+    location: SnapshotLocation;
+    player: SnapshotCharacter & {
+        inventory: Record<string, number>;
+    };
+    characters: SnapshotCharacter[];
+}
+
+export interface EconomyInfo {
+    currency: string;
+    symbol: string;
+    player_money: number | null;
+    max_money: number | null;
+}
+
 export interface GameState {
     day: number;
-    time: string;
-    time_hhmm?: string;
+    time: string | null;
+    time_hhmm?: string | null;
     location: string;
+    location_id: string | null;
+    zone: string | null;
     present_characters: string[];
     character_details: Record<string, CharacterDetails>;
     player_details: PlayerDetails;
     meters: Record<string, Record<string, Meter>>;
     inventory: Record<string, number>;
-    inventory_details: Record<string, Item>; // <-- The missing field
+    inventory_details: Record<string, Item>;
     flags: Record<string, Flag>;
     modifiers: Record<string, Modifier[]>;
+    turn_count?: number;
+    snapshot?: StateSnapshot;
+    economy?: EconomyInfo;
 }
 
 export interface GameResponse {
@@ -101,6 +142,33 @@ export interface GameResponse {
     state_summary: GameState;
     time_advanced: boolean;
     location_changed: boolean;
+    action_summary?: string | null;
+}
+
+export interface DeterministicActionResponse {
+    session_id: string;
+    success: boolean;
+    message: string;
+    state_summary: GameState;
+    action_summary?: string | null;
+    details?: Record<string, unknown>;
+}
+
+export interface MovementRequest {
+    destination_id?: string | null;
+    zone_id?: string | null;
+    direction?: string | null;
+    companions?: string[];
+}
+
+export interface InventoryTransferRequest {
+    item_id: string;
+    count?: number;
+    owner_id?: string;
+    target_id?: string;
+    seller_id?: string;
+    buyer_id?: string;
+    price?: number;
 }
 
 export interface LogResponse {
@@ -125,14 +193,71 @@ class GameAPI {
         actionText: string | null,
         target?: string | null,
         choiceId?: string | null,
-        itemId?: string | null
+        itemId?: string | null,
+        options?: { skipAi?: boolean }
     ): Promise<GameResponse> {
         const response = await axios.post(`${API_BASE}/game/action/${sessionId}`, {
             action_type: actionType,
             action_text: actionText,
-            target: target,
+            target,
             choice_id: choiceId,
             item_id: itemId,
+            skip_ai: options?.skipAi ?? false,
+        });
+        return response.data;
+    }
+
+    async move(sessionId: string, payload: MovementRequest): Promise<DeterministicActionResponse> {
+        const response = await axios.post(`${API_BASE}/game/move/${sessionId}`, payload);
+        return response.data;
+    }
+
+    async purchase(sessionId: string, itemId: string, count = 1, price?: number, sellerId?: string): Promise<DeterministicActionResponse> {
+        const response = await axios.post(`${API_BASE}/game/shop/${sessionId}/purchase`, {
+            buyer_id: 'player',
+            seller_id: sellerId,
+            item_id: itemId,
+            count,
+            price,
+        });
+        return response.data;
+    }
+
+    async sell(sessionId: string, itemId: string, count = 1, price?: number, buyerId?: string): Promise<DeterministicActionResponse> {
+        const response = await axios.post(`${API_BASE}/game/shop/${sessionId}/sell`, {
+            seller_id: 'player',
+            buyer_id: buyerId,
+            item_id: itemId,
+            count,
+            price,
+        });
+        return response.data;
+    }
+
+    async takeItem(sessionId: string, itemId: string, count = 1, ownerId = 'player'): Promise<DeterministicActionResponse> {
+        const response = await axios.post(`${API_BASE}/game/inventory/${sessionId}/take`, {
+            owner_id: ownerId,
+            item_id: itemId,
+            count,
+        });
+        return response.data;
+    }
+
+    async dropItem(sessionId: string, itemId: string, count = 1, ownerId = 'player'): Promise<DeterministicActionResponse> {
+        const response = await axios.post(`${API_BASE}/game/inventory/${sessionId}/drop`, {
+            owner_id: ownerId,
+            item_id: itemId,
+            count,
+        });
+        return response.data;
+    }
+
+    async giveItem(sessionId: string, itemId: string, targetId: string, count = 1, sourceId = 'player'): Promise<DeterministicActionResponse> {
+        const response = await axios.post(`${API_BASE}/game/inventory/${sessionId}/give`, {
+            source_id: sourceId,
+            target_id: targetId,
+            item_id: itemId,
+            count,
         });
         return response.data;
     }

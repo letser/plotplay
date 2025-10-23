@@ -1,18 +1,21 @@
 // frontend/src/components/GameInterface.tsx
 import { useGameStore } from '../stores/gameStore';
 import { NarrativePanel } from './NarrativePanel';
-import { PlayerPanel } from './PlayerPanel'; // Import the new component
+import { PlayerPanel } from './PlayerPanel';
 import { CharacterPanel } from './CharacterPanel';
 import { FlagsPanel } from './FlagsPanel';
 import { ChoicePanel } from './ChoicePanel';
-import {InventoryPanel} from "./InventoryPanel";
+import { InventoryPanel } from './InventoryPanel';
+import { MovementControls } from './MovementControls';
+import { DeterministicControls } from './DeterministicControls';
+import { EconomyPanel } from './EconomyPanel';
 import { DebugPanel } from './DebugPanel';
-import { MapPin, Clock, Calendar, Package } from 'lucide-react';
+import { MapPin, Clock, Calendar } from 'lucide-react';
 
 export const GameInterface = () => {
     const {
         currentGame,
-        narrative,
+        turnLog,
         choices,
         gameState,
         resetGame
@@ -20,8 +23,20 @@ export const GameInterface = () => {
 
     if (!gameState) return null;
 
+    const snapshot = gameState.snapshot;
+    const rawLocationName = snapshot?.location?.name ?? gameState.location;
+    const locationName = rawLocationName ?? 'unknown location';
+    const timeSlot = snapshot?.time?.slot ?? gameState.time;
+    const timeClock = snapshot?.time?.time_hhmm ?? gameState.time_hhmm;
+    const dayNumber = snapshot?.time?.day ?? gameState.day;
+    const zoneName = snapshot?.location?.zone ?? gameState.zone ?? 'unknown zone';
+    const privacy = snapshot?.location?.privacy ?? null;
+
     // Filter out the 'player' from the list of present characters for the CharacterPanel
-    const presentNPCs = gameState.present_characters.filter(charId => charId !== 'player');
+    const presentFromSnapshot = snapshot?.characters?.map(char => char.id) ?? [];
+    const presentNPCs = presentFromSnapshot.length > 0
+        ? presentFromSnapshot.filter(id => id !== 'player')
+        : gameState.present_characters.filter(charId => charId !== 'player');
 
     return (
         <div className="max-w-7xl mx-auto p-4 pb-24">
@@ -32,19 +47,26 @@ export const GameInterface = () => {
                 <div className="flex items-center gap-6 text-sm">
                     <div className="flex items-center gap-2">
                         <MapPin className="w-4 h-4" />
-                        <span className="capitalize">{gameState.location.replace('_', ' ')}</span>
+                        <span className="capitalize">{locationName.replace(/_/g, ' ')}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-gray-400">
+                        <span className="text-xs uppercase tracking-wide">Zone</span>
+                        <span className="capitalize">{zoneName.replace(/_/g, ' ')}</span>
                     </div>
                     <div className="flex items-center gap-2">
                         <Calendar className="w-4 h-4" />
-                        <span>Day {gameState.day}</span>
+                        <span>Day {dayNumber}</span>
                     </div>
                     <div className="flex items-center gap-2">
                         <Clock className="w-4 h-4" />
-                        <span className="capitalize">{gameState.time}</span>
-                        {/* Conditionally render HH:MM time */}
-                        {gameState.time_hhmm && (
-                            <span className="text-gray-400 font-mono">({gameState.time_hhmm})</span>
+                        <span className="capitalize">{timeSlot ?? 'unknown time'}</span>
+                        {timeClock && (
+                            <span className="text-gray-400 font-mono">({timeClock})</span>
                         )}
+                    </div>
+                    <div className="flex items-center gap-2 text-gray-400">
+                        <span className="text-xs uppercase tracking-wide">Privacy</span>
+                        <span className="capitalize">{privacy ? privacy.replace(/_/g, ' ') : '—'}</span>
                     </div>
                 </div>
 
@@ -59,24 +81,29 @@ export const GameInterface = () => {
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
                 {/* Left Sidebar */}
                 <div className="lg:col-span-1 space-y-4">
-                    <PlayerPanel /> {/* Add the new PlayerPanel */}
+                    <PlayerPanel />
+                    <EconomyPanel />
 
                     <CharacterPanel
                         characters={presentNPCs}
                         characterDetails={gameState.character_details}
                         meters={gameState.meters}
                         modifiers={gameState.modifiers}
+                        snapshotCharacters={snapshot?.characters}
                     />
 
                     <FlagsPanel />
 
                     <InventoryPanel />
 
+                    <DeterministicControls />
+                    <MovementControls />
+
                 </div>
 
                 {/* Main Panel */}
                 <div className="lg:col-span-3 space-y-4">
-                    <NarrativePanel narrative={narrative} />
+                    <NarrativePanel entries={turnLog} />
                     <ChoicePanel choices={choices} />
                 </div>
             </div>
