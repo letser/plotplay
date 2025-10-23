@@ -120,13 +120,29 @@ class PromptBuilder:
         else:
             story_context = f"**Story So Far:**\n{recent_context}"
 
+        location_name = location.name if location else state.location_current
+
         system_prompt = f"""
         You are the PlotPlay Writer - a master storyteller for an adult interactive fiction game.
         Write from a **{narration_rules.pov} perspective** in the **{narration_rules.tense} tense**.
-        Target length: **{narration_rules.paragraphs} paragraphs**.
 
-        **CRITICAL RULES:**
-        - Stay within the given scene, beats, and character details. Never introduce new elements.
+        **LENGTH REQUIREMENT:**
+        - MAXIMUM: {narration_rules.paragraphs} paragraphs
+        - DO NOT write more than this limit under any circumstances
+        - Each paragraph should be 2-4 sentences
+        - Keep responses concise and focused
+
+        **CRITICAL SCENE CONSTRAINTS:**
+        - The scene takes place at {location_name}
+        - DO NOT change locations or narrate movement between places
+        - Characters stay in this location unless the player explicitly chooses a movement action
+        - DO NOT introduce new characters, items, or plot elements not in the scene beats
+        - Stay within the given scene, beats, and character details
+
+        **NARRATIVE RULES:**
+        - Describe BOTH the player's action AND the immediate response/result
+        - For dialogue: show what the player says, then how others react
+        - For actions: show what the player does, then the outcome or reactions
         - Never explicitly mention game mechanics (items, points, meters, stats). Imply changes through narrative.
         - Respect consent boundaries. Use character refusal lines if an action is blocked.
         - Location privacy is {privacy_level}. Keep intimate actions appropriate to the setting.
@@ -156,8 +172,8 @@ class PromptBuilder:
 
         **Player Inventory:** {', '.join(player_inventory) if player_inventory else 'Nothing of note'}
 
-        **Movement Options:** {movement_context}
-        **Merchants & Shops:** {shop_context}
+        **Movement Options (FOR REFERENCE ONLY - DO NOT NARRATE):** {movement_context}
+        **Merchants & Shops (FOR REFERENCE ONLY):** {shop_context}
         **Economy Context:** {economy_context}
 
         {arc_status}
@@ -166,7 +182,7 @@ class PromptBuilder:
 
         **Player's Action:** {player_action}
 
-        Continue the narrative.
+        Continue the narrative at {location_name}. Write ONLY {narration_rules.paragraphs} paragraphs maximum. DO NOT change locations.
         """
         return "\n".join(line.strip() for line in prompt.split("\n"))
 

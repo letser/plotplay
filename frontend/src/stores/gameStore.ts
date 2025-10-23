@@ -7,6 +7,8 @@ import {
     DeterministicActionResponse,
     MovementRequest,
 } from '../services/gameApi';
+import { saveSession, clearSession, loadSession, hasStoredSession } from '../utils/storage';
+import { useToast } from '../hooks/useToast';
 
 const DEFAULT_SUMMARY = 'Action resolved.';
 
@@ -51,6 +53,8 @@ interface GameStore {
     setDeterministicActionsEnabled: (value: boolean) => void;
     clearTurnLog: () => void;
     resetGame: () => void;
+    hasStoredSession: () => boolean;
+    restoreSession: () => Promise<void>;
 }
 
 const buildTurnEntry = (
@@ -98,7 +102,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
             set({ games, loading: false });
         } catch (error) {
             console.error(error);
-            set({ error: 'Failed to load games', loading: false });
+            const errorMsg = 'Failed to load games';
+            useToast.getState().error(errorMsg);
+            set({ error: errorMsg, loading: false });
         }
     },
 
@@ -123,9 +129,18 @@ export const useGameStore = create<GameStore>((set, get) => ({
                 loading: false,
                 turnCounter: 1,
             });
+
+            // Persist session to localStorage
+            if (game) {
+                saveSession(response.session_id, gameId, game.title);
+            }
+
+            useToast.getState().success('Game started successfully!');
         } catch (error) {
             console.error(error);
-            set({ error: 'Failed to start game', loading: false });
+            const errorMsg = 'Failed to start game';
+            useToast.getState().error(errorMsg);
+            set({ error: errorMsg, loading: false });
         }
     },
 
@@ -167,7 +182,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
             });
         } catch (error) {
             console.error(error);
-            set({ error: 'Failed to send action', loading: false });
+            const errorMsg = 'Failed to send action';
+            useToast.getState().error(errorMsg);
+            set({ error: errorMsg, loading: false });
         }
     },
 
@@ -192,26 +209,44 @@ export const useGameStore = create<GameStore>((set, get) => ({
             return;
         }
 
-        set({ loading: true, error: null });
+        // Optimistic update: Add loading turn entry immediately
+        const nextTurn = get().turnCounter + 1;
+        const destination = payload.destination_id || payload.zone_id || payload.direction || 'new location';
+        const optimisticEntry = buildTurnEntry(nextTurn, 'deterministic', 'Moving...', `Moving to ${destination}...`);
+
+        set(state => ({
+            turnLog: [...state.turnLog, optimisticEntry],
+            loading: true,
+            error: null,
+        }));
+
         try {
             const response = await gameApi.move(sessionId, payload);
 
             set(state => {
-                const nextTurn = state.turnCounter + 1;
-            const turnEntry = buildTurnEntry(nextTurn, 'deterministic', response.action_summary, response.message);
+                const turnEntry = buildTurnEntry(nextTurn, 'deterministic', response.action_summary, response.message);
                 const updatedChoices = extractChoicesFromDetails(response.details) ?? state.choices;
 
                 return {
-                    turnLog: [...state.turnLog, turnEntry],
+                    turnLog: [...state.turnLog.slice(0, -1), turnEntry], // Replace optimistic entry
                     choices: updatedChoices,
                     gameState: response.state_summary,
                     loading: false,
                     turnCounter: nextTurn,
                 };
             });
+
+            useToast.getState().success('Movement successful!');
         } catch (error) {
             console.error(error);
-            set({ error: 'Failed to move', loading: false });
+            const errorMsg = 'Failed to move';
+            useToast.getState().error(errorMsg);
+            // Revert optimistic update on error
+            set(state => ({
+                turnLog: state.turnLog.slice(0, -1),
+                error: errorMsg,
+                loading: false,
+            }));
         }
     },
 
@@ -317,6 +352,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
     },
 
     resetGame: () => {
+        // Clear localStorage session
+        clearSession();
+
         set({
             currentGame: null,
             sessionId: null,
@@ -325,6 +363,63 @@ export const useGameStore = create<GameStore>((set, get) => ({
             gameState: null,
             turnCounter: 0,
         });
+    },
+
+    hasStoredSession: () => {
+        return hasStoredSession();
+    },
+
+    restoreSession: async () => {
+        const stored = loadSession();
+        if (!stored) {
+            set({ error: 'No saved session found' });
+            return;
+        }
+
+        set({ loading: true, error: null });
+        try {
+            // Fetch current state from backend
+            const stateResponse = await gameApi.getState(stored.sessionId);
+
+            // Find the game info
+            const games = get().games;
+            if (games.length === 0) {
+                await get().loadGames();
+            }
+            const game = get().games.find(g => g.id === stored.gameId) ?? {
+                id: stored.gameId,
+                title: stored.gameTitle,
+                author: 'Unknown',
+                content_rating: 'Unknown',
+                version: '1.0',
+            };
+
+            // Extract last few turns from history to build turn log
+            const history = stateResponse.history || [];
+            const turnLog: TurnLogEntry[] = history.map((narrative, index) => ({
+                id: index + 1,
+                summary: `Turn ${index + 1}`,
+                narrative,
+                origin: 'ai' as TurnOrigin,
+                timestamp: new Date().toLocaleTimeString(),
+            }));
+
+            // For now, we'll need to make a dummy action call to get current choices
+            // This is a limitation - we can't restore choices without the backend tracking them
+            set({
+                currentGame: game,
+                sessionId: stored.sessionId,
+                turnLog: turnLog.length > 0 ? turnLog : [],
+                choices: [], // Will be populated on next action
+                gameState: stateResponse.state as GameState,
+                loading: false,
+                turnCounter: turnLog.length,
+            });
+        } catch (error) {
+            console.error('Failed to restore session:', error);
+            clearSession();
+            set({ error: 'Failed to restore session', loading: false });
+        }
     },
 }));
 

@@ -19,9 +19,12 @@ def test_writer_prompt_includes_new_sections(engine_fixture):
     )
 
     assert "**Scene Beats (Internal Only):**" in prompt
-    assert "**Movement Options:**" in prompt
-    assert "**Merchants & Shops:**" in prompt
+    assert "**Movement Options (FOR REFERENCE ONLY - DO NOT NARRATE):**" in prompt
+    assert "**Merchants & Shops (FOR REFERENCE ONLY):**" in prompt
     assert "Wardrobe State:" in prompt
+    # Verify new strict constraints are present
+    assert "DO NOT change locations" in prompt
+    assert "MAXIMUM:" in prompt
 
 
 def test_checker_prompt_contract_shape(engine_fixture):
@@ -65,12 +68,17 @@ def test_checker_prompt_contract_shape(engine_fixture):
     assert "schema" in contract and "notes" in contract
 
 
-def test_action_summary_mentions_location_and_presence(engine_fixture):
+def test_action_summary_formats_action(engine_fixture):
     engine = engine_fixture
-    state = engine.state_manager.state
-    state.present_chars = ["player", "friend"]
 
+    # Test with action description
     summary = engine.state_summary.build_action_summary("Player action: waves hello")
+    assert summary == "Player action: waves hello"
 
-    assert "You are at" in summary
-    assert "friend" in summary.lower()
+    # Test with None
+    summary_none = engine.state_summary.build_action_summary(None)
+    assert summary_none == "Action taken"
+
+    # Test with empty string
+    summary_empty = engine.state_summary.build_action_summary("")
+    assert summary_empty == "Action taken"

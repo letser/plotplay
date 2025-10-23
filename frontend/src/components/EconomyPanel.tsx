@@ -1,4 +1,5 @@
 import { useGameStore } from '../stores/gameStore';
+import { usePlayer } from '../hooks';
 import { Coins } from 'lucide-react';
 
 const formatCurrency = (symbol: string | null | undefined, amount: number | null | undefined) => {
@@ -9,8 +10,12 @@ const formatCurrency = (symbol: string | null | undefined, amount: number | null
 
 export const EconomyPanel = () => {
     const { gameState } = useGameStore();
+    const player = usePlayer();
+
+    if (!player) return null;
+
     const economy = gameState?.economy;
-    const playerMoneyMeter = gameState?.snapshot?.player?.meters?.money ?? gameState?.meters?.player?.money;
+    const playerMoneyMeter = player.meters.money;
 
     if (!economy) {
         return null;
@@ -30,13 +35,13 @@ export const EconomyPanel = () => {
                 <div className="flex justify-between text-gray-300">
                     <span>Balance</span>
                     <span className="font-semibold">
-                        {formatCurrency(economy.symbol, playerMoneyMeter?.value ?? economy.player_money)}
+                        {formatCurrency(economy?.symbol, playerMoneyMeter?.value)}
                     </span>
                 </div>
-                {economy.max_money !== null && economy.max_money !== undefined && (
+                {economy?.max_money !== null && economy?.max_money !== undefined && (
                     <div className="flex justify-between text-gray-300">
                         <span>Max</span>
-                        <span>{formatCurrency(economy.symbol, economy.max_money)}</span>
+                        <span>{formatCurrency(economy?.symbol, economy?.max_money)}</span>
                     </div>
                 )}
             </div>

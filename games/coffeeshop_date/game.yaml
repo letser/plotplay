@@ -28,19 +28,13 @@ meters:
       default: 55
       visible: true
       icon: "😎"
-    money:
-      min: 0
-      max: 200
-      default: 35
-      visible: true
-      icon: "💵"
-      format: "currency"
   template:
     comfort:
       min: 0
       max: 100
       default: 25
-      visible: false
+      visible: true
+      icon: "🤝"
       thresholds:
         nervous: { min: 0, max: 39 }
         relaxed: { min: 40, max: 69 }
@@ -50,6 +44,7 @@ meters:
       max: 100
       default: 20
       visible: false
+      icon: "💖"
       thresholds:
         polite: { min: 0, max: 39 }
         curious: { min: 40, max: 69 }
@@ -59,7 +54,7 @@ flags:
   shared_laugh:
     type: "bool"
     default: false
-    visible: false
+    visible: true
     description: "Set when Alex laughs freely with you."
   second_date_offer:
     type: "bool"

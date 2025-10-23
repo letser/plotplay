@@ -306,6 +306,232 @@ pytest tests_v2/test_narrative_reconciler.py -v
 - Docker commands should be run from the project root
 - The game engine resolves game paths differently in Docker vs native mode (see `backend/app/core/env.py`)
 
+---
+
+## Frontend Status (Updated 2025-10-23)
+
+### ✅ Frontend Refactoring COMPLETE - Production Ready!
+
+**The PlotPlay frontend is production-ready** with full backend integration.
+
+**Latest Improvements (Phase 4 Complete - 2025-10-23)**:
+- ✅ Toast notification system for user feedback
+- ✅ Keyboard shortcuts (Esc, Ctrl+K, 1-9 for quick actions)
+- ✅ Optimistic updates for deterministic actions
+- ✅ Smooth animations and transitions
+- ✅ All 69 tests passing (100% pass rate)
+- ✅ Production build: 282.57 kB (gzip: 87.69 kB)
+
+**Previous Improvements**:
+- ✅ Custom hooks for snapshot access (Phase 1)
+- ✅ Error boundaries and state persistence (Phase 2)
+- ✅ Comprehensive test coverage (Phase 3)
+- ✅ Fixed TypeScript build errors (excluded test files from compilation)
+- ✅ Added proper type safety (`DebugStateResponse` interface)
+- ✅ Removed ALL legacy state fallbacks - now 100% snapshot-driven
+
+**Architecture**: Modern React with Zustand state management
+- ✅ Clean separation: components → stores → services → API
+- ✅ Full backend integration (movement, inventory, economy, shop APIs)
+- ✅ Proper TypeScript interfaces matching backend contracts
+- ✅ Snapshot-first design (no legacy fallbacks)
+
+**Current State**:
+- ✅ All major features implemented and working
+- ✅ Responsive UI with Tailwind CSS
+- ✅ Real-time state updates
+- ✅ Deterministic action toggle (skip AI narration)
+- ✅ Turn log with AI vs deterministic badges
+- ✅ Character, inventory, economy panels all functional
+
+**Component Structure**:
+- `GameInterface` - Main container (snapshot-driven)
+- `NarrativePanel` - Turn log with copy/clear functionality
+- `ChoicePanel` - Say/Do actions + quick actions
+- `PlayerPanel` - Player stats and clothing (from snapshot.player)
+- `CharacterPanel` - NPCs present (from snapshot.characters)
+- `InventoryPanel` - Player inventory with use/drop/give actions
+- `MovementControls` - Visual exit navigation (from snapshot.location.exits)
+- `DeterministicControls` - Quick utilities for testing
+- `EconomyPanel` - Currency and balance (from snapshot + economy config)
+- `FlagsPanel` - Story flags display
+
+### Frontend Improvement Plan
+
+**Status**: ✅ ALL PHASES COMPLETE!
+
+#### **Phase 1: Custom Hooks & Code Organization** ✅ COMPLETE
+
+**Goal**: Extract repeated snapshot access patterns into reusable hooks.
+
+**Tasks**:
+1. Create custom hooks for snapshot data access:
+   - `usePlayer()` → returns `snapshot.player` with type safety
+   - `usePresentCharacters()` → returns `snapshot.characters`
+   - `useLocation()` → returns `snapshot.location`
+   - `useTimeInfo()` → returns `snapshot.time`
+   - `useSnapshot()` → returns full snapshot with null check
+
+2. Extract utility functions:
+   - Meter color mapping (currently duplicated in PlayerPanel/CharacterPanel)
+   - Icon helpers
+   - Text formatting (capitalize, title case, etc.)
+
+**Benefits**:
+- Cleaner, more maintainable component code
+- Better reusability across components
+- Easier unit testing
+- Consistent null handling
+
+**Location**: `frontend/src/hooks/`
+
+**Results**: All custom hooks implemented and tested (100% coverage)
+
+#### **Phase 2: Error Handling & UX Polish** ✅ COMPLETE
+
+**Goal**: Graceful error handling and improved user feedback.
+
+**Tasks**:
+1. **Add React Error Boundaries**:
+   - Wrap major UI sections (GameInterface, panels)
+   - Show friendly fallback UI instead of blank screens
+   - Log errors to console for debugging
+   - Optional: Send errors to error tracking service
+
+2. **Improve Loading States**:
+   - Centralized loading component/spinner
+   - Skeleton screens for panels during initial load
+   - Better feedback during AI generation (show "AI is thinking...")
+   - Disable actions during loading to prevent double-submission
+
+3. **Add State Persistence**:
+   - Save session to localStorage on every turn
+   - Allow session recovery on browser refresh
+   - "Resume game" functionality on homepage
+   - Clear session on explicit "End Game"
+
+**Benefits**:
+- Better UX for users (no lost progress)
+- Professional error handling
+- Clear feedback on long-running operations
+
+**Results**: Error boundaries, LoadingSpinner, SkeletonLoader, localStorage persistence all implemented
+
+#### **Phase 3: Testing & Reliability** ✅ COMPLETE
+
+**Goal**: Comprehensive test coverage for frontend components.
+
+**Tasks**:
+1. **Expand Test Coverage**:
+   - Test `ChoicePanel` component (say/do modes, quick actions)
+   - Test `InventoryPanel` actions (use/drop/give)
+   - Test `gameStore` async actions (purchase, move, give)
+   - Test custom hooks (once created in Phase 1)
+   - Test error boundaries
+
+2. **Integration Tests**:
+   - Test full user flows (start game → take actions → end game)
+   - Test API error handling
+   - Test state persistence/recovery
+
+**Tools**:
+- Jest (already configured)
+- React Testing Library
+- Mock localStorage
+
+**Results**: 69 tests passing (100% pass rate), excellent coverage on hooks (100%), utils (90.78%), components (78.16%)
+
+#### **Phase 4: UX Enhancements & Polish** ✅ COMPLETE
+
+**Implemented Features**:
+
+1. **✅ Toast Notification System**:
+   - `useToast` hook with Zustand store
+   - `ToastContainer` component with animations
+   - Success/error/info/warning notifications
+   - Auto-dismiss after 3 seconds
+   - Integrated into gameStore for user feedback
+
+2. **✅ Keyboard Shortcuts**:
+   - `useKeyboardShortcuts` hook
+   - Escape to clear input/close menus
+   - Ctrl+K to focus input field
+   - Number keys 1-9 to activate quick actions
+   - Visual hints next to quick action buttons
+
+3. **✅ Optimistic Updates**:
+   - Movement actions show immediately in turn log
+   - "Moving to [destination]..." placeholder
+   - Replaced with actual response on success
+   - Reverted on error with toast notification
+
+4. **✅ Animations & Transitions**:
+   - Fade-in-up animation for new turn entries
+   - Slide-in-right animation for toasts
+   - Scale effects on button hover/active states
+   - Shimmer animation utility for loading states
+   - Smooth transitions on all interactive elements
+
+**Results**: Production build verified (282.57 kB), all tests passing, professional UX with modern interactions
+
+---
+
+### Frontend Development Workflow
+
+```bash
+# Setup
+cd frontend
+npm install
+
+# Development server
+npm run dev
+# UI at http://localhost:5173
+
+# Type checking and build
+npm run build
+
+# Run tests
+npm test
+
+# Run tests in watch mode
+npm test -- --watch
+```
+
+### Frontend Code Style
+
+- Four-space indentation
+- PascalCase for components
+- camelCase for functions/variables/hooks
+- Custom hooks prefixed with `use`
+- Zustand stores named `use<Feature>Store`
+- TypeScript strict mode enabled
+- No unused variables/imports (enforced by tsconfig)
+
+### Frontend Architecture Patterns
+
+**State Management**:
+- Zustand for global state (game session, turn log, choices)
+- React hooks for local component state
+- No prop drilling (use store or custom hooks)
+
+**Data Flow**:
+```
+User Action → Component → Store → API Service → Backend
+Backend Response → Store → Component Re-render
+```
+
+**Snapshot-First Design**:
+- All components read from `gameState.snapshot`
+- No fallbacks to legacy state structure
+- Components return null if snapshot unavailable
+
+**Type Safety**:
+- All API responses typed (in `services/gameApi.ts`)
+- All store actions typed
+- Components use proper interfaces
+
+---
+
 ## Environment Configuration
 
 Before running the backend, copy `backend/.env.example` to `backend/.env` and configure:

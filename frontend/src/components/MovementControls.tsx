@@ -1,5 +1,7 @@
 import { Fragment, ReactNode } from 'react';
 import { useGameStore } from '../stores/gameStore';
+import { useLocation } from '../hooks';
+import { toTitleCase } from '../utils';
 import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Navigation } from 'lucide-react';
 
 const directionIconMap: Record<string, ReactNode> = {
@@ -9,16 +11,15 @@ const directionIconMap: Record<string, ReactNode> = {
     w: <ArrowLeft className="w-4 h-4" />,
 };
 
-const toTitle = (text: string | null | undefined) =>
-    text ? text.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : '';
-
 export const MovementControls = () => {
-    const { gameState, performMovement } = useGameStore();
-    const exits = gameState?.snapshot?.location?.exits ?? [];
+    const { performMovement } = useGameStore();
+    const location = useLocation();
 
-    if (!gameState || exits.length === 0) {
+    if (!location || location.exits.length === 0) {
         return null;
     }
+
+    const exits = location.exits;
 
     const handleMove = (exitId: string | null, direction: string | null) => {
         if (exitId) {
@@ -40,8 +41,8 @@ export const MovementControls = () => {
                     const icon = exit.direction ? directionIconMap[exit.direction.toLowerCase()] : null;
                     const label =
                         exit.direction && icon
-                            ? `${exit.direction.toUpperCase()} – ${toTitle(exit.name)}`
-                            : toTitle(exit.name);
+                            ? `${exit.direction.toUpperCase()} – ${toTitleCase(exit.name)}`
+                            : toTitleCase(exit.name);
 
                     return (
                         <button

@@ -168,6 +168,8 @@ class GameDefinition(SimpleModel):
                     min=0,
                     max=int(self.economy.max_money),
                     default=int(self.economy.starting_money),
+                    visible=True,
+                    icon="💵",
                     format="currency"
                 )
 

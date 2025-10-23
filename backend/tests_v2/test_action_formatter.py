@@ -24,7 +24,7 @@ def test_formatter_choice_lookup(formatter):
     node.choices.append(Choice(id="wave", prompt="Wave hello"))
 
     result = formatter.format("choice", None, None, "wave", None)
-    assert result == "Player chooses to: 'Wave hello'"
+    assert result == "You wave hello"
 
 
 def test_formatter_unlocked_action_fallback(formatter):
@@ -37,4 +37,19 @@ def test_formatter_unlocked_action_fallback(formatter):
     state.unlocked_actions.append(action.id)
 
     result = formatter.format("choice", None, None, "smile", None)
-    assert result == "Player chooses to: 'Smile warmly'"
+    assert result == "You smile warmly"
+
+
+def test_formatter_custom_say_action(formatter):
+    result = formatter.format("choice", "Hello there!", "Alex", "custom_say", None)
+    assert result == 'You say to Alex: "Hello there!"'
+
+
+def test_formatter_custom_say_everyone(formatter):
+    result = formatter.format("choice", "I'm happy to be here!", None, "custom_say", None)
+    assert result == 'You say to everyone: "I\'m happy to be here!"'
+
+
+def test_formatter_custom_do_action(formatter):
+    result = formatter.format("choice", "pick up the cup", None, "custom_do", None)
+    assert result == "You pick up the cup"

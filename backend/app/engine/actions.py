@@ -29,6 +29,16 @@ class ActionFormatter:
             return f"Player uses {item_id}."
 
         if action_type == "choice" and choice_id:
+            # Handle custom actions (custom_say, custom_do)
+            if choice_id.startswith("custom_") and action_text:
+                if choice_id == "custom_say":
+                    target_display = target or "everyone"
+                    return f"You say to {target_display}: \"{action_text}\""
+                elif choice_id == "custom_do":
+                    return f"You {action_text}"
+                else:
+                    return f"You: {action_text}"
+
             node = self.engine._get_current_node()
             all_choices = list(node.choices) + list(node.dynamic_choices)
             unlocked_action_defs = [
@@ -39,13 +49,13 @@ class ActionFormatter:
 
             choice = next((c for c in all_choices if c.id == choice_id), None)
             if choice:
-                return f"Player chooses to: '{choice.prompt}'"
+                return f"You {choice.prompt.lower()}" if choice.prompt else f"You choose: {choice_id}"
 
             action = next((a for a in unlocked_action_defs if a and a.id == choice_id), None)
             if action:
-                return f"Player chooses to: '{action.prompt}'"
+                return f"You {action.prompt.lower()}" if action.prompt else f"You choose: {action.id}"
 
-            return f"Player chooses action: '{choice_id}'"
+            return f"You choose: {choice_id}"
 
     # default to 'say' formatting
         if action_type == "say":

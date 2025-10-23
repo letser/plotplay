@@ -65,7 +65,7 @@ export const NarrativePanel = ({ entries }: Props) => {
                     const formattedTime = new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
                     return (
-                        <div key={entry.id} className="animate-fadeIn">
+                        <div key={entry.id} className="animate-fade-in-up">
                             <div className="flex items-start justify-between gap-3 mb-2">
                                 <p className="text-sm uppercase tracking-wide text-blue-200 font-semibold">
                                     {entry.summary}

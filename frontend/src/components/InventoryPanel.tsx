@@ -1,31 +1,30 @@
-// frontend/src/components/InventoryPanel.tsx
 import { useMemo, useState } from 'react';
 import { useGameStore } from '../stores/gameStore';
+import { usePlayer, usePresentCharacters } from '../hooks';
 import { Package, Hand, Trash2, ArrowRightLeft } from 'lucide-react';
 
 export const InventoryPanel = () => {
     const { gameState, sendAction, dropItem, giveItem, loading } = useGameStore();
+    const player = usePlayer();
+    const characters = usePresentCharacters();
 
     const presentCharacters = useMemo(() => {
-        const snapshotChars = gameState?.snapshot?.characters ?? [];
-        if (snapshotChars.length > 0) {
-            return snapshotChars
-                .filter(char => char.id !== 'player')
-                .map(char => ({ id: char.id, name: char.name ?? char.id }));
-        }
-        return (gameState?.present_characters ?? [])
-            .filter(char => char !== 'player')
-            .map(char => ({ id: char, name: char }));
-    }, [gameState?.snapshot?.characters, gameState?.present_characters]);
+        return characters.map(char => ({
+            id: char.id,
+            name: char.name ?? char.id
+        }));
+    }, [characters]);
 
     const [openGiveMenu, setOpenGiveMenu] = useState<string | null>(null);
 
-    if (
-        !gameState ||
-        !gameState.inventory ||
-        !gameState.inventory_details ||
-        Object.keys(gameState.inventory).length === 0
-    ) {
+    if (!player) {
+        return null;
+    }
+
+    const playerInventory = player.inventory;
+    const inventoryDetails = gameState?.inventory_details;
+
+    if (!inventoryDetails || Object.keys(playerInventory).length === 0) {
         return (
             <div className="bg-gray-800/50 backdrop-blur border border-gray-700 rounded-lg p-4">
                 <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
@@ -52,8 +51,8 @@ export const InventoryPanel = () => {
                 Inventory
             </h3>
             <div className="space-y-2 text-sm">
-                {Object.entries(gameState.inventory).map(([itemId, count]) => {
-                    const itemDetails = gameState.inventory_details[itemId];
+                {Object.entries(playerInventory).map(([itemId, count]) => {
+                    const itemDetails = inventoryDetails[itemId];
                     if (!itemDetails || count <= 0) return null;
 
                     const usableEffects = Array.isArray(itemDetails.effects_on_use)

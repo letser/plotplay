@@ -62,7 +62,7 @@ class StateSummaryService:
 
         if all_flag_defs:
             for flag_id, flag_def in all_flag_defs.items():
-                if flag_def.visible or evaluator.evaluate(flag_def.reveal_when):
+                if flag_def.visible or (flag_def.reveal_when and evaluator.evaluate(flag_def.reveal_when)):
                     summary_flags[flag_id] = {
                         "value": state.flags.get(flag_id, flag_def.default),
                         "label": flag_def.label or flag_id,
@@ -231,40 +231,16 @@ class StateSummaryService:
 
     def build_action_summary(self, action_description: str | None) -> str:
         """
-        Produce a concise description of the player's action plus refreshed scene context.
+        Produce a concise description of the player's action.
         Intended for UI display ahead of the narrative block.
         """
-        state = self.engine.state_manager.state
-        parts: list[str] = []
+        if not action_description:
+            return "Action taken"
 
-        if action_description:
-            cleaned = action_description.strip()
-            if cleaned:
-                cleaned = cleaned.rstrip(".")
-                parts.append(cleaned[0].upper() + cleaned[1:])
+        cleaned = action_description.strip()
+        if not cleaned:
+            return "Action taken"
 
-        location = self.engine.locations_map.get(state.location_current)
-        location_name = location.name if location else state.location_current or "an unknown location"
-        parts.append(f"You are at {location_name}")
-
-        present_names: list[str] = []
-        for char_id in state.present_chars:
-            if char_id == "player":
-                continue
-            char_def = self.engine.characters_map.get(char_id)
-            present_names.append(char_def.name if char_def else char_id)
-
-        if present_names:
-            if len(present_names) == 1:
-                parts.append(f"{present_names[0]} is here")
-            elif len(present_names) == 2:
-                parts.append(f"{present_names[0]} and {present_names[1]} are here")
-            else:
-                head = ", ".join(present_names[:-1])
-                tail = present_names[-1]
-                parts.append(f"{head}, and {tail} are here")
-
-        summary = ". ".join(parts)
-        if not summary.endswith("."):
-            summary += "."
-        return summary
+        # Remove trailing period and capitalize
+        cleaned = cleaned.rstrip(".")
+        return cleaned[0].upper() + cleaned[1:]

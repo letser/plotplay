@@ -93,10 +93,10 @@ export interface SnapshotCharacter {
     id: string;
     name?: string;
     pronouns?: string[] | null;
-    attire?: string | null;
+    attire?: string | Record<string, string | null> | null;
     meters: Record<string, Meter>;
     modifiers: Modifier[];
-    wardrobe_state?: Record<string, string>;
+    wardrobe_state?: Record<string, string | Record<string, string | null> | null>;
 }
 
 export interface StateSnapshot {
@@ -174,6 +174,11 @@ export interface InventoryTransferRequest {
 export interface LogResponse {
     content: string;
     size: number;
+}
+
+export interface DebugStateResponse {
+    state: Record<string, any>;
+    history: string[];
 }
 
 class GameAPI {
@@ -262,7 +267,7 @@ class GameAPI {
         return response.data;
     }
 
-    async getState(sessionId: string): Promise<any> {
+    async getState(sessionId: string): Promise<DebugStateResponse> {
         const response = await axios.get(`${API_BASE}/game/session/${sessionId}/state`);
         return response.data;
     }

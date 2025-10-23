@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useGameStore } from '../stores/gameStore';
+import { usePresentCharacters } from '../hooks';
 import { Store, PackagePlus, PackageMinus, ShoppingCart, ArrowRightLeft, ToggleRight, ToggleLeft } from 'lucide-react';
 
 export const DeterministicControls = () => {
@@ -9,11 +10,12 @@ export const DeterministicControls = () => {
         purchaseItem,
         sellItem,
         giveItem,
-        gameState,
         loading,
         deterministicActionsEnabled,
         setDeterministicActionsEnabled,
     } = useGameStore();
+
+    const characters = usePresentCharacters();
 
     const [takeItemId, setTakeItemId] = useState('');
     const [dropItemId, setDropItemId] = useState('');
@@ -24,14 +26,16 @@ export const DeterministicControls = () => {
     const [sellItemId, setSellItemId] = useState('');
     const [sellPrice, setSellPrice] = useState('');
 
-    if (!gameState) return null;
+    const presentCharacters = useMemo(() => {
+        return characters.map(char => ({
+            id: char.id,
+            name: char.name ?? char.id
+        }));
+    }, [characters]);
 
-    const snapshotCharacters = gameState.snapshot?.characters ?? [];
-    const presentCharacters = snapshotCharacters.length > 0
-        ? snapshotCharacters.filter(char => char.id !== 'player').map(char => ({ id: char.id, name: char.name ?? char.id }))
-        : (gameState.present_characters ?? [])
-              .filter(char => char !== 'player')
-              .map(char => ({ id: char, name: char }));
+    if (characters.length === 0 && !presentCharacters.length) {
+        // Still show panel for take/drop/buy/sell even if no characters present
+    }
 
     return (
         <div className="bg-gray-800/50 backdrop-blur border border-gray-700 rounded-lg p-4 space-y-4">
