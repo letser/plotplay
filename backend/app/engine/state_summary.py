@@ -123,4 +123,148 @@ class StateSummaryService:
         if state.time_hhmm:
             summary["time_hhmm"] = state.time_hhmm
 
+        time_snapshot = {
+            "day": state.day,
+            "slot": state.time_slot,
+            "time_hhmm": state.time_hhmm,
+            "weekday": state.weekday,
+        }
+
+        location_detail = {}
+        current_location = self.engine.locations_map.get(state.location_current)
+        if current_location:
+            exits: list[dict] = []
+            for connection in current_location.connections or []:
+                targets = connection.to if isinstance(connection.to, list) else [connection.to]
+                is_locked = bool(getattr(connection, "locked", False))
+                if getattr(connection, "unlocked_when", None) and evaluator.evaluate(connection.unlocked_when):
+                    is_locked = False
+
+                for target_id in targets:
+                    target_location = self.engine.locations_map.get(target_id)
+                    exits.append(
+                        {
+                            "direction": getattr(connection.direction, "value", connection.direction),
+                            "to": target_id,
+                            "name": target_location.name if target_location else target_id,
+                            "available": target_id in state.discovered_locations and not is_locked,
+                            "locked": is_locked,
+                            "description": getattr(connection, "description", None),
+                        }
+                    )
+
+            location_detail = {
+                "id": current_location.id,
+                "name": current_location.name,
+                "zone": state.zone_current,
+                "privacy": getattr(current_location.privacy, "value", current_location.privacy),
+                "summary": current_location.summary,
+                "description": getattr(current_location, "description", None),
+                "has_shop": bool(getattr(current_location, "shop", None)),
+                "exits": exits,
+            }
+        else:
+            location_detail = {
+                "id": state.location_current,
+                "name": state.location_current,
+                "zone": state.zone_current,
+                "privacy": getattr(state.location_privacy, "value", state.location_privacy),
+                "summary": None,
+                "description": None,
+                "has_shop": False,
+                "exits": [],
+            }
+
+        player_snapshot = {
+            "id": "player",
+            "name": player_details["name"],
+            "pronouns": player_details["pronouns"],
+            "attire": player_details["wearing"],
+            "meters": summary_meters.get("player", {}),
+            "modifiers": summary_modifiers.get("player", []),
+            "inventory": state.inventory.get("player", {}),
+            "wardrobe_state": state.clothing_states.get("player"),
+        }
+
+        character_snapshots: list[dict] = []
+        for char_id in state.present_chars:
+            if char_id == "player":
+                continue
+            char_def = self.engine.characters_map.get(char_id)
+            char_detail = character_details.get(char_id, {})
+            character_snapshots.append(
+                {
+                    "id": char_id,
+                    "name": char_detail.get("name") or (char_def.name if char_def else char_id),
+                    "pronouns": char_detail.get("pronouns"),
+                    "attire": char_detail.get("wearing"),
+                    "meters": summary_meters.get(char_id, {}),
+                    "modifiers": summary_modifiers.get(char_id, []),
+                    "wardrobe_state": state.clothing_states.get(char_id),
+                }
+            )
+
+        summary["snapshot"] = {
+            "time": time_snapshot,
+            "location": location_detail,
+            "player": player_snapshot,
+            "characters": character_snapshots,
+        }
+
+        economy = getattr(self.engine.game_def, "economy", None)
+        if economy and economy.enabled:
+            currency_name = economy.currency_name
+            currency_symbol = economy.currency_symbol
+            player_money = (
+                summary_meters.get("player", {})
+                .get("money", {})
+                .get("value")
+            )
+            summary["economy"] = {
+                "currency": currency_name,
+                "symbol": currency_symbol,
+                "player_money": player_money,
+                "max_money": economy.max_money,
+            }
+
+        return summary
+
+    def build_action_summary(self, action_description: str | None) -> str:
+        """
+        Produce a concise description of the player's action plus refreshed scene context.
+        Intended for UI display ahead of the narrative block.
+        """
+        state = self.engine.state_manager.state
+        parts: list[str] = []
+
+        if action_description:
+            cleaned = action_description.strip()
+            if cleaned:
+                cleaned = cleaned.rstrip(".")
+                parts.append(cleaned[0].upper() + cleaned[1:])
+
+        location = self.engine.locations_map.get(state.location_current)
+        location_name = location.name if location else state.location_current or "an unknown location"
+        parts.append(f"You are at {location_name}")
+
+        present_names: list[str] = []
+        for char_id in state.present_chars:
+            if char_id == "player":
+                continue
+            char_def = self.engine.characters_map.get(char_id)
+            present_names.append(char_def.name if char_def else char_id)
+
+        if present_names:
+            if len(present_names) == 1:
+                parts.append(f"{present_names[0]} is here")
+            elif len(present_names) == 2:
+                parts.append(f"{present_names[0]} and {present_names[1]} are here")
+            else:
+                head = ", ".join(present_names[:-1])
+                tail = present_names[-1]
+                parts.append(f"{head}, and {tail} are here")
+
+        summary = ". ".join(parts)
+        if not summary.endswith("."):
+            summary += "."
         return summary

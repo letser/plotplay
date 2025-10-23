@@ -55,6 +55,7 @@ class MovementService:
             "narrative": "You can't seem to go that way.",
             "choices": engine._generate_choices(engine._get_current_node(), []),
             "current_state": engine._get_state_summary(),
+            "action_summary": engine.state_summary.build_action_summary("You attempt to move, but the path is blocked."),
         }
 
     async def handle_freeform(self, action_text: str) -> dict[str, Any]:
@@ -66,6 +67,7 @@ class MovementService:
                 "narrative": "There's nowhere to go from here.",
                 "choices": [],
                 "current_state": engine._get_state_summary(),
+                "action_summary": engine.state_summary.build_action_summary("You attempt to move, but remain in place."),
             }
 
         action_lower = action_text.lower()
@@ -79,6 +81,7 @@ class MovementService:
             "narrative": "You try to move, but there's no clear path forward.",
             "choices": engine._generate_choices(engine._get_current_node(), []),
             "current_state": engine._get_state_summary(),
+            "action_summary": engine.state_summary.build_action_summary("You look for a route but stay put."),
         }
 
     @staticmethod
@@ -140,6 +143,7 @@ class MovementService:
             "narrative": final_narrative,
             "choices": engine._generate_choices(engine._get_current_node(), []),
             "current_state": engine._get_state_summary(),
+            "action_summary": engine.state_summary.build_action_summary(f"You travel to {dest_zone.name}."),
         }
 
     async def _execute_local_movement(
@@ -227,6 +231,7 @@ class MovementService:
             "narrative": final_narrative,
             "choices": engine._generate_choices(engine._get_current_node(), []),
             "current_state": engine._get_state_summary(),
+            "action_summary": engine.state_summary.build_action_summary(f"You move to the {new_location.name if new_location else destination_id}."),
         }
 
     def move_by_direction(self, direction: str, with_characters: list[str] | None = None) -> bool:

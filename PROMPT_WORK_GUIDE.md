@@ -122,6 +122,50 @@ The Checker receives:
    - Extract inventory changes
    - Return as structured JSON
 
+#### Updated Response Contract
+
+The checker must now emit a rich schema that mirrors engine services. The payload is validated against the `response_contract` provided in the prompt and always includes the following top-level keys:
+
+```json
+{
+  "meters": {
+    "<character_id>": [
+      {"meter": "energy", "delta": -5, "reason": "Player ran upstairs"}
+    ]
+  },
+  "inventory": [
+    {"op": "take", "owner": "player", "item": "coffee", "count": 1},
+    {"op": "give", "from": "player", "to": "alex", "item": "coffee", "count": 1}
+  ],
+  "clothing": [
+    {"type": "slot_state", "character": "alex", "slot": "top", "state": "opened"}
+  ],
+  "movement": [
+    {"type": "move_to", "location": "cafe_counter", "with": ["alex"], "reason": "They walked inside."}
+  ],
+  "discoveries": {
+    "locations": ["cafe_counter"],
+    "zones": [],
+    "actions": [],
+    "outfits": [],
+    "nodes": [],
+    "endings": []
+  },
+  "modifiers": {
+    "add": [{"target": "alex", "modifier": "flustered", "reason": "She blushes."}],
+    "remove": []
+  },
+  "flags": [{"key": "met_alex", "value": true}],
+  "memory": ["Alex agreed to meet after work."]
+}
+```
+
+- Use `delta` for additive meter adjustments (the engine converts to `meter_change` effects).
+- Inventory ops map directly to deterministic services: `take`, `drop`, `add`, `remove`, `give`, `purchase`, and `sell`.
+- Always include empty lists/objects when nothing changed to keep the contract stable.
+
+Refer to the `response_contract` block in the prompt for the authoritative schema description.
+
 ### Prompt Builder Methods
 
 Key methods in `app/engine/prompt_builder.py`:
