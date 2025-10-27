@@ -22,10 +22,10 @@ def build_engine(tmp_path, monkeypatch) -> GameEngine:
     game_path = minimal_game(tmp_path)
     loader = GameLoader(games_dir=game_path.parent)
     game_def = loader.load_game(game_path.name)
-    return GameEngine(game_def, session_id="node-session")
+    return GameEngine(game_def, session_id="node-session", ai_service=mock_ai_service)
 
 
-def test_node_service_applies_transitions(tmp_path, monkeypatch):
+def test_node_service_applies_transitions(tmp_path, monkeypatch, mock_ai_service):
     engine = build_engine(tmp_path, monkeypatch)
     current_node = engine._get_current_node()
 
@@ -40,7 +40,7 @@ def test_node_service_applies_transitions(tmp_path, monkeypatch):
     assert engine.state_manager.state.current_node == "next"
 
 
-def test_node_service_handles_predefined_choice(tmp_path, monkeypatch):
+def test_node_service_handles_predefined_choice(tmp_path, monkeypatch, mock_ai_service):
     engine = build_engine(tmp_path, monkeypatch)
     state = engine.state_manager.state
     current_node = engine._get_current_node()

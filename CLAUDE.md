@@ -58,8 +58,8 @@ The backend follows a **service-oriented architecture** with clear separation of
 - Run with: `pytest backend/tests/`
 - Tests all engine services in `app/engine/`
 - Shared fixtures in `conftest.py` and `conftest_services.py`
-- **Current status**: 145/145 tests passing, 17 skipped (stub implementations)
-- **Coverage**: All core systems tested
+- **Current status**: 199/199 tests passing (100% pass rate)
+- **Coverage**: All core systems tested (19 engine services)
 
 ## Development Commands
 
@@ -153,42 +153,194 @@ The Expression DSL (app/core/conditions.py) evaluates conditions against game st
 - `PromptBuilder` constructs prompts with full state context (character cards, location info, node metadata)
 - `AIService` (app/services/ai_service.py) handles LLM API calls
 
-## Backend Status (Updated 2025-10-22)
+## Backend Status (Updated 2025-10-27)
 
-### ✅ Backend Refactoring COMPLETE - Production Ready!
+### ✅ Backend Engine COMPLETE - Now Playtesting!
 
 **The PlotPlay backend engine is production-ready** with full specification coverage.
 
 **Architecture**: Service-oriented refactoring complete
-- ✅ All 17 engine services extracted and functional
+- ✅ All 19 engine services extracted and functional
 - ✅ `GameEngine` is a clean façade delegating to services
 - ✅ `TurnManager` orchestrates the full turn pipeline
 - ✅ All code in `app/engine/*` is modular and tested
+- ✅ Streaming support (WebSocket) for real-time narrative delivery
 
-**Specification Coverage**: 92% complete (15/17 systems fully implemented)
-- ✅ All core gameplay systems: meters, flags, time, inventory, movement, etc.
-- ✅ All 17 effect types (including purchase/sell)
-- ✅ Clothing system (100% functionality, slot merging, concealment, locks)
-- ✅ Economy system (money meter, transactions)
-- ⚠️ 17 test stubs pending (functionality complete, tests not written)
-
-**Test Status**: 145/145 passing (100%), 17 skipped
-- All skipped tests are stubs waiting for test implementation
-- Underlying functionality for all systems is complete and working
-- Legacy tests deleted (archived in git history)
+**Test Status**: 199/199 passing (100% pass rate)
+- All core gameplay systems fully tested
+- All effect types validated (meters, flags, inventory, clothing, movement)
+- AI integration tested (Writer + Checker architecture)
+- Full turn pipeline coverage
 
 **What This Means**:
 - ✅ Engine can run full games with all features
 - ✅ All state management works (meters, flags, inventory, clothing)
 - ✅ All effects work (including purchase/sell, clothing changes)
-- ✅ AI integration ready (Writer + Checker architecture)
-- ✅ **Ready for prompt improvement work**
-
-**Detailed Status**: See `BACKEND_SPEC_COVERAGE_STATUS.md`
+- ✅ AI integration stable (Writer + Checker architecture)
+- ✅ **Ready for playtesting and refinement**
 
 ---
 
-## Working on Prompts (Next Phase)
+## Frontend Status (Updated 2025-10-27)
+
+### ✅ Frontend COMPLETE - Now Playtesting!
+
+**The PlotPlay frontend is production-ready** with full backend integration.
+
+**Architecture**: Modern React with Zustand state management
+- ✅ Clean separation: components → stores → services → API
+- ✅ Full backend integration (movement, inventory, economy, shop APIs)
+- ✅ Proper TypeScript interfaces matching backend contracts
+- ✅ Snapshot-first design (no legacy fallbacks)
+- ✅ Streaming support for real-time narrative delivery
+
+**Test Status**: 69/69 passing (100% pass rate)
+- Hooks: 100% coverage
+- Utils: 90.78% coverage
+- Components: 78.16% coverage
+- Production build: 282.57 kB (gzip: 87.69 kB)
+
+**Current Features**:
+- ✅ Toast notification system for user feedback
+- ✅ Keyboard shortcuts (Esc, Ctrl+K, 1-9 for quick actions)
+- ✅ Optimistic updates for deterministic actions
+- ✅ Smooth animations and transitions
+- ✅ Error boundaries and state persistence
+- ✅ Responsive UI with Tailwind CSS
+- ✅ Turn log with AI vs deterministic badges
+- ✅ All panels functional (Player, Character, Inventory, Economy, Flags)
+
+**Component Structure** (17 components):
+- `GameInterface` - Main container (snapshot-driven)
+- `NarrativePanel` - Turn log with streaming and copy/clear functionality
+- `ChoicePanel` - Say/Do actions + quick actions
+- `PlayerPanel` - Player stats and clothing (from snapshot.player)
+- `CharacterPanel` - NPCs present (from snapshot.characters)
+- `InventoryPanel` - Player inventory with use/drop/give actions
+- `MovementControls` - Visual exit navigation (from snapshot.location.exits)
+- `DeterministicControls` - Quick utilities for testing
+- `EconomyPanel` - Currency and balance (from snapshot + economy config)
+- `FlagsPanel` - Story flags display
+- Plus 7 more utility components (ErrorBoundary, Toast, Loading, etc.)
+
+**What This Means**:
+- ✅ All major features implemented and working
+- ✅ Professional UX with modern interactions
+- ✅ **Ready for playtesting and refinement**
+
+---
+
+## 🎮 Current Phase: Playtesting & Refinement (Updated 2025-10-27)
+
+**Status**: Active playtesting with user feedback integration
+
+### Focus Areas
+
+We are currently in the **playtesting and refinement phase** with two primary goals:
+
+#### 1. Fix Engine Gaps
+As users play the game, we identify and fix any engine issues:
+- State management bugs (meters, flags, inventory, clothing)
+- Effect application errors
+- Movement/navigation issues
+- Time progression bugs
+- Event/arc triggering problems
+- AI integration issues (Writer/Checker)
+- Any unexpected behavior or crashes
+
+#### 2. Improve UI/UX
+Based on user feedback, we enhance the frontend experience:
+- UI polish and visual improvements
+- Better user feedback and error messages
+- Performance optimizations
+- New features for better gameplay
+- Accessibility improvements
+- Mobile responsiveness
+- Quality of life enhancements
+
+### How to Report Issues
+
+When reporting bugs or suggesting improvements:
+
+**For Engine Bugs**:
+1. Describe the expected behavior
+2. Describe the actual behavior
+3. Provide steps to reproduce
+4. Include relevant game state (turn log, snapshot)
+5. Check backend logs for errors (`backend/logs/`)
+
+**For UI/UX Issues**:
+1. Describe the current UI behavior
+2. Describe the desired improvement
+3. Provide screenshots if applicable
+4. Note any browser/device-specific issues
+
+### Key Files for Bug Fixes
+
+**Backend Engine**:
+- `app/engine/turn_manager.py` - Turn pipeline orchestration
+- `app/engine/effects.py` - Effect resolution (27+ effect types)
+- `app/engine/movement.py` - Location/zone navigation
+- `app/engine/time.py` - Time progression
+- `app/engine/events.py` - Event/arc processing
+- `app/engine/narrative.py` - AI narrative reconciliation
+- `app/engine/inventory.py` - Inventory management
+- `app/engine/clothing.py` - Clothing system
+- `app/engine/modifiers.py` - Status modifiers
+
+**Frontend Components**:
+- `src/components/GameInterface.tsx` - Main game container
+- `src/components/NarrativePanel.tsx` - Turn log display
+- `src/components/ChoicePanel.tsx` - Player input
+- `src/components/PlayerPanel.tsx` - Player stats
+- `src/components/CharacterPanel.tsx` - NPC display
+- `src/components/InventoryPanel.tsx` - Inventory UI
+- `src/stores/gameStore.ts` - State management (656 lines)
+
+**State & API**:
+- `app/core/state_manager.py` - State persistence
+- `app/api/game.py` - API endpoints
+- `src/services/gameApi.ts` - Frontend API client
+
+### Testing Workflow for Fixes
+
+**Backend Fix Workflow**:
+```bash
+cd backend
+
+# 1. Write a failing test that reproduces the bug
+pytest tests/test_<feature>.py -v
+
+# 2. Fix the bug in the appropriate service
+
+# 3. Verify the test passes
+pytest tests/test_<feature>.py -v
+
+# 4. Run full test suite to ensure no regressions
+pytest tests/ -q
+
+# 5. Test manually via UI or API
+uvicorn app.main:app --reload
+```
+
+**Frontend Fix Workflow**:
+```bash
+cd frontend
+
+# 1. Reproduce the issue in development
+npm run dev
+
+# 2. Make the fix in the appropriate component/store
+
+# 3. Add/update tests
+npm test
+
+# 4. Verify TypeScript build
+npm run build
+
+# 5. Test manually in browser
+npm run dev
+```
 
 ### AI Architecture Overview
 
@@ -204,98 +356,11 @@ PlotPlay uses a **two-model architecture** for AI-generated content:
    - Output: Structured state changes (meters, flags, clothing, etc.)
    - Role: Ensures narrative doesn't contradict game rules
 
-### Key Files for Prompt Work
-
-**Prompt Construction**:
-- `app/engine/prompt_builder.py` - Builds prompts with full game context
-  - Includes character cards, location info, state snapshot
-  - Formats recent history and player action
-  - Provides Writer guidance (beats, narration rules)
-
-**AI Service Integration**:
-- `app/services/ai_service.py` - Handles LLM API calls
-  - Supports multiple providers (OpenRouter, OpenAI, Anthropic)
-  - Configurable via `.env` (WRITER_MODEL, CHECKER_MODEL)
-
-**Narrative Processing**:
+**Key AI Files**:
+- `app/engine/prompt_builder.py` - Constructs AI prompts with full game context
+- `app/services/ai_service.py` - Handles LLM API calls (OpenRouter, OpenAI, Anthropic)
 - `app/engine/narrative.py` - NarrativeReconciler service
-  - Calls Writer and Checker in sequence
-  - Reconciles Checker changes with game state
-  - Handles validation and error cases
-
-**Turn Pipeline**:
-- `app/engine/turn_manager.py` - Orchestrates full turn flow
-  - Narrative generation is step 7 of 9
-  - All state is available for prompt context
-
-### Current Prompt Status
-
-**Writer Contract**: Stable
-- Receives full game context in structured format
-- Expected to return narrative prose only
-- No state extraction required from Writer
-
-**Checker Contract**: Stable
-- Receives Writer's prose + game context
-- Expected to return structured JSON with state changes
-- Validates changes against game rules
-
-**Known Limitations**:
-- ⚠️ Specification may not reflect latest prompt features
-- ✅ Actual prompt builder has wider feature set than spec documents
-- ✅ Both models work correctly with current implementation
-
-### Recommended Prompt Improvements
-
-Based on the current architecture, focus areas for improvement:
-
-1. **Writer Prompt Optimization**
-   - Refine character card format for better consistency
-   - Improve beat integration (guidance bullets)
-   - Optimize context window usage (what to include/exclude)
-
-2. **Checker Prompt Optimization**
-   - Improve state change extraction accuracy
-   - Refine clothing state detection
-   - Better handling of implicit actions
-
-3. **Context Management**
-   - Optimize recent history length
-   - Fine-tune state snapshot detail level
-   - Balance context size vs. quality
-
-4. **Testing & Validation**
-   - Create prompt test scenarios
-   - Measure consistency across model types
-   - Validate edge cases (complex scenes, multiple characters)
-
-### How to Test Prompt Changes
-
-```bash
-# Run backend with test game
-cd backend
-uvicorn app.main:app --reload
-
-# Use the college_romance game (has all features)
-# Navigate to http://localhost:8000/docs
-# Test via /api/game/start and /api/game/action endpoints
-
-# Monitor logs for prompt content
-# Logs show actual prompts sent to Writer/Checker
-
-# Run integration tests
-pytest tests/test_ai_integration.py -v
-pytest tests/test_narrative_reconciler.py -v
-```
-
-### Prompt Testing Workflow
-
-1. **Make prompt changes** in `prompt_builder.py`
-2. **Start a test game** via API
-3. **Take actions** and observe Writer/Checker outputs
-4. **Check logs** to see actual prompts sent
-5. **Validate** that state changes are correctly detected
-6. **Iterate** based on results
+- `app/engine/turn_manager.py` - Orchestrates AI calls in turn pipeline
 
 ### Working Directory Context
 
@@ -306,53 +371,7 @@ pytest tests/test_narrative_reconciler.py -v
 
 ---
 
-## Frontend Status (Updated 2025-10-23)
-
-### ✅ Frontend Refactoring COMPLETE - Production Ready!
-
-**The PlotPlay frontend is production-ready** with full backend integration.
-
-**Latest Improvements (Phase 4 Complete - 2025-10-23)**:
-- ✅ Toast notification system for user feedback
-- ✅ Keyboard shortcuts (Esc, Ctrl+K, 1-9 for quick actions)
-- ✅ Optimistic updates for deterministic actions
-- ✅ Smooth animations and transitions
-- ✅ All 69 tests passing (100% pass rate)
-- ✅ Production build: 282.57 kB (gzip: 87.69 kB)
-
-**Previous Improvements**:
-- ✅ Custom hooks for snapshot access (Phase 1)
-- ✅ Error boundaries and state persistence (Phase 2)
-- ✅ Comprehensive test coverage (Phase 3)
-- ✅ Fixed TypeScript build errors (excluded test files from compilation)
-- ✅ Added proper type safety (`DebugStateResponse` interface)
-- ✅ Removed ALL legacy state fallbacks - now 100% snapshot-driven
-
-**Architecture**: Modern React with Zustand state management
-- ✅ Clean separation: components → stores → services → API
-- ✅ Full backend integration (movement, inventory, economy, shop APIs)
-- ✅ Proper TypeScript interfaces matching backend contracts
-- ✅ Snapshot-first design (no legacy fallbacks)
-
-**Current State**:
-- ✅ All major features implemented and working
-- ✅ Responsive UI with Tailwind CSS
-- ✅ Real-time state updates
-- ✅ Deterministic action toggle (skip AI narration)
-- ✅ Turn log with AI vs deterministic badges
-- ✅ Character, inventory, economy panels all functional
-
-**Component Structure**:
-- `GameInterface` - Main container (snapshot-driven)
-- `NarrativePanel` - Turn log with copy/clear functionality
-- `ChoicePanel` - Say/Do actions + quick actions
-- `PlayerPanel` - Player stats and clothing (from snapshot.player)
-- `CharacterPanel` - NPCs present (from snapshot.characters)
-- `InventoryPanel` - Player inventory with use/drop/give actions
-- `MovementControls` - Visual exit navigation (from snapshot.location.exits)
-- `DeterministicControls` - Quick utilities for testing
-- `EconomyPanel` - Currency and balance (from snapshot + economy config)
-- `FlagsPanel` - Story flags display
+## Previous Development Phases (Completed)
 
 ### Frontend Improvement Plan
 

@@ -116,7 +116,7 @@ class TestEffectsSystem:
         """Test meter_change effects modify character meters correctly."""
         from app.core.game_engine import GameEngine
 
-        engine = GameEngine(game_for_effects_test, session_id="test-effects")
+        engine = GameEngine(game_for_effects_test, session_id="test-effects", ai_service=mock_ai_service)
         state = engine.state_manager.state
 
         # Initial energy is 50
@@ -144,7 +144,7 @@ class TestEffectsSystem:
         """Test meter changes are clamped to min/max."""
         from app.core.game_engine import GameEngine
 
-        engine = GameEngine(game_for_effects_test, session_id="test-bounds")
+        engine = GameEngine(game_for_effects_test, session_id="test-bounds", ai_service=mock_ai_service)
         state = engine.state_manager.state
 
         # Try to exceed max (100)
@@ -165,7 +165,7 @@ class TestEffectsSystem:
         """Test flag_set effects modify game flags."""
         from app.core.game_engine import GameEngine
 
-        engine = GameEngine(game_for_effects_test, session_id="test-flags")
+        engine = GameEngine(game_for_effects_test, session_id="test-flags", ai_service=mock_ai_service)
         state = engine.state_manager.state
 
         assert state.flags["quest_started"] is False
@@ -184,7 +184,7 @@ class TestEffectsSystem:
         """Test conditional effects execute correct branch based on condition."""
         from app.core.game_engine import GameEngine
 
-        engine = GameEngine(game_for_effects_test, session_id="test-conditional")
+        engine = GameEngine(game_for_effects_test, session_id="test-conditional", ai_service=mock_ai_service)
         state = engine.state_manager.state
 
         state.flags["quest_started"] = False
@@ -209,7 +209,7 @@ class TestEffectsSystem:
         """Test inventory add/remove effects work correctly."""
         from app.core.game_engine import GameEngine
 
-        engine = GameEngine(game_for_effects_test, session_id="test-inventory")
+        engine = GameEngine(game_for_effects_test, session_id="test-inventory", ai_service=mock_ai_service)
         state = engine.state_manager.state
 
         assert "potion" not in state.inventory.get("player", {})
@@ -236,7 +236,7 @@ class TestEffectsSystem:
         """Test multiple effects execute in the order specified."""
         from app.core.game_engine import GameEngine
 
-        engine = GameEngine(game_for_effects_test, session_id="test-order")
+        engine = GameEngine(game_for_effects_test, session_id="test-order", ai_service=mock_ai_service)
         state = engine.state_manager.state
 
         effects = [
@@ -277,7 +277,7 @@ class TestNodeTransitions:
         game_for_effects_test.index.nodes["second"] = second_node
 
         # Now create engine - it will copy nodes_map from index
-        engine = GameEngine(game_for_effects_test, session_id="test-goto")
+        engine = GameEngine(game_for_effects_test, session_id="test-goto", ai_service=mock_ai_service)
         state = engine.state_manager.state
 
         # Verify "second" is in the engine's nodes_map
@@ -376,7 +376,7 @@ class TestModifierSystem:
         """Test modifiers auto-activate based on when conditions."""
         from app.core.game_engine import GameEngine
 
-        engine = GameEngine(game_with_modifiers, session_id="test-modifier")
+        engine = GameEngine(game_with_modifiers, session_id="test-modifier", ai_service=mock_ai_service)
         modifier_svc = engine.modifiers
         state = engine.state_manager.state
 
@@ -395,7 +395,7 @@ class TestModifierSystem:
         """Test modifiers don't activate when conditions aren't met."""
         from app.core.game_engine import GameEngine
 
-        engine = GameEngine(game_with_modifiers, session_id="test-no-modifier")
+        engine = GameEngine(game_with_modifiers, session_id="test-no-modifier", ai_service=mock_ai_service)
         modifier_svc = engine.modifiers
         state = engine.state_manager.state
 

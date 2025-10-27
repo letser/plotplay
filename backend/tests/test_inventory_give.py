@@ -118,7 +118,7 @@ class TestInventoryGiveBasics:
     @pytest.mark.asyncio
     async def test_give_item_transfers_from_source_to_target(self, game_with_items):
         """Test that giving an item transfers it from source to target."""
-        engine = GameEngine(game_with_items, session_id="test-give-basic")
+        engine = GameEngine(game_with_items, session_id="test-give-basic", ai_service=mock_ai_service)
         state = engine.state_manager.state
 
         # Give player some apples
@@ -146,7 +146,7 @@ class TestInventoryGiveBasics:
     @pytest.mark.asyncio
     async def test_give_triggers_on_give_hook(self, game_with_items):
         """Test that giving an item triggers the on_give hook."""
-        engine = GameEngine(game_with_items, session_id="test-give-hook")
+        engine = GameEngine(game_with_items, session_id="test-give-hook", ai_service=mock_ai_service)
         state = engine.state_manager.state
 
         # Give player an apple
@@ -173,7 +173,7 @@ class TestInventoryGiveBasics:
     @pytest.mark.asyncio
     async def test_give_all_items_removes_from_inventory(self, game_with_items):
         """Test that giving all items removes the item entry."""
-        engine = GameEngine(game_with_items, session_id="test-give-all")
+        engine = GameEngine(game_with_items, session_id="test-give-all", ai_service=mock_ai_service)
         state = engine.state_manager.state
 
         state.inventory["player"]["apple"] = 3
@@ -202,7 +202,7 @@ class TestInventoryGiveValidation:
     @pytest.mark.asyncio
     async def test_give_fails_if_source_invalid(self, game_with_items):
         """Test that give fails if source character doesn't exist."""
-        engine = GameEngine(game_with_items, session_id="test-give-bad-source")
+        engine = GameEngine(game_with_items, session_id="test-give-bad-source", ai_service=mock_ai_service)
         state = engine.state_manager.state
 
         state.inventory["friend"]["apple"] = 1
@@ -223,7 +223,7 @@ class TestInventoryGiveValidation:
     @pytest.mark.asyncio
     async def test_give_fails_if_target_invalid(self, game_with_items):
         """Test that give fails if target character doesn't exist."""
-        engine = GameEngine(game_with_items, session_id="test-give-bad-target")
+        engine = GameEngine(game_with_items, session_id="test-give-bad-target", ai_service=mock_ai_service)
         state = engine.state_manager.state
 
         state.inventory["player"]["apple"] = 1
@@ -244,7 +244,7 @@ class TestInventoryGiveValidation:
     @pytest.mark.asyncio
     async def test_give_fails_if_source_equals_target(self, game_with_items):
         """Test that give fails if trying to give to self."""
-        engine = GameEngine(game_with_items, session_id="test-give-self")
+        engine = GameEngine(game_with_items, session_id="test-give-self", ai_service=mock_ai_service)
         state = engine.state_manager.state
 
         state.inventory["player"]["apple"] = 1
@@ -266,7 +266,7 @@ class TestInventoryGiveValidation:
     @pytest.mark.asyncio
     async def test_give_fails_if_not_present_together(self, game_with_items):
         """Test that give fails if source and target are not in same location."""
-        engine = GameEngine(game_with_items, session_id="test-give-not-present")
+        engine = GameEngine(game_with_items, session_id="test-give-not-present", ai_service=mock_ai_service)
         state = engine.state_manager.state
 
         state.inventory["player"]["apple"] = 1
@@ -291,7 +291,7 @@ class TestInventoryGiveValidation:
     @pytest.mark.asyncio
     async def test_give_fails_if_item_cannot_be_given(self, game_with_items):
         """Test that give fails if item has can_give=False."""
-        engine = GameEngine(game_with_items, session_id="test-give-ungiftable")
+        engine = GameEngine(game_with_items, session_id="test-give-ungiftable", ai_service=mock_ai_service)
         state = engine.state_manager.state
 
         state.inventory["player"]["quest_item"] = 1
@@ -315,7 +315,7 @@ class TestInventoryGiveValidation:
     @pytest.mark.asyncio
     async def test_give_fails_if_insufficient_items(self, game_with_items):
         """Test that give fails if source doesn't have enough items."""
-        engine = GameEngine(game_with_items, session_id="test-give-insufficient")
+        engine = GameEngine(game_with_items, session_id="test-give-insufficient", ai_service=mock_ai_service)
         state = engine.state_manager.state
 
         state.inventory["player"]["apple"] = 1
@@ -340,7 +340,7 @@ class TestInventoryGiveValidation:
     @pytest.mark.asyncio
     async def test_give_fails_if_item_not_found(self, game_with_items):
         """Test that give fails if item doesn't exist in game."""
-        engine = GameEngine(game_with_items, session_id="test-give-no-item")
+        engine = GameEngine(game_with_items, session_id="test-give-no-item", ai_service=mock_ai_service)
         state = engine.state_manager.state
 
         state.present_chars = ["player", "friend"]
@@ -364,7 +364,7 @@ class TestInventoryGiveNPCtoNPC:
     @pytest.mark.asyncio
     async def test_npc_can_give_to_player(self, game_with_items):
         """Test that NPC can give items to player."""
-        engine = GameEngine(game_with_items, session_id="test-npc-give-player")
+        engine = GameEngine(game_with_items, session_id="test-npc-give-player", ai_service=mock_ai_service)
         state = engine.state_manager.state
 
         state.inventory["friend"]["gift"] = 1
@@ -388,7 +388,7 @@ class TestInventoryGiveNPCtoNPC:
     @pytest.mark.asyncio
     async def test_npc_can_give_to_npc(self, game_with_items):
         """Test that NPC can give items to another NPC."""
-        engine = GameEngine(game_with_items, session_id="test-npc-give-npc")
+        engine = GameEngine(game_with_items, session_id="test-npc-give-npc", ai_service=mock_ai_service)
         state = engine.state_manager.state
 
         state.inventory["friend"]["apple"] = 3

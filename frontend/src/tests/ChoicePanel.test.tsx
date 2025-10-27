@@ -14,31 +14,62 @@ describe('ChoicePanel', () => {
     });
 
     describe('Action Mode Toggle', () => {
-        it('renders say and do mode buttons', () => {
+        it('renders say and do mode indicators', () => {
             const choices = createMockChoices();
             renderWithProviders(<ChoicePanel choices={choices} />);
 
-            expect(screen.getByText('Say')).toBeInTheDocument();
-            expect(screen.getByText('Do')).toBeInTheDocument();
+            expect(screen.getByText('@')).toBeInTheDocument();
+            expect(screen.getByText('>')).toBeInTheDocument();
         });
 
-        it('starts in say mode by default', () => {
+        it('starts in do mode by default', () => {
             const choices = createMockChoices();
             renderWithProviders(<ChoicePanel choices={choices} />);
-
-            const input = screen.getByPlaceholderText(/Say to/i);
-            expect(input).toBeInTheDocument();
-        });
-
-        it('switches to do mode when do button clicked', () => {
-            const choices = createMockChoices();
-            renderWithProviders(<ChoicePanel choices={choices} />);
-
-            const doButton = screen.getByText('Do');
-            fireEvent.click(doButton);
 
             const input = screen.getByPlaceholderText(/What do you want to do/i);
             expect(input).toBeInTheDocument();
+        });
+
+        it('switches to say mode when @ button clicked', () => {
+            const choices = createMockChoices();
+            renderWithProviders(<ChoicePanel choices={choices} />);
+
+            const sayButton = screen.getByText('@');
+            fireEvent.click(sayButton);
+
+            const input = screen.getByPlaceholderText(/Say something/i);
+            expect(input).toBeInTheDocument();
+        });
+
+        it('auto-switches to say mode when typing @ prefix', () => {
+            const choices = createMockChoices();
+            renderWithProviders(<ChoicePanel choices={choices} />);
+
+            // Start in do mode
+            const input = screen.getByPlaceholderText(/What do you want to do/i);
+
+            // Type @ to switch to say mode
+            fireEvent.change(input, { target: { value: '@Hello' } });
+
+            // Should now show say mode placeholder
+            expect(screen.getByPlaceholderText(/Say something/i)).toBeInTheDocument();
+        });
+
+        it('auto-switches to do mode when typing > prefix', () => {
+            const choices = createMockChoices();
+            renderWithProviders(<ChoicePanel choices={choices} />);
+
+            // Switch to say mode first
+            const sayButton = screen.getByText('@');
+            fireEvent.click(sayButton);
+
+            const input = screen.getByPlaceholderText(/Say something/i);
+
+            // Type > to switch back to do mode
+            fireEvent.change(input, { target: { value: '>pick up book' } });
+
+            // Should now show do mode placeholder
+            expect(screen.getByPlaceholderText(/What do you want to do/i)).toBeInTheDocument();
         });
     });
 
@@ -47,7 +78,7 @@ describe('ChoicePanel', () => {
             const choices = createMockChoices();
             renderWithProviders(<ChoicePanel choices={choices} />);
 
-            const input = screen.getByPlaceholderText(/Say to/i) as HTMLInputElement;
+            const input = screen.getByPlaceholderText(/What do you want to do/i) as HTMLInputElement;
             fireEvent.change(input, { target: { value: 'Hello there' } });
 
             expect(input.value).toBe('Hello there');
@@ -58,7 +89,7 @@ describe('ChoicePanel', () => {
             const choices = createMockChoices();
             renderWithProviders(<ChoicePanel choices={choices} />);
 
-            const input = screen.getByPlaceholderText(/Say to/i);
+            const input = screen.getByPlaceholderText(/What do you want to do/i);
             expect(input).toBeDisabled();
         });
     });
@@ -76,7 +107,7 @@ describe('ChoicePanel', () => {
             const choices = createMockChoices();
             renderWithProviders(<ChoicePanel choices={choices} />);
 
-            const input = screen.getByPlaceholderText(/Say to/i);
+            const input = screen.getByPlaceholderText(/What do you want to do/i);
             fireEvent.change(input, { target: { value: 'Hello' } });
 
             const submitButton = screen.getByRole('button', { name: /submit/i });
@@ -88,7 +119,7 @@ describe('ChoicePanel', () => {
             const choices = createMockChoices();
             renderWithProviders(<ChoicePanel choices={choices} />);
 
-            const input = screen.getByPlaceholderText(/Say to/i);
+            const input = screen.getByPlaceholderText(/What do you want to do/i);
             fireEvent.change(input, { target: { value: 'Hello' } });
 
             const submitButton = screen.getByRole('button', { name: /submit/i });
@@ -97,15 +128,15 @@ describe('ChoicePanel', () => {
     });
 
     describe('Form Submission', () => {
-        it('calls sendAction with correct parameters in say mode', async () => {
+        it('calls sendAction with correct parameters in say mode with @ prefix', async () => {
             const sendActionMock = jest.fn();
             useGameStore.setState({ sendAction: sendActionMock });
 
             const choices = createMockChoices();
             renderWithProviders(<ChoicePanel choices={choices} />);
 
-            const input = screen.getByPlaceholderText(/Say to/i);
-            fireEvent.change(input, { target: { value: 'Hello there' } });
+            const input = screen.getByPlaceholderText(/What do you want to do/i);
+            fireEvent.change(input, { target: { value: '@Hello there' } });
 
             const form = input.closest('form');
             fireEvent.submit(form!);
@@ -113,7 +144,7 @@ describe('ChoicePanel', () => {
             await waitFor(() => {
                 expect(sendActionMock).toHaveBeenCalledWith(
                     'choice',
-                    'Hello there',
+                    'Hello there', // @ prefix should be stripped
                     null,
                     'custom_say'
                 );
@@ -127,10 +158,7 @@ describe('ChoicePanel', () => {
             const choices = createMockChoices();
             renderWithProviders(<ChoicePanel choices={choices} />);
 
-            // Switch to do mode
-            const doButton = screen.getByText('Do');
-            fireEvent.click(doButton);
-
+            // Already in do mode by default
             const input = screen.getByPlaceholderText(/What do you want to do/i);
             fireEvent.change(input, { target: { value: 'Pick up the book' } });
 
@@ -147,6 +175,33 @@ describe('ChoicePanel', () => {
             });
         });
 
+        it('calls sendAction with correct parameters in do mode with > prefix', async () => {
+            const sendActionMock = jest.fn();
+            useGameStore.setState({ sendAction: sendActionMock });
+
+            const choices = createMockChoices();
+            renderWithProviders(<ChoicePanel choices={choices} />);
+
+            // Switch to say mode first
+            const sayButton = screen.getByText('@');
+            fireEvent.click(sayButton);
+
+            const input = screen.getByPlaceholderText(/Say something/i);
+            fireEvent.change(input, { target: { value: '>Pick up the book' } });
+
+            const form = input.closest('form');
+            fireEvent.submit(form!);
+
+            await waitFor(() => {
+                expect(sendActionMock).toHaveBeenCalledWith(
+                    'choice',
+                    'Pick up the book', // > prefix should be stripped
+                    null,
+                    'custom_do'
+                );
+            });
+        });
+
         it('clears input after submission', async () => {
             const sendActionMock = jest.fn();
             useGameStore.setState({ sendAction: sendActionMock });
@@ -154,7 +209,7 @@ describe('ChoicePanel', () => {
             const choices = createMockChoices();
             renderWithProviders(<ChoicePanel choices={choices} />);
 
-            const input = screen.getByPlaceholderText(/Say to/i) as HTMLInputElement;
+            const input = screen.getByPlaceholderText(/What do you want to do/i) as HTMLInputElement;
             fireEvent.change(input, { target: { value: 'Hello' } });
 
             const form = input.closest('form');
@@ -207,24 +262,78 @@ describe('ChoicePanel', () => {
         });
     });
 
-    describe('Present Characters', () => {
-        it('shows character selector in say mode', () => {
+    describe('Mnemonic Prefixes', () => {
+        it('strips @ prefix before sending say action', async () => {
+            const sendActionMock = jest.fn();
+            useGameStore.setState({ sendAction: sendActionMock });
+
             const choices = createMockChoices();
             renderWithProviders(<ChoicePanel choices={choices} />);
 
-            // Should show "Everyone" by default
-            expect(screen.getByText('Everyone')).toBeInTheDocument();
+            const input = screen.getByPlaceholderText(/What do you want to do/i);
+            fireEvent.change(input, { target: { value: '@Hello world' } });
+
+            const form = input.closest('form');
+            fireEvent.submit(form!);
+
+            await waitFor(() => {
+                expect(sendActionMock).toHaveBeenCalledWith(
+                    'choice',
+                    'Hello world', // @ should be stripped
+                    null,
+                    'custom_say'
+                );
+            });
         });
 
-        it('does not show character selector in do mode', () => {
+        it('strips > prefix before sending do action', async () => {
+            const sendActionMock = jest.fn();
+            useGameStore.setState({ sendAction: sendActionMock });
+
             const choices = createMockChoices();
             renderWithProviders(<ChoicePanel choices={choices} />);
 
-            const doButton = screen.getByText('Do');
-            fireEvent.click(doButton);
+            const input = screen.getByPlaceholderText(/What do you want to do/i);
+            fireEvent.change(input, { target: { value: '>look around' } });
 
-            // Character selector should not be visible in do mode
-            expect(screen.queryByText('Everyone')).not.toBeInTheDocument();
+            const form = input.closest('form');
+            fireEvent.submit(form!);
+
+            await waitFor(() => {
+                expect(sendActionMock).toHaveBeenCalledWith(
+                    'choice',
+                    'look around', // > should be stripped
+                    null,
+                    'custom_do'
+                );
+            });
+        });
+
+        it('sends text without prefix in current mode', async () => {
+            const sendActionMock = jest.fn();
+            useGameStore.setState({ sendAction: sendActionMock });
+
+            const choices = createMockChoices();
+            renderWithProviders(<ChoicePanel choices={choices} />);
+
+            // Switch to say mode
+            const sayButton = screen.getByText('@');
+            fireEvent.click(sayButton);
+
+            const input = screen.getByPlaceholderText(/Say something/i);
+            fireEvent.change(input, { target: { value: 'Hello without prefix' } });
+
+            const form = input.closest('form');
+            fireEvent.submit(form!);
+
+            await waitFor(() => {
+                expect(sendActionMock).toHaveBeenCalledWith(
+                    'choice',
+                    'Hello without prefix',
+                    null,
+                    'custom_say'
+                );
+            });
         });
     });
 });

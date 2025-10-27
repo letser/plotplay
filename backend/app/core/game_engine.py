@@ -54,7 +54,7 @@ from app.engine.prompt_builder import PromptBuilder
 
 
 class GameEngine:
-    def __init__(self, game_def: GameDefinition, session_id: str):
+    def __init__(self, game_def: GameDefinition, session_id: str, ai_service: Any | None = None):
         self.runtime = SessionRuntime(game_def, session_id)
         self.game_def = self.runtime.game
         self.session_id = session_id
@@ -62,7 +62,7 @@ class GameEngine:
         self.state_manager = self.runtime.state_manager
         self.index = self.runtime.index
 
-        self.ai_service = AIService()
+        self.ai_service = ai_service if ai_service is not None else AIService()
 
         self.modifiers = ModifierService(self)
         self.effect_resolver = EffectResolver(self)

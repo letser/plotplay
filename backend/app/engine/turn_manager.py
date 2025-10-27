@@ -76,6 +76,8 @@ class TurnManager:
         narrative_from_ai = ""
 
         if not skip_ai:
+            import time
+
             writer_prompt = engine.prompt_builder.build_writer_prompt(
                 state,
                 player_action_str,
@@ -83,15 +85,27 @@ class TurnManager:
                 state.narrative_history,
                 rng_seed=engine._get_turn_seed(),
             )
+
+            engine.logger.info("🎨 WRITER: Generating narrative...")
+            engine.logger.info(f"Writer Prompt:\n{writer_prompt}")
+
+            writer_start = time.time()
             narrative_from_ai = (await engine.ai_service.generate(writer_prompt)).content
+            writer_elapsed = time.time() - writer_start
+            engine.logger.info(f"⏱️  Writer completed in {writer_elapsed:.2f}s")
 
             checker_prompt = engine.prompt_builder.build_checker_prompt(
                 narrative_from_ai, player_action_str, state
             )
+
+            engine.logger.info("🔍 CHECKER: Validating state changes...")
+            engine.logger.info(f"Checker Prompt:\n{checker_prompt}")
+
+            checker_start = time.time()
             checker_response = await engine.ai_service.generate(
                 checker_prompt,
                 model=engine.ai_service.settings.checker_model,
-                system_prompt="""You are the PlotPlay Checker - a strict JSON extraction engine. 
+                system_prompt="""You are the PlotPlay Checker - a strict JSON extraction engine.
         Extract ONLY concrete state changes and factual memories from the narrative.
         Output ONLY valid JSON. Never add commentary, explanations, or markdown formatting.
         Respect the provided response_contract schema exactly and keep every top-level key.
@@ -99,10 +113,14 @@ class TurnManager:
                 json_mode=True,
                 temperature=0.1,
             )
+            checker_elapsed = time.time() - checker_start
+            engine.logger.info(f"⏱️  Checker completed in {checker_elapsed:.2f}s")
+
+            engine.logger.info(f"Writer Response:\n{narrative_from_ai}")
+            engine.logger.info(f"Checker Response:\n{checker_response.content}")
 
             try:
                 state_deltas = json.loads(checker_response.content)
-                engine.logger.info(f"State Deltas Parsed: {json.dumps(state_deltas, indent=2)}")
 
                 if "memory" in state_deltas:
                     memories = state_deltas.get("memory", [])
@@ -177,7 +195,6 @@ class TurnManager:
         state.narrative_history.append(final_narrative)
 
         final_state_summary = engine._get_state_summary()
-        engine.logger.info(f"End of Turn State: {json.dumps(final_state_summary, indent=2)}")
         engine.logger.info("--- Turn End ---")
 
         return {
@@ -273,6 +290,8 @@ class TurnManager:
 
         # Stream the Writer output
         if not skip_ai:
+            import time
+
             writer_prompt = engine.prompt_builder.build_writer_prompt(
                 state,
                 player_action_str,
@@ -281,7 +300,11 @@ class TurnManager:
                 rng_seed=engine._get_turn_seed(),
             )
 
+            engine.logger.info("🎨 WRITER: Generating narrative...")
+            engine.logger.info(f"Writer Prompt:\n{writer_prompt}")
+
             # Stream narrative chunks
+            writer_start = time.time()
             async for chunk in engine.ai_service.generate_stream(writer_prompt):
                 accumulated_narrative += chunk
                 yield {
@@ -289,12 +312,19 @@ class TurnManager:
                     "content": chunk
                 }
 
+            writer_elapsed = time.time() - writer_start
+            engine.logger.info(f"⏱️  Writer completed in {writer_elapsed:.2f}s")
+
             narrative_from_ai = accumulated_narrative
+            engine.logger.info(f"Writer Response:\n{narrative_from_ai}")
 
             # Now run Checker with complete narrative + emit fun status messages
             checker_prompt = engine.prompt_builder.build_checker_prompt(
                 narrative_from_ai, player_action_str, state
             )
+
+            engine.logger.info("🔍 CHECKER: Validating state changes...")
+            engine.logger.info(f"Checker Prompt:\n{checker_prompt}")
 
             # Create status generator
             character_names = [char.name for char in engine.game_def.characters if char.name]
@@ -318,6 +348,7 @@ class TurnManager:
                     await asyncio.sleep(0.8)
 
             # Start Checker task
+            checker_start = time.time()
             checker_task = asyncio.create_task(
                 engine.ai_service.generate(
                     checker_prompt,
@@ -351,10 +382,13 @@ class TurnManager:
 
             # Get Checker result
             checker_response = await checker_task
+            checker_elapsed = time.time() - checker_start
+            engine.logger.info(f"⏱️  Checker completed in {checker_elapsed:.2f}s")
+
+            engine.logger.info(f"Checker Response:\n{checker_response.content}")
 
             try:
                 state_deltas = json.loads(checker_response.content)
-                engine.logger.info(f"State Deltas Parsed: {json.dumps(state_deltas, indent=2)}")
 
                 # Emit context-aware completion message based on what changed
                 completion_contexts = []
@@ -449,7 +483,6 @@ class TurnManager:
         state.narrative_history.append(final_narrative)
 
         final_state_summary = engine._get_state_summary()
-        engine.logger.info(f"End of Turn State: {json.dumps(final_state_summary, indent=2)}")
         engine.logger.info("--- Turn End (Streaming) ---")
 
         # Send final state update

@@ -255,7 +255,7 @@ class TestEconomyConfiguration:
     @pytest.mark.asyncio
     async def test_engine_initializes_with_economy(self, game_with_economy):
         """Test that game engine initializes successfully with economy enabled."""
-        engine = GameEngine(game_with_economy, session_id="test-economy-init")
+        engine = GameEngine(game_with_economy, session_id="test-economy-init", ai_service=mock_ai_service)
 
         # Engine should initialize without errors
         assert engine is not None
@@ -264,7 +264,7 @@ class TestEconomyConfiguration:
     @pytest.mark.asyncio
     async def test_engine_initializes_without_economy(self, game_without_economy):
         """Test that game engine initializes successfully with economy disabled."""
-        engine = GameEngine(game_without_economy, session_id="test-no-economy-init")
+        engine = GameEngine(game_without_economy, session_id="test-no-economy-init", ai_service=mock_ai_service)
 
         # Engine should initialize without errors
         assert engine is not None
@@ -393,7 +393,7 @@ class TestEconomyEdgeCases:
             nodes=[Node(id="start", type="scene", title="Start")]
         )
 
-        engine = GameEngine(game, session_id="test-zero-money")
+        engine = GameEngine(game, session_id="test-zero-money", ai_service=mock_ai_service)
         assert engine is not None
 
     @pytest.mark.asyncio
@@ -432,7 +432,7 @@ class TestEconomyEdgeCases:
             nodes=[Node(id="start", type="scene", title="Start")]
         )
 
-        engine = GameEngine(game, session_id="test-high-money")
+        engine = GameEngine(game, session_id="test-high-money", ai_service=mock_ai_service)
         assert engine.game_def.economy.max_money == 999999.0
 
     @pytest.mark.asyncio
@@ -472,7 +472,7 @@ class TestEconomyEdgeCases:
             nodes=[Node(id="start", type="scene", title="Start")]
         )
 
-        engine = GameEngine(game, session_id="test-custom-currency")
+        engine = GameEngine(game, session_id="test-custom-currency", ai_service=mock_ai_service)
         assert engine.game_def.economy.currency_name == "gold coins"
         assert engine.game_def.economy.currency_symbol == "🪙"
 
@@ -489,7 +489,7 @@ class TestPurchaseTransactionsComprehensive:
         """Test that purchasing an item deducts money from player."""
         from app.models.effects import InventoryPurchaseEffect
 
-        engine = GameEngine(game_with_economy, session_id="test-purchase-deduct")
+        engine = GameEngine(game_with_economy, session_id="test-purchase-deduct", ai_service=mock_ai_service)
         state = engine.state_manager.state
 
         # Player should start with 100 money
@@ -517,7 +517,7 @@ class TestPurchaseTransactionsComprehensive:
         """Test that purchased items are added to player inventory."""
         from app.models.effects import InventoryPurchaseEffect
 
-        engine = GameEngine(game_with_economy, session_id="test-purchase-add")
+        engine = GameEngine(game_with_economy, session_id="test-purchase-add", ai_service=mock_ai_service)
         state = engine.state_manager.state
 
         # Initially no inventory
@@ -544,7 +544,7 @@ class TestPurchaseTransactionsComprehensive:
         """Test that purchase fails when player lacks money."""
         from app.models.effects import InventoryPurchaseEffect
 
-        engine = GameEngine(game_with_economy, session_id="test-purchase-fail")
+        engine = GameEngine(game_with_economy, session_id="test-purchase-fail", ai_service=mock_ai_service)
         state = engine.state_manager.state
 
         # Player has 100 money, try to buy sword (150)
@@ -572,7 +572,7 @@ class TestPurchaseTransactionsComprehensive:
         """Test that money cannot exceed max_money."""
         from app.models.effects import MeterChangeEffect
 
-        engine = GameEngine(game_with_economy, session_id="test-money-cap")
+        engine = GameEngine(game_with_economy, session_id="test-money-cap", ai_service=mock_ai_service)
         state = engine.state_manager.state
 
         # Economy has max_money=9999.0
@@ -593,7 +593,7 @@ class TestPurchaseTransactionsComprehensive:
         """Player purchases only when shop open and multiplier applies."""
         from app.models.effects import InventoryPurchaseEffect
 
-        engine = GameEngine(game_with_shop_rules, session_id="test-shop-purchase")
+        engine = GameEngine(game_with_shop_rules, session_id="test-shop-purchase", ai_service=mock_ai_service)
         state = engine.state_manager.state
 
         initial_money = state.meters["player"]["money"]
@@ -631,7 +631,7 @@ class TestSellTransactionsComprehensive:
         """Test that selling an item adds money to player."""
         from app.models.effects import InventorySellEffect, InventoryChangeEffect
 
-        engine = GameEngine(game_with_economy, session_id="test-sell-add-money")
+        engine = GameEngine(game_with_economy, session_id="test-sell-add-money", ai_service=mock_ai_service)
         state = engine.state_manager.state
 
         # Give player an apple first
@@ -667,7 +667,7 @@ class TestSellTransactionsComprehensive:
         """Test that sold items are removed from player inventory."""
         from app.models.effects import InventorySellEffect, InventoryChangeEffect
 
-        engine = GameEngine(game_with_economy, session_id="test-sell-remove")
+        engine = GameEngine(game_with_economy, session_id="test-sell-remove", ai_service=mock_ai_service)
         state = engine.state_manager.state
 
         # Give player 5 apples
@@ -702,7 +702,7 @@ class TestSellTransactionsComprehensive:
         """Test that sell effects can use price multipliers."""
         from app.models.effects import InventorySellEffect, InventoryChangeEffect
 
-        engine = GameEngine(game_with_economy, session_id="test-sell-multiplier")
+        engine = GameEngine(game_with_economy, session_id="test-sell-multiplier", ai_service=mock_ai_service)
         state = engine.state_manager.state
 
         # Give player an apple (base value: 5)
@@ -735,7 +735,7 @@ class TestSellTransactionsComprehensive:
         """Shop can decline purchases until allowed; multiplier_sell applies."""
         from app.models.effects import InventorySellEffect, InventoryChangeEffect
 
-        engine = GameEngine(game_with_shop_rules, session_id="test-shop-sell")
+        engine = GameEngine(game_with_shop_rules, session_id="test-shop-sell", ai_service=mock_ai_service)
         state = engine.state_manager.state
 
         # Give player an item to sell

@@ -1,9 +1,8 @@
 import { useState, useRef } from 'react';
 import { useGameStore } from '../stores/gameStore';
-import { usePresentCharacters } from '../hooks';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { LoadingSpinner } from './LoadingSpinner';
-import { MessageSquare, Hand, Send, Users, ChevronDown, MapPin } from 'lucide-react';
+import { MessageSquare, Hand, Send, MapPin } from 'lucide-react';
 
 interface Choice {
     id: string;
@@ -19,15 +18,9 @@ interface Props {
 
 export const ChoicePanel = ({ choices }: Props) => {
     const { sendAction, performMovement, loading, deterministicActionsEnabled } = useGameStore();
-    const characters = usePresentCharacters();
-    const [inputMode, setInputMode] = useState<'say' | 'do'>('say');
+    const [inputMode, setInputMode] = useState<'say' | 'do'>('do');
     const [inputText, setInputText] = useState('');
-    const [targetChar, setTargetChar] = useState<string | null>(null);
-    const [showTargetMenu, setShowTargetMenu] = useState(false);
     const inputRef = useRef<HTMLInputElement>(null);
-
-    // Get present character IDs
-    const presentCharacters = characters.map(char => char.id);
 
     // Group choices by type
     const movementChoices = choices.filter(c => c.type === 'movement' && !c.disabled);
@@ -39,9 +32,8 @@ export const ChoicePanel = ({ choices }: Props) => {
             key: 'Escape',
             handler: () => {
                 setInputText('');
-                setShowTargetMenu(false);
             },
-            description: 'Clear input or close menus',
+            description: 'Clear input',
         },
         {
             key: 'k',
@@ -62,10 +54,34 @@ export const ChoicePanel = ({ choices }: Props) => {
         })),
     ]);
 
+    const handleInputChange = (text: string) => {
+        setInputText(text);
+
+        // Auto-switch mode based on mnemonic prefix
+        if (text.startsWith('@')) {
+            setInputMode('say');
+        } else if (text.startsWith('>')) {
+            setInputMode('do');
+        }
+    };
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (inputText.trim()) {
-            sendAction('choice', inputText, inputMode === 'say' ? targetChar : null, `custom_${inputMode}`);
+            // Determine final mode (check for mnemonic override)
+            let finalMode = inputMode;
+            let finalText = inputText.trim();
+
+            if (finalText.startsWith('@')) {
+                finalMode = 'say';
+                finalText = finalText.slice(1).trim(); // Remove @ prefix
+            } else if (finalText.startsWith('>')) {
+                finalMode = 'do';
+                finalText = finalText.slice(1).trim(); // Remove > prefix
+            }
+
+            // Send action without target (AI will handle it)
+            sendAction('choice', finalText, null, `custom_${finalMode}`);
             setInputText('');
         }
     };
@@ -79,101 +95,57 @@ export const ChoicePanel = ({ choices }: Props) => {
         }
     };
 
-    const getTargetDisplay = () => {
-        if (inputMode !== 'say') return null;
-        return targetChar ? targetChar : 'Everyone';
-    };
-
     return (
         <div className="bg-gray-800/50 backdrop-blur border border-gray-700 rounded-lg p-4 space-y-4">
             {/* Main Input Area */}
             <form onSubmit={handleSubmit} className="space-y-3">
                 <div className="flex gap-2">
-                    {/* Mode Selector */}
+                    {/* Mode Indicator - shows current mode based on input */}
                     <div className="flex bg-gray-900 rounded-lg p-1">
                         <button
                             type="button"
-                            onClick={() => setInputMode('say')}
+                            onClick={() => {
+                                setInputMode('say');
+                                inputRef.current?.focus();
+                            }}
                             className={`px-3 py-2 rounded-md flex items-center gap-2 transition-all ${
                                 inputMode === 'say'
                                     ? 'bg-blue-600 text-white'
                                     : 'text-gray-400 hover:text-white'
                             }`}
+                            title="Say mode (use @ prefix)"
                         >
                             <MessageSquare className="w-4 h-4" />
-                            <span className="text-sm font-medium">Say</span>
+                            <span className="text-sm font-medium">@</span>
                         </button>
                         <button
                             type="button"
-                            onClick={() => setInputMode('do')}
+                            onClick={() => {
+                                setInputMode('do');
+                                inputRef.current?.focus();
+                            }}
                             className={`px-3 py-2 rounded-md flex items-center gap-2 transition-all ${
                                 inputMode === 'do'
                                     ? 'bg-green-600 text-white'
                                     : 'text-gray-400 hover:text-white'
                             }`}
+                            title="Do mode (use > prefix)"
                         >
                             <Hand className="w-4 h-4" />
-                            <span className="text-sm font-medium">Do</span>
+                            <span className="text-sm font-medium">&gt;</span>
                         </button>
                     </div>
-
-                    {/* Target Selector (for Say mode) */}
-                    {inputMode === 'say' && presentCharacters.length > 0 && (
-                        <div className="relative">
-                            <button
-                                type="button"
-                                onClick={() => setShowTargetMenu(!showTargetMenu)}
-                                className="px-3 py-2 bg-gray-900 rounded-lg flex items-center gap-2 hover:bg-gray-800 transition-colors"
-                            >
-                                <Users className="w-4 h-4 text-gray-400" />
-                                <span className="text-sm capitalize">{getTargetDisplay()}</span>
-                                <ChevronDown className="w-3 h-3 text-gray-400" />
-                            </button>
-
-                            {showTargetMenu && (
-                                <div className="absolute top-full mt-1 left-0 z-10 bg-gray-900 border border-gray-700 rounded-lg shadow-lg min-w-[150px]">
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setTargetChar(null);
-                                            setShowTargetMenu(false);
-                                        }}
-                                        className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-800 ${
-                                            !targetChar ? 'bg-gray-800' : ''
-                                        }`}
-                                    >
-                                        Everyone
-                                    </button>
-                                    {presentCharacters.map(char => (
-                                        <button
-                                            key={char}
-                                            type="button"
-                                            onClick={() => {
-                                                setTargetChar(char);
-                                                setShowTargetMenu(false);
-                                            }}
-                                            className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-800 capitalize ${
-                                                targetChar === char ? 'bg-gray-800' : ''
-                                            }`}
-                                        >
-                                            {char}
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    )}
 
                     {/* Input Field */}
                     <input
                         ref={inputRef}
                         type="text"
                         value={inputText}
-                        onChange={(e) => setInputText(e.target.value)}
+                        onChange={(e) => handleInputChange(e.target.value)}
                         placeholder={
                             inputMode === 'say'
-                                ? `Say to ${getTargetDisplay() || 'everyone'}...`
-                                : "What do you want to do?"
+                                ? "Say something... (or start with > to do)"
+                                : "What do you want to do? (or start with @ to say)"
                         }
                         className="flex-1 px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg
                                  focus:outline-none focus:border-blue-500 placeholder-gray-500"

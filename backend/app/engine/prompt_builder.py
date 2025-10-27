@@ -268,7 +268,7 @@ class PromptBuilder:
 
         constraints = {
             "meters": self._collect_meter_catalog(state),
-            "inventory": self._collect_inventory_catalog(),
+            "inventory": self._collect_inventory_catalog(state),  # Pass state for optimization
             "clothing": {
                 "slots": self._collect_clothing_slots(state),
                 "states": ["intact", "opened", "displaced", "removed"],
@@ -289,10 +289,19 @@ class PromptBuilder:
         return constraints
 
     def _collect_meter_catalog(self, state: GameState) -> dict[str, dict[str, Any]]:
+        """Collect meter catalog - OPTIMIZED to only include present characters."""
         catalog: dict[str, dict[str, Any]] = {}
 
-        for char_id, meter_values in state.meters.items():
+        # Only include meters for present characters (player + present_chars)
+        relevant_char_ids = {"player"} | set(state.present_chars)
+
+        for char_id in relevant_char_ids:
+            if char_id not in state.meters:
+                continue
+
+            meter_values = state.meters[char_id]
             char_catalog: dict[str, Any] = {}
+
             for meter_id in meter_values.keys():
                 meter_def = self.engine._get_meter_def(char_id, meter_id)
                 if not meter_def:
@@ -308,31 +317,71 @@ class PromptBuilder:
                 catalog[char_id] = char_catalog
         return catalog
 
-    def _collect_inventory_catalog(self) -> dict[str, Any]:
+    def _collect_inventory_catalog(self, state: GameState | None = None) -> dict[str, Any]:
+        """Collect inventory catalog - OPTIMIZED to only include relevant items."""
         inventory_service = self.engine.inventory
         catalog: dict[str, Any] = {"items": {}, "clothing": {}, "outfits": {}}
 
-        for item_id, item_def in inventory_service.item_defs.items():
-            catalog["items"][item_id] = {
-                "name": item_def.name,
-                "value": getattr(item_def, "value", None),
-                "stackable": getattr(item_def, "stackable", True),
-                "droppable": getattr(item_def, "droppable", True),
-                "consumable": getattr(item_def, "consumable", False),
-            }
+        # Collect only relevant item IDs (in player inventory or location inventory)
+        relevant_item_ids = set()
+        if state:
+            # Player inventory
+            player_inv = state.inventory.get("player", {})
+            relevant_item_ids.update(player_inv.keys())
 
-        for clothing_id, clothing_def in inventory_service.clothing_defs.items():
-            catalog["clothing"][clothing_id] = {
-                "name": clothing_def.name,
-                "slots": list(clothing_def.occupies),
-                "look": clothing_def.look.model_dump(),
-            }
+            # Current location inventory
+            current_loc_inv = state.location_inventory.get(state.location_current, {})
+            relevant_item_ids.update(current_loc_inv.keys())
 
+            # Present characters' inventories
+            for char_id in state.present_chars:
+                char_inv = state.inventory.get(char_id, {})
+                relevant_item_ids.update(char_inv.keys())
+
+        # If no state provided, fall back to all items (for compatibility)
+        if not relevant_item_ids:
+            relevant_item_ids = set(inventory_service.item_defs.keys())
+
+        # Only include relevant items
+        for item_id in relevant_item_ids:
+            item_def = inventory_service.item_defs.get(item_id)
+            if item_def:
+                catalog["items"][item_id] = {
+                    "name": item_def.name,
+                    "value": getattr(item_def, "value", None),
+                    "stackable": getattr(item_def, "stackable", True),
+                    "droppable": getattr(item_def, "droppable", True),
+                    "consumable": getattr(item_def, "consumable", False),
+                }
+
+        # Collect only clothing worn by present characters
+        relevant_clothing_ids = set()
+        if state:
+            for char_id in ["player"] + list(state.present_chars):
+                char_clothing = state.clothing_states.get(char_id, {})
+                if char_clothing and "layers" in char_clothing:
+                    for slot_items in char_clothing["layers"].values():
+                        if isinstance(slot_items, list):
+                            relevant_clothing_ids.update(slot_items)
+
+        # If no state, fall back to all clothing
+        if not relevant_clothing_ids:
+            relevant_clothing_ids = set(inventory_service.clothing_defs.keys())
+
+        for clothing_id in relevant_clothing_ids:
+            clothing_def = inventory_service.clothing_defs.get(clothing_id)
+            if clothing_def:
+                catalog["clothing"][clothing_id] = {
+                    "name": clothing_def.name,
+                    "slots": list(clothing_def.occupies),
+                    "look": clothing_def.look.model_dump(),
+                }
+
+        # Outfits can stay minimal (just IDs and names)
         for outfit_id, outfit_def in inventory_service.outfit_defs.items():
             catalog["outfits"][outfit_id] = {
                 "name": outfit_def.name,
                 "items": list(outfit_def.items),
-                "grant_items": getattr(outfit_def, "grant_items", True),
             }
 
         return catalog
@@ -368,8 +417,24 @@ class PromptBuilder:
         state: GameState,
         evaluator: ConditionEvaluator,
     ) -> dict[str, Any]:
+        """Collect location catalog - OPTIMIZED to only include current and connected locations."""
         catalog: dict[str, Any] = {}
-        for location_id, location in self.engine.locations_map.items():
+
+        # Only include current location and directly connected locations
+        relevant_location_ids = {state.location_current}
+
+        # Add connected locations
+        current_location = self.engine.locations_map.get(state.location_current)
+        if current_location and current_location.connections:
+            for connection in current_location.connections:
+                targets = connection.to if isinstance(connection.to, list) else [connection.to]
+                relevant_location_ids.update(targets)
+
+        # Build catalog only for relevant locations
+        for location_id in relevant_location_ids:
+            location = self.engine.locations_map.get(location_id)
+            if not location:
+                continue
             zone = self.engine.state_manager.index.location_to_zone.get(location_id)
             connections = []
             for connection in location.connections or []:

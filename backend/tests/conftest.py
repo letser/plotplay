@@ -1,10 +1,12 @@
 from pathlib import Path
+import os
 
 import pytest
 import yaml
 
 from app.core.state_manager import GameState
 from app.models.locations import LocationPrivacy
+from app.services.mock_ai_service import MockAIService
 
 
 def write_yaml(path: Path, data: dict) -> None:
@@ -410,3 +412,16 @@ def wardrobe_game():
     )
 
     return game
+
+
+# AI Service Mocking
+@pytest.fixture(scope="session")
+def mock_ai_service():
+    """Provide mock AI service for fast tests (session-scoped)."""
+    return MockAIService()
+
+
+@pytest.fixture(scope="session")
+def use_real_ai():
+    """Check if tests should use real AI service."""
+    return os.environ.get("USE_REAL_AI", "false").lower() == "true"

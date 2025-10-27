@@ -82,7 +82,6 @@ class AIService:
             top_p: float = 0.9
     ) -> AIResponse:
         """Generate text using OpenRouter API with NSFW support"""
-
         model = model or self.settings.writer_model
 
         # Use mock if no API key
@@ -169,10 +168,10 @@ IMPORTANT: This is an adult interactive fiction game for users 18+. You should:
                 )
 
             except httpx.TimeoutException:
-                print("OpenRouter API timeout")
+                print(f"AI Call TIMEOUT")
                 return self._get_mock_response(prompt, json_mode)
             except Exception as e:
-                print(f"AI Service Error: {e}")
+                print(f"AI Call ERROR: {e}")
                 return self._get_mock_response(prompt, json_mode)
 
     async def generate_stream(

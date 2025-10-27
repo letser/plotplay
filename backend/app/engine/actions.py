@@ -65,9 +65,8 @@ class ActionFormatter:
             if choice_id.startswith("custom_") and action_text:
                 subject = self._get_player_subject()
                 if choice_id == "custom_say":
-                    target_display = target or "everyone"
                     verb = self._get_player_verb("say")
-                    return f"{subject} {verb} to {target_display}: \"{action_text}\""
+                    return f"{subject} {verb}: \"{action_text}\""
                 elif choice_id == "custom_do":
                     return f"{subject} {action_text}"
                 else:
@@ -96,7 +95,7 @@ class ActionFormatter:
         if action_type == "say":
             subject = self._get_player_subject()
             verb = self._get_player_verb("say")
-            return f"{subject} {verb} to {target or 'everyone'}: \"{action_text}\""
+            return f"{subject} {verb}: \"{action_text}\""
 
         subject = self._get_player_subject()
         return f"{subject}: {action_text}"

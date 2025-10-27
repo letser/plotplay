@@ -8,7 +8,7 @@ from app.models.nodes import Choice
 from tests_v2.conftest import minimal_game
 
 
-def make_engine(tmp_path, monkeypatch) -> GameEngine:
+def make_engine(tmp_path, monkeypatch, mock_ai_service) -> GameEngine:
     def fake_logger(session_id: str) -> logging.Logger:
         logger = logging.getLogger(f"choice-test-{session_id}")
         logger.handlers.clear()
@@ -21,11 +21,11 @@ def make_engine(tmp_path, monkeypatch) -> GameEngine:
     game_path = minimal_game(tmp_path)
     loader = GameLoader(games_dir=game_path.parent)
     game_def = loader.load_game(game_path.name)
-    return GameEngine(game_def, session_id="choice-session")
+    return GameEngine(game_def, session_id="choice-session", ai_service=mock_ai_service)
 
 
-def test_choice_service_combines_sources(tmp_path, monkeypatch):
-    engine = make_engine(tmp_path, monkeypatch)
+def test_choice_service_combines_sources(tmp_path, monkeypatch, mock_ai_service):
+    engine = make_engine(tmp_path, monkeypatch, mock_ai_service)
     state = engine.state_manager.state
     node = engine._get_current_node()
 

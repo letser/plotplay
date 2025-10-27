@@ -1,4 +1,5 @@
 import logging
+import os
 
 import pytest
 
@@ -11,11 +12,24 @@ from app.models.modifiers import ModifiersConfig, Modifier
 from app.models.characters import Character
 from app.models.locations import Zone, Location
 from app.models.nodes import Node
+from app.services.mock_ai_service import MockAIService
 from tests_v2.conftest import minimal_game
 
 
 @pytest.fixture
-def engine_fixture(tmp_path, monkeypatch):
+def mock_ai_service():
+    """Provide mock AI service for fast tests."""
+    return MockAIService()
+
+
+@pytest.fixture
+def use_real_ai():
+    """Check if tests should use real AI service."""
+    return os.environ.get("USE_REAL_AI", "false").lower() == "true"
+
+
+@pytest.fixture
+def engine_fixture(tmp_path, monkeypatch, mock_ai_service, use_real_ai):
     """Provide a GameEngine with stubbed logger for service unit tests."""
 
     def fake_logger(session_id: str) -> logging.Logger:
@@ -29,11 +43,14 @@ def engine_fixture(tmp_path, monkeypatch):
 
     game_path = minimal_game(tmp_path)
     loader = GameLoader(games_dir=game_path.parent)
-    return GameEngine(loader.load_game(game_path.name), session_id="service-session")
+
+    # Use real AI service if flag is set, otherwise use mock
+    ai_service = None if use_real_ai else mock_ai_service
+    return GameEngine(loader.load_game(game_path.name), session_id="service-session", ai_service=ai_service)
 
 
 @pytest.fixture
-def engine_with_modifiers(monkeypatch):
+def engine_with_modifiers(monkeypatch, mock_ai_service, use_real_ai):
     """Provide a GameEngine with modifiers for modifier service tests."""
     def fake_logger(session_id: str) -> logging.Logger:
         logger = logging.getLogger(f"modifier-test-{session_id}")
@@ -108,4 +125,6 @@ def engine_with_modifiers(monkeypatch):
         ]
     )
 
-    return GameEngine(game, session_id="modifier-session")
+    # Use real AI service if flag is set, otherwise use mock
+    ai_service = None if use_real_ai else mock_ai_service
+    return GameEngine(game, session_id="modifier-session", ai_service=ai_service)

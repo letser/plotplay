@@ -28,18 +28,24 @@ def setup_session_logger(session_id: str) -> logging.Logger:
 
     # Avoid adding handlers if they already exist (e.g., on engine reload)
     if not logger.handlers:
+        formatter = logging.Formatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        )
+
         # Create a file handler to write logs to a session-specific file
         try:
             file_handler = logging.FileHandler(logs_dir / f"session_{session_id}.log", mode='w')
             file_handler.setLevel(logging.DEBUG)
-
-            formatter = logging.Formatter(
-                '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                datefmt='%Y-%m-%d %H:%M:%S'
-            )
             file_handler.setFormatter(formatter)
             logger.addHandler(file_handler)
-        except PermissionError:
-            logger.addHandler(logging.NullHandler())
+        except (PermissionError, OSError) as e:
+            # Fall back to console output if file logging fails
+            print(f"⚠️  WARNING: Cannot write log file for session {session_id}: {e}")
+            print(f"⚠️  Falling back to console logging")
+            console_handler = logging.StreamHandler()
+            console_handler.setLevel(logging.DEBUG)
+            console_handler.setFormatter(formatter)
+            logger.addHandler(console_handler)
 
     return logger

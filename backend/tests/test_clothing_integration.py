@@ -83,9 +83,9 @@ class TestClothingServiceInitialization:
     """Test ClothingService initialization and basic functionality."""
 
     @pytest.mark.asyncio
-    async def test_service_initializes_without_wardrobe(self, minimal_game):
+    async def test_service_initializes_without_wardrobe(self, minimal_game, mock_ai_service):
         """Test that ClothingService initializes even when no wardrobe is defined."""
-        engine = GameEngine(minimal_game, session_id="test-no-wardrobe")
+        engine = GameEngine(minimal_game, session_id="test-no-wardrobe", ai_service=mock_ai_service)
 
         # Service should exist
         assert engine.clothing is not None
@@ -94,9 +94,9 @@ class TestClothingServiceInitialization:
         assert hasattr(engine.clothing, 'apply_ai_changes')
 
     @pytest.mark.asyncio
-    async def test_appearance_for_character_without_clothing(self, minimal_game):
+    async def test_appearance_for_character_without_clothing(self, minimal_game, mock_ai_service):
         """Test getting appearance for character with no clothing state."""
-        engine = GameEngine(minimal_game, session_id="test-no-clothes")
+        engine = GameEngine(minimal_game, session_id="test-no-clothes", ai_service=mock_ai_service)
 
         # Should return default message, not crash
         appearance = engine.clothing.get_character_appearance("player")
@@ -107,9 +107,9 @@ class TestClothingEffectHandling:
     """Test clothing effect application and error handling."""
 
     @pytest.mark.asyncio
-    async def test_outfit_change_for_character_without_wardrobe(self, minimal_game):
+    async def test_outfit_change_for_character_without_wardrobe(self, minimal_game, mock_ai_service):
         """Test that outfit changes fail gracefully when character has no wardrobe (spec-compliant)."""
-        engine = GameEngine(minimal_game, session_id="test-no-ward")
+        engine = GameEngine(minimal_game, session_id="test-no-ward", ai_service=mock_ai_service)
         state = engine.state_manager.state
 
         # Try to put on outfit using spec-compliant method
@@ -128,9 +128,9 @@ class TestClothingEffectHandling:
                    'current_outfit' not in state.clothing_states["player"]
 
     @pytest.mark.asyncio
-    async def test_clothing_set_for_nonexistent_character(self, minimal_game):
+    async def test_clothing_set_for_nonexistent_character(self, minimal_game, mock_ai_service):
         """Test that clothing changes fail for nonexistent characters (spec-compliant)."""
-        engine = GameEngine(minimal_game, session_id="test-bad-char")
+        engine = GameEngine(minimal_game, session_id="test-bad-char", ai_service=mock_ai_service)
 
         # Try to change slot state for nonexistent character
         success = engine.clothing.set_slot_state(
@@ -143,9 +143,9 @@ class TestClothingEffectHandling:
         assert success is False
 
     @pytest.mark.asyncio
-    async def test_clothing_set_for_character_without_state(self, minimal_game):
+    async def test_clothing_set_for_character_without_state(self, minimal_game, mock_ai_service):
         """Test that clothing changes fail for character without state (spec-compliant)."""
-        engine = GameEngine(minimal_game, session_id="test-no-state")
+        engine = GameEngine(minimal_game, session_id="test-no-state", ai_service=mock_ai_service)
 
         # Try to change slot state for character without clothing state
         success = engine.clothing.set_slot_state(
@@ -162,9 +162,9 @@ class TestAIClothingChanges:
     """Test AI-driven clothing changes and error handling."""
 
     @pytest.mark.asyncio
-    async def test_ai_changes_for_character_without_state(self, minimal_game):
+    async def test_ai_changes_for_character_without_state(self, minimal_game, mock_ai_service):
         """Test that AI changes for character with empty state raise expected error."""
-        engine = GameEngine(minimal_game, session_id="test-ai-no-state")
+        engine = GameEngine(minimal_game, session_id="test-ai-no-state", ai_service=mock_ai_service)
 
         ai_changes = {
             "player": {
@@ -182,9 +182,9 @@ class TestAIClothingChanges:
             pass
 
     @pytest.mark.asyncio
-    async def test_ai_changes_for_nonexistent_character(self, minimal_game):
+    async def test_ai_changes_for_nonexistent_character(self, minimal_game, mock_ai_service):
         """Test that AI changes for unknown characters are ignored."""
-        engine = GameEngine(minimal_game, session_id="test-ai-bad-char")
+        engine = GameEngine(minimal_game, session_id="test-ai-bad-char", ai_service=mock_ai_service)
 
         ai_changes = {
             "nonexistent": {
@@ -196,9 +196,9 @@ class TestAIClothingChanges:
         engine.clothing.apply_ai_changes(ai_changes)
 
     @pytest.mark.asyncio
-    async def test_ai_changes_with_empty_dict(self, minimal_game):
+    async def test_ai_changes_with_empty_dict(self, minimal_game, mock_ai_service):
         """Test that empty AI changes dict is handled gracefully."""
-        engine = GameEngine(minimal_game, session_id="test-ai-empty")
+        engine = GameEngine(minimal_game, session_id="test-ai-empty", ai_service=mock_ai_service)
 
         # Empty changes
         engine.clothing.apply_ai_changes({})
@@ -206,9 +206,9 @@ class TestAIClothingChanges:
         # Should complete without error
 
     @pytest.mark.asyncio
-    async def test_ai_changes_with_nonexistent_layers(self, minimal_game):
+    async def test_ai_changes_with_nonexistent_layers(self, minimal_game, mock_ai_service):
         """Test that AI changes for non-existent layers raise expected error."""
-        engine = GameEngine(minimal_game, session_id="test-ai-bad-layer")
+        engine = GameEngine(minimal_game, session_id="test-ai-bad-layer", ai_service=mock_ai_service)
 
         ai_changes = {
             "player": {
@@ -231,9 +231,9 @@ class TestClothingServiceEdgeCases:
     """Test edge cases and boundary conditions."""
 
     @pytest.mark.asyncio
-    async def test_multiple_effect_applications(self, minimal_game):
+    async def test_multiple_effect_applications(self, minimal_game, mock_ai_service):
         """Test applying multiple outfit changes in sequence (spec-compliant)."""
-        engine = GameEngine(minimal_game, session_id="test-multi-effects")
+        engine = GameEngine(minimal_game, session_id="test-multi-effects", ai_service=mock_ai_service)
 
         # Apply multiple outfit changes
         for i in range(5):
@@ -247,9 +247,9 @@ class TestClothingServiceEdgeCases:
         # Should not crash
 
     @pytest.mark.asyncio
-    async def test_appearance_for_all_characters(self, minimal_game):
+    async def test_appearance_for_all_characters(self, minimal_game, mock_ai_service):
         """Test getting appearance for all characters in game."""
-        engine = GameEngine(minimal_game, session_id="test-all-appear")
+        engine = GameEngine(minimal_game, session_id="test-all-appear", ai_service=mock_ai_service)
 
         # Get appearance for all characters
         for char in minimal_game.characters:
@@ -259,9 +259,9 @@ class TestClothingServiceEdgeCases:
             assert appearance == "an unknown outfit"
 
     @pytest.mark.asyncio
-    async def test_appearance_for_invalid_character(self, minimal_game):
+    async def test_appearance_for_invalid_character(self, minimal_game, mock_ai_service):
         """Test getting appearance for non-existent character."""
-        engine = GameEngine(minimal_game, session_id="test-bad-appear")
+        engine = GameEngine(minimal_game, session_id="test-bad-appear", ai_service=mock_ai_service)
 
         appearance = engine.clothing.get_character_appearance("nonexistent")
         assert appearance == "an unknown outfit"
@@ -275,9 +275,9 @@ class TestOutfitChangesComprehensive:
     """Comprehensive outfit change tests."""
 
     @pytest.mark.asyncio
-    async def test_initial_outfit_assignment(self, wardrobe_game):
+    async def test_initial_outfit_assignment(self, wardrobe_game, mock_ai_service):
         """Test that characters can be assigned initial outfits."""
-        engine = GameEngine(wardrobe_game, session_id="test-initial-outfit")
+        engine = GameEngine(wardrobe_game, session_id="test-initial-outfit", ai_service=mock_ai_service)
         state = engine.state_manager.state
 
         # Emma should have clothing.outfit="casual" in the wardrobe_game fixture
@@ -297,9 +297,9 @@ class TestOutfitChangesComprehensive:
         assert 'bottom' in clothing_state['layers']
 
     @pytest.mark.asyncio
-    async def test_outfit_change_replaces_layers(self, wardrobe_game):
+    async def test_outfit_change_replaces_layers(self, wardrobe_game, mock_ai_service):
         """Test that changing outfits replaces old clothing."""
-        engine = GameEngine(wardrobe_game, session_id="test-outfit-replace")
+        engine = GameEngine(wardrobe_game, session_id="test-outfit-replace", ai_service=mock_ai_service)
         state = engine.state_manager.state
 
         char = wardrobe_game.characters[0]
@@ -334,9 +334,9 @@ class TestClothingLayerMechanicsComprehensive:
     """Comprehensive layer mechanics tests."""
 
     @pytest.mark.asyncio
-    async def test_multi_slot_clothing(self, wardrobe_game):
+    async def test_multi_slot_clothing(self, wardrobe_game, mock_ai_service):
         """Test that clothing can occupy multiple slots."""
-        engine = GameEngine(wardrobe_game, session_id="test-multi-slot")
+        engine = GameEngine(wardrobe_game, session_id="test-multi-slot", ai_service=mock_ai_service)
         state = engine.state_manager.state
 
         char = wardrobe_game.characters[0]
@@ -354,9 +354,9 @@ class TestClothingLayerMechanicsComprehensive:
         assert clothing_state['layers']['bottom'] == "intact"
 
     @pytest.mark.asyncio
-    async def test_concealment_tracking(self, wardrobe_game):
+    async def test_concealment_tracking(self, wardrobe_game, mock_ai_service):
         """Test that concealed slots are tracked correctly."""
-        engine = GameEngine(wardrobe_game, session_id="test-concealment")
+        engine = GameEngine(wardrobe_game, session_id="test-concealment", ai_service=mock_ai_service)
         state = engine.state_manager.state
 
         char = wardrobe_game.characters[0]
@@ -382,9 +382,9 @@ class TestClothingStateTransitionsComprehensive:
     """Comprehensive state transition tests."""
 
     @pytest.mark.asyncio
-    async def test_remove_clothing_item(self, wardrobe_game):
+    async def test_remove_clothing_item(self, wardrobe_game, mock_ai_service):
         """Test removing a single clothing item."""
-        engine = GameEngine(wardrobe_game, session_id="test-remove-item")
+        engine = GameEngine(wardrobe_game, session_id="test-remove-item", ai_service=mock_ai_service)
         state = engine.state_manager.state
 
         char = wardrobe_game.characters[0]
@@ -404,9 +404,9 @@ class TestClothingStateTransitionsComprehensive:
         assert "bottom" in state.clothing_states[char.id]['layers']
 
     @pytest.mark.asyncio
-    async def test_open_clothing_with_can_open(self, wardrobe_game):
+    async def test_open_clothing_with_can_open(self, wardrobe_game, mock_ai_service):
         """Test opening clothing that can be opened."""
-        engine = GameEngine(wardrobe_game, session_id="test-open-clothing")
+        engine = GameEngine(wardrobe_game, session_id="test-open-clothing", ai_service=mock_ai_service)
         state = engine.state_manager.state
 
         char = wardrobe_game.characters[0]
@@ -424,9 +424,9 @@ class TestClothingStateTransitionsComprehensive:
         assert state.clothing_states[char.id]['layers']['bottom'] == "opened"
 
     @pytest.mark.asyncio
-    async def test_displace_clothing(self, wardrobe_game):
+    async def test_displace_clothing(self, wardrobe_game, mock_ai_service):
         """Test displacing clothing."""
-        engine = GameEngine(wardrobe_game, session_id="test-displace")
+        engine = GameEngine(wardrobe_game, session_id="test-displace", ai_service=mock_ai_service)
         state = engine.state_manager.state
 
         char = wardrobe_game.characters[0]

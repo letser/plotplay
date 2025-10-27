@@ -33,16 +33,21 @@ export const LogEntry = ({ log }: Props) => {
 
         // Keywords for special styling
         let messageElement;
-        if (message.includes('Writer Prompt:')) {
-            messageElement = <span className="text-cyan-400">{message}</span>;
+        if (message.includes('🎨 WRITER:') || message.includes('Writer Prompt:')) {
+            messageElement = <span className="text-cyan-400 font-semibold">{message}</span>;
+        } else if (message.includes('🔍 CHECKER:') || message.includes('Checker Prompt:')) {
+            messageElement = <span className="text-purple-400 font-semibold">{message}</span>;
+        } else if (message.includes('⏱️  AI Call')) {
+            // Highlight timing information in green
+            messageElement = <span className="text-green-400 font-semibold">{message}</span>;
         } else if (message.includes('Writer Response:')) {
             messageElement = <span className="text-cyan-300">{message}</span>;
-        } else if (message.includes('Checker Prompt:')) {
-            messageElement = <span className="text-purple-400">{message}</span>;
         } else if (message.includes('Checker Response:')) {
             messageElement = <span className="text-purple-300">{message}</span>;
         } else if (message.includes('Player Action:')) {
             messageElement = <span className="text-green-400 font-semibold">{message}</span>;
+        } else if (message.includes('TIMEOUT') || message.includes('ERROR')) {
+            messageElement = <span className="text-red-400 font-semibold">{message}</span>;
         } else {
             messageElement = <span>{message}</span>;
         }

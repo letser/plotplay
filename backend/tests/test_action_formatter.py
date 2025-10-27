@@ -42,12 +42,12 @@ def test_formatter_unlocked_action_fallback(formatter):
 
 def test_formatter_custom_say_action(formatter):
     result = formatter.format("choice", "Hello there!", "Alex", "custom_say", None)
-    assert result == 'You say to Alex: "Hello there!"'
+    assert result == 'You say: "Hello there!"'
 
 
 def test_formatter_custom_say_everyone(formatter):
     result = formatter.format("choice", "I'm happy to be here!", None, "custom_say", None)
-    assert result == 'You say to everyone: "I\'m happy to be here!"'
+    assert result == 'You say: "I\'m happy to be here!"'
 
 
 def test_formatter_custom_do_action(formatter):

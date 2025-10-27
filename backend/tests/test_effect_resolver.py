@@ -20,10 +20,10 @@ def make_engine(tmp_path, monkeypatch) -> GameEngine:
     game_path = minimal_game(tmp_path)
     loader = GameLoader(games_dir=game_path.parent)
     game_def = loader.load_game(game_path.name)
-    return GameEngine(game_def, session_id="test-session")
+    return GameEngine(game_def, session_id="test-session", ai_service=mock_ai_service)
 
 
-def test_meter_change_respects_delta_cap(tmp_path, monkeypatch):
+def test_meter_change_respects_delta_cap(tmp_path, monkeypatch, mock_ai_service):
     engine = make_engine(tmp_path, monkeypatch)
     state = engine.state_manager.state
     state.meters.setdefault("player", {})["energy"] = 50
@@ -38,7 +38,7 @@ def test_meter_change_respects_delta_cap(tmp_path, monkeypatch):
     assert state.meters["player"]["energy"] == 60
 
 
-def test_conditional_effect_branches(tmp_path, monkeypatch):
+def test_conditional_effect_branches(tmp_path, monkeypatch, mock_ai_service):
     engine = make_engine(tmp_path, monkeypatch)
     state = engine.state_manager.state
     state.flags["met_friend"] = False
