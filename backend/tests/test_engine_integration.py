@@ -112,7 +112,7 @@ def game_for_effects_test() -> GameDefinition:
 class TestEffectsSystem:
     """Test effects are applied correctly according to specification."""
 
-    def test_meter_change_effects_apply(self, game_for_effects_test):
+    def test_meter_change_effects_apply(self, game_for_effects_test, mock_ai_service):
         """Test meter_change effects modify character meters correctly."""
         from app.core.game_engine import GameEngine
 
@@ -140,7 +140,7 @@ class TestEffectsSystem:
         ])
         assert state.meters["player"]["energy"] == 100
 
-    def test_meter_changes_respect_bounds(self, game_for_effects_test):
+    def test_meter_changes_respect_bounds(self, game_for_effects_test, mock_ai_service):
         """Test meter changes are clamped to min/max."""
         from app.core.game_engine import GameEngine
 
@@ -161,7 +161,7 @@ class TestEffectsSystem:
         ])
         assert state.meters["player"]["energy"] == 0  # Clamped to min
 
-    def test_flag_set_effects_apply(self, game_for_effects_test):
+    def test_flag_set_effects_apply(self, game_for_effects_test, mock_ai_service):
         """Test flag_set effects modify game flags."""
         from app.core.game_engine import GameEngine
 
@@ -180,7 +180,7 @@ class TestEffectsSystem:
         ])
         assert state.flags["quest_started"] is False
 
-    def test_conditional_effects_branch_correctly(self, game_for_effects_test):
+    def test_conditional_effects_branch_correctly(self, game_for_effects_test, mock_ai_service):
         """Test conditional effects execute correct branch based on condition."""
         from app.core.game_engine import GameEngine
 
@@ -205,7 +205,7 @@ class TestEffectsSystem:
         engine.apply_effects([conditional])
         assert state.meters["player"]["energy"] == initial_energy - 5 + 10
 
-    def test_inventory_effects_modify_items(self, game_for_effects_test):
+    def test_inventory_effects_modify_items(self, game_for_effects_test, mock_ai_service):
         """Test inventory add/remove effects work correctly."""
         from app.core.game_engine import GameEngine
 
@@ -232,7 +232,7 @@ class TestEffectsSystem:
         ])
         assert state.inventory["player"]["potion"] == 3
 
-    def test_effects_execute_in_order(self, game_for_effects_test):
+    def test_effects_execute_in_order(self, game_for_effects_test, mock_ai_service):
         """Test multiple effects execute in the order specified."""
         from app.core.game_engine import GameEngine
 
@@ -262,7 +262,7 @@ class TestMovementAndTime:
 class TestNodeTransitions:
     """Test node transitions and choice processing."""
 
-    def test_goto_effect_changes_node(self, game_for_effects_test):
+    def test_goto_effect_changes_node(self, game_for_effects_test, mock_ai_service):
         """Test goto effect transitions to specified node."""
         from app.core.game_engine import GameEngine
 
@@ -293,7 +293,7 @@ class TestNodeTransitions:
         # Should have transitioned
         assert state.current_node == "second"
 
-    def test_node_entry_effects_execute(self, game_for_effects_test):
+    def test_node_entry_effects_execute(self, game_for_effects_test, mock_ai_service):
         """Test node on_entry effects are executed when entering node."""
         state_mgr = StateManager(game_for_effects_test)
 
@@ -367,12 +367,12 @@ class TestModifierSystem:
         )
         return game
 
-    def test_modifier_library_loaded(self, game_with_modifiers):
+    def test_modifier_library_loaded(self, game_with_modifiers, mock_ai_service):
         """Test modifiers are loaded into game index."""
         assert "energized" in game_with_modifiers.index.modifiers
         assert "exhausted" in game_with_modifiers.index.modifiers
 
-    def test_modifier_auto_activation(self, game_with_modifiers):
+    def test_modifier_auto_activation(self, game_with_modifiers, mock_ai_service):
         """Test modifiers auto-activate based on when conditions."""
         from app.core.game_engine import GameEngine
 
@@ -391,7 +391,7 @@ class TestModifierSystem:
         has_energized = any(mod.get("id") == "energized" for mod in player_mods)
         assert has_energized, "Energized modifier should auto-activate when energy > 80"
 
-    def test_modifier_does_not_activate_when_condition_false(self, game_with_modifiers):
+    def test_modifier_does_not_activate_when_condition_false(self, game_with_modifiers, mock_ai_service):
         """Test modifiers don't activate when conditions aren't met."""
         from app.core.game_engine import GameEngine
 

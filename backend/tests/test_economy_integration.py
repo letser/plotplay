@@ -235,7 +235,7 @@ class TestEconomyConfiguration:
     """Test economy system configuration and initialization."""
 
     @pytest.mark.asyncio
-    async def test_economy_config_with_defaults(self, game_with_economy):
+    async def test_economy_config_with_defaults(self, game_with_economy, mock_ai_service):
         """Test that economy config has sensible defaults."""
         economy = game_with_economy.economy
 
@@ -246,14 +246,14 @@ class TestEconomyConfiguration:
         assert economy.currency_symbol == "$"
 
     @pytest.mark.asyncio
-    async def test_economy_disabled(self, game_without_economy):
+    async def test_economy_disabled(self, game_without_economy, mock_ai_service):
         """Test that economy can be disabled."""
         economy = game_without_economy.economy
 
         assert economy.enabled is False
 
     @pytest.mark.asyncio
-    async def test_engine_initializes_with_economy(self, game_with_economy):
+    async def test_engine_initializes_with_economy(self, game_with_economy, mock_ai_service):
         """Test that game engine initializes successfully with economy enabled."""
         engine = GameEngine(game_with_economy, session_id="test-economy-init", ai_service=mock_ai_service)
 
@@ -262,7 +262,7 @@ class TestEconomyConfiguration:
         assert engine.game_def.economy.enabled is True
 
     @pytest.mark.asyncio
-    async def test_engine_initializes_without_economy(self, game_without_economy):
+    async def test_engine_initializes_without_economy(self, game_without_economy, mock_ai_service):
         """Test that game engine initializes successfully with economy disabled."""
         engine = GameEngine(game_without_economy, session_id="test-no-economy-init", ai_service=mock_ai_service)
 
@@ -275,7 +275,7 @@ class TestEconomyItemValues:
     """Test item value configuration for economy."""
 
     @pytest.mark.asyncio
-    async def test_items_have_value_property(self, game_with_economy):
+    async def test_items_have_value_property(self, game_with_economy, mock_ai_service):
         """Test that items can have value for economy/shopping."""
         apple = next(item for item in game_with_economy.items if item.id == "apple")
         sword = next(item for item in game_with_economy.items if item.id == "sword")
@@ -485,7 +485,7 @@ class TestPurchaseTransactionsComprehensive:
     """Comprehensive purchase transaction tests."""
 
     @pytest.mark.asyncio
-    async def test_purchase_item_deducts_money(self, game_with_economy):
+    async def test_purchase_item_deducts_money(self, game_with_economy, mock_ai_service):
         """Test that purchasing an item deducts money from player."""
         from app.models.effects import InventoryPurchaseEffect
 
@@ -513,7 +513,7 @@ class TestPurchaseTransactionsComprehensive:
         assert state.inventory["player"]["apple"] == 1
 
     @pytest.mark.asyncio
-    async def test_purchase_item_adds_to_inventory(self, game_with_economy):
+    async def test_purchase_item_adds_to_inventory(self, game_with_economy, mock_ai_service):
         """Test that purchased items are added to player inventory."""
         from app.models.effects import InventoryPurchaseEffect
 
@@ -540,7 +540,7 @@ class TestPurchaseTransactionsComprehensive:
         assert state.meters["player"]["money"] == 85.0
 
     @pytest.mark.asyncio
-    async def test_purchase_fails_with_insufficient_funds(self, game_with_economy):
+    async def test_purchase_fails_with_insufficient_funds(self, game_with_economy, mock_ai_service):
         """Test that purchase fails when player lacks money."""
         from app.models.effects import InventoryPurchaseEffect
 
@@ -568,7 +568,7 @@ class TestPurchaseTransactionsComprehensive:
         assert "sword" not in state.inventory.get("player", {})
 
     @pytest.mark.asyncio
-    async def test_purchase_respects_max_money_cap(self, game_with_economy):
+    async def test_purchase_respects_max_money_cap(self, game_with_economy, mock_ai_service):
         """Test that money cannot exceed max_money."""
         from app.models.effects import MeterChangeEffect
 
@@ -589,7 +589,7 @@ class TestPurchaseTransactionsComprehensive:
         assert state.meters["player"]["money"] == 9999.0
 
     @pytest.mark.asyncio
-    async def test_purchase_respects_shop_availability_and_multiplier(self, game_with_shop_rules):
+    async def test_purchase_respects_shop_availability_and_multiplier(self, game_with_shop_rules, mock_ai_service):
         """Player purchases only when shop open and multiplier applies."""
         from app.models.effects import InventoryPurchaseEffect
 
@@ -627,7 +627,7 @@ class TestSellTransactionsComprehensive:
     """Comprehensive sell transaction tests."""
 
     @pytest.mark.asyncio
-    async def test_sell_item_adds_money(self, game_with_economy):
+    async def test_sell_item_adds_money(self, game_with_economy, mock_ai_service):
         """Test that selling an item adds money to player."""
         from app.models.effects import InventorySellEffect, InventoryChangeEffect
 
@@ -663,7 +663,7 @@ class TestSellTransactionsComprehensive:
         assert state.inventory["player"].get("apple", 0) == 0
 
     @pytest.mark.asyncio
-    async def test_sell_item_removes_from_inventory(self, game_with_economy):
+    async def test_sell_item_removes_from_inventory(self, game_with_economy, mock_ai_service):
         """Test that sold items are removed from player inventory."""
         from app.models.effects import InventorySellEffect, InventoryChangeEffect
 
@@ -698,7 +698,7 @@ class TestSellTransactionsComprehensive:
         assert state.meters["player"]["money"] == 115.0
 
     @pytest.mark.asyncio
-    async def test_sell_uses_multiplier(self, game_with_economy):
+    async def test_sell_uses_multiplier(self, game_with_economy, mock_ai_service):
         """Test that sell effects can use price multipliers."""
         from app.models.effects import InventorySellEffect, InventoryChangeEffect
 
@@ -731,7 +731,7 @@ class TestSellTransactionsComprehensive:
         assert state.meters["player"]["money"] == 102.5
 
     @pytest.mark.asyncio
-    async def test_sell_respects_shop_can_buy_and_multiplier(self, game_with_shop_rules):
+    async def test_sell_respects_shop_can_buy_and_multiplier(self, game_with_shop_rules, mock_ai_service):
         """Shop can decline purchases until allowed; multiplier_sell applies."""
         from app.models.effects import InventorySellEffect, InventoryChangeEffect
 
@@ -778,7 +778,7 @@ class TestShopSystemComprehensive:
     """Comprehensive shop system tests."""
 
     @pytest.mark.asyncio
-    async def test_shop_availability_conditions(self, game_with_economy):
+    async def test_shop_availability_conditions(self, game_with_economy, mock_ai_service):
         """Test that shops can be defined with availability conditions in models."""
         from app.models.economy import Shop
         from app.models.inventory import Inventory, InventoryItem
@@ -800,7 +800,7 @@ class TestShopSystemComprehensive:
         assert len(shop.inventory.items) == 1
 
     @pytest.mark.asyncio
-    async def test_shop_inventory_updates(self, game_with_economy):
+    async def test_shop_inventory_updates(self, game_with_economy, mock_ai_service):
         """Test that shop inventory can track quantities."""
         from app.models.economy import Shop
         from app.models.inventory import Inventory, InventoryItem
@@ -823,7 +823,7 @@ class TestShopSystemComprehensive:
         # model supports the feature.
 
     @pytest.mark.asyncio
-    async def test_shop_buy_multipliers(self, game_with_economy):
+    async def test_shop_buy_multipliers(self, game_with_economy, mock_ai_service):
         """Test that shops can have buy/sell price multipliers."""
         from app.models.economy import Shop
 

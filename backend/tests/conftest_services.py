@@ -13,7 +13,7 @@ from app.models.characters import Character
 from app.models.locations import Zone, Location
 from app.models.nodes import Node
 from app.services.mock_ai_service import MockAIService
-from tests_v2.conftest import minimal_game
+from tests.conftest import minimal_game
 
 
 @pytest.fixture

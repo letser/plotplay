@@ -5,7 +5,7 @@ import pytest
 from app.core.game_loader import GameLoader
 from app.models.game import GameDefinition
 
-from tests_v2.conftest import minimal_game, load_yaml, write_yaml
+from tests.conftest import minimal_game, load_yaml, write_yaml
 
 # List of all game IDs that should be successfully loaded
 VALID_GAME_IDS = [

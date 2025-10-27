@@ -5,7 +5,7 @@ from app.core.game_loader import GameLoader
 from app.core.game_engine import GameEngine
 from app.models.effects import FlagSetEffect
 from app.models.nodes import Choice, Node, NodeType
-from tests_v2.conftest import minimal_game
+from tests.conftest import minimal_game
 
 
 def build_engine(tmp_path, monkeypatch) -> GameEngine:

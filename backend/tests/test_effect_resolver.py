@@ -3,7 +3,7 @@ import logging
 from app.core.game_loader import GameLoader
 from app.core.game_engine import GameEngine
 from app.models.effects import MeterChangeEffect, ConditionalEffect, FlagSetEffect
-from tests_v2.conftest import minimal_game
+from tests.conftest import minimal_game
 
 
 def make_engine(tmp_path, monkeypatch) -> GameEngine:

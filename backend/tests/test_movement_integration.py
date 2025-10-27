@@ -131,7 +131,7 @@ class TestLocalMovement:
     """Test local movement within a zone."""
 
     @pytest.mark.asyncio
-    async def test_local_movement_changes_location(self, game_with_movement):
+    async def test_local_movement_changes_location(self, game_with_movement, mock_ai_service):
         """Test that local movement updates current location."""
         engine = GameEngine(game_with_movement, session_id="test-local-move", ai_service=mock_ai_service)
         state = engine.state_manager.state
@@ -152,7 +152,7 @@ class TestLocalMovement:
         assert "Room B" in result["narrative"]
 
     @pytest.mark.asyncio
-    async def test_local_movement_consumes_time(self, game_with_movement):
+    async def test_local_movement_consumes_time(self, game_with_movement, mock_ai_service):
         """Test that local movement consumes time based on base_time."""
         engine = GameEngine(game_with_movement, session_id="test-local-time", ai_service=mock_ai_service)
         state = engine.state_manager.state
@@ -178,7 +178,7 @@ class TestLocalMovement:
         assert total_new_minutes == total_initial_minutes + 5
 
     @pytest.mark.asyncio
-    async def test_movement_to_undiscovered_location_fails(self, game_with_movement):
+    async def test_movement_to_undiscovered_location_fails(self, game_with_movement, mock_ai_service):
         """Test that movement to undiscovered locations is blocked."""
         engine = GameEngine(game_with_movement, session_id="test-undiscovered", ai_service=mock_ai_service)
         state = engine.state_manager.state
@@ -197,7 +197,7 @@ class TestNPCCompanions:
     """Test NPC companion movement willingness."""
 
     @pytest.mark.asyncio
-    async def test_willing_npc_follows_player(self, game_with_movement):
+    async def test_willing_npc_follows_player(self, game_with_movement, mock_ai_service):
         """Test that willing NPCs follow the player."""
         engine = GameEngine(game_with_movement, session_id="test-willing-npc", ai_service=mock_ai_service)
         state = engine.state_manager.state
@@ -217,7 +217,7 @@ class TestNPCCompanions:
         assert state.location_current == "room_b"
 
     @pytest.mark.asyncio
-    async def test_unwilling_npc_blocks_movement(self, game_with_movement):
+    async def test_unwilling_npc_blocks_movement(self, game_with_movement, mock_ai_service):
         """Test that unwilling NPCs block movement."""
         engine = GameEngine(game_with_movement, session_id="test-unwilling-npc", ai_service=mock_ai_service)
         state = engine.state_manager.state
@@ -243,7 +243,7 @@ class TestFreeformMovement:
     """Test freeform text-based movement."""
 
     @pytest.mark.asyncio
-    async def test_freeform_movement_with_location_name(self, game_with_movement):
+    async def test_freeform_movement_with_location_name(self, game_with_movement, mock_ai_service):
         """Test that freeform text containing location name triggers movement."""
         engine = GameEngine(game_with_movement, session_id="test-freeform", ai_service=mock_ai_service)
         state = engine.state_manager.state
@@ -283,7 +283,7 @@ class TestMovementEdgeCases:
     """Test edge cases and error handling."""
 
     @pytest.mark.asyncio
-    async def test_movement_with_no_connections(self, game_with_movement):
+    async def test_movement_with_no_connections(self, game_with_movement, mock_ai_service):
         """Test movement when location has no connections."""
         engine = GameEngine(game_with_movement, session_id="test-no-connections", ai_service=mock_ai_service)
         state = engine.state_manager.state
@@ -300,7 +300,7 @@ class TestMovementEdgeCases:
         assert state.location_current == "room_c"
 
     @pytest.mark.asyncio
-    async def test_invalid_movement_choice(self, game_with_movement):
+    async def test_invalid_movement_choice(self, game_with_movement, mock_ai_service):
         """Test handling of invalid movement choice."""
         engine = GameEngine(game_with_movement, session_id="test-invalid", ai_service=mock_ai_service)
 
@@ -410,7 +410,7 @@ class TestZoneTravel:
     """Test zone travel between different zones."""
 
     @pytest.mark.asyncio
-    async def test_zone_travel_changes_zone_and_location(self, game_with_zone_travel):
+    async def test_zone_travel_changes_zone_and_location(self, game_with_zone_travel, mock_ai_service):
         """Test that zone travel updates both zone and location."""
         engine = GameEngine(game_with_zone_travel, session_id="test-zone-travel", ai_service=mock_ai_service)
         state = engine.state_manager.state
@@ -428,7 +428,7 @@ class TestZoneTravel:
         assert "Campus" in result["narrative"] or "campus" in result["narrative"].lower()
 
     @pytest.mark.asyncio
-    async def test_zone_travel_consumes_time_based_on_distance(self, game_with_zone_travel):
+    async def test_zone_travel_consumes_time_based_on_distance(self, game_with_zone_travel, mock_ai_service):
         """Test that zone travel time is calculated as base_time * distance."""
         engine = GameEngine(game_with_zone_travel, session_id="test-zone-time", ai_service=mock_ai_service)
         state = engine.state_manager.state
@@ -450,7 +450,7 @@ class TestZoneTravel:
         assert total_new == total_initial + 20
 
     @pytest.mark.asyncio
-    async def test_zone_travel_to_nonexistent_zone(self, game_with_zone_travel):
+    async def test_zone_travel_to_nonexistent_zone(self, game_with_zone_travel, mock_ai_service):
         """Test that traveling to nonexistent zone fails gracefully."""
         engine = GameEngine(game_with_zone_travel, session_id="test-bad-zone", ai_service=mock_ai_service)
         state = engine.state_manager.state
@@ -463,7 +463,7 @@ class TestZoneTravel:
         assert "can't seem to go that way" in result["narrative"].lower()
 
     @pytest.mark.asyncio
-    async def test_zone_travel_updates_previous_location(self, game_with_zone_travel):
+    async def test_zone_travel_updates_previous_location(self, game_with_zone_travel, mock_ai_service):
         """Test that zone travel tracks previous location."""
         engine = GameEngine(game_with_zone_travel, session_id="test-zone-prev", ai_service=mock_ai_service)
         state = engine.state_manager.state

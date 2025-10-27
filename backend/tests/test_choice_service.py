@@ -5,7 +5,7 @@ from app.core.game_engine import GameEngine
 from app.models.actions import Action
 from app.models.locations import Location, LocationConnection
 from app.models.nodes import Choice
-from tests_v2.conftest import minimal_game
+from tests.conftest import minimal_game
 
 
 def make_engine(tmp_path, monkeypatch, mock_ai_service) -> GameEngine:
