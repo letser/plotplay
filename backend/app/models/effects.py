@@ -1,22 +1,39 @@
 """
-PlotPlay Game Models - Complete game definition structures.
-
-============== Effects System ==============
-
+PlotPlay Game Models.
+Effects.
 """
-from typing import Literal, ForwardRef, Annotated, Union
-from pydantic import BaseModel, Field
 
-class Effect(BaseModel):
+from __future__ import annotations
+
+from typing import Literal, ForwardRef, Annotated, Union, Any
+from pydantic import Field, TypeAdapter
+
+from .model import SimpleModel, DSLExpression, RequiredConditionalMixin
+from .characters import CharacterId
+from .items import ItemId
+from .wardrobe import ClothingId, OutfitId, ClothingState, ClothingSlot
+from .meters import MeterId
+from .flags import FlagId
+from .locations import LocationId, LocalDirection, MovementMethod, ZoneId
+from .modifiers import ModifierId
+from .nodes import NodeId
+
+AnyEffect = ForwardRef('AnyEffect')
+
+class Effect(RequiredConditionalMixin, SimpleModel):
     """Base effect structure."""
     type: Literal["effect"] = "effect"
-    when: str = 'always'
+    when: DSLExpression = 'always'
+    when_all: list[DSLExpression] = Field(default_factory=list)
+    when_any: list[DSLExpression] = Field(default_factory=list)
+
+# Meters and flags
 
 class MeterChangeEffect(Effect):
     """Change a meter value."""
     type: Literal["meter_change"] = "meter_change"
-    target: str  # "player" or character id
-    meter: str
+    target: CharacterId  # "player" or character id
+    meter: MeterId
     op: Literal["add", "subtract", "set", "multiply", "divide"]
     value: int | float
     respect_caps: bool = True
@@ -25,71 +42,223 @@ class MeterChangeEffect(Effect):
 class FlagSetEffect(Effect):
     """Set a flag value."""
     type: Literal["flag_set"] = "flag_set"
-    key: str
+    key: FlagId
     value: bool | int | str
 
-class InventoryChangeEffect(Effect):
-    """Add or remove an item from inventory."""
-    type: Literal["inventory_add", "inventory_remove"]
-    owner: str  # "player" or character id
-    item: str
+# Inventory
+
+ItemType = Literal["item", "clothing", "outfit"]
+AnyItemId = ItemId | ClothingId | OutfitId
+
+class InventoryAddEffect(Effect):
+    """Add an item to the inventory."""
+    type: Literal["inventory_add"] = "inventory_add"
+    target: CharacterId
+    item_type: ItemType
+    item: AnyItemId
     count: int = 1
 
+class InventoryRemoveEffect(Effect):
+    """Remove an item from inventory."""
+    type: Literal["inventory_remove"] = "inventory_remove"
+    target: CharacterId
+    item_type: ItemType
+    item: AnyItemId
+    count: int = 1
+
+
+class InventoryChangeEffect(Effect):
+    """Legacy wrapper used by the current engine to mutate inventories."""
+    type: Literal["inventory_add", "inventory_remove"]
+    owner: CharacterId
+    item: AnyItemId
+    count: int = 1
+
+class InventoryTakeEffect(Effect):
+    """Take an item from the current location."""
+    type: Literal["inventory_take"] = "inventory_take"
+    target: CharacterId
+    item_type: ItemType
+    item: AnyItemId
+    count: int = 1
+
+class InventoryDropEffect(Effect):
+    """Drop an item at the current location."""
+    type: Literal["inventory_drop"] = "inventory_drop"
+    target: CharacterId
+    item_type: ItemType
+    item: AnyItemId
+    count: int = 1
+
+# Shopping
+class InventoryPurchaseEffect(Effect):
+    """Purchase an item"""
+    type: Literal["inventory_purchase"] = "inventory_purchase"
+    target: CharacterId
+    source: CharacterId | LocationId
+    item_type: ItemType
+    item: AnyItemId
+    count: int = 1
+    price: float | None = None
+
+class InventorySellEffect(Effect):
+    """Sell an item"""
+    type: Literal["inventory_sell"] = "inventory_sell"
+    target: CharacterId | LocationId
+    source: CharacterId
+    item_type: ItemType
+    item: AnyItemId
+    count: int = 1
+    price: float | None = None
+
+class InventoryGiveEffect(Effect):
+    """Give an item from one character to another"""
+    type: Literal["inventory_give"] = "inventory_give"
+    source: CharacterId
+    target: CharacterId
+    item_type: ItemType
+    item: AnyItemId
+    count: int = 1
+
+# Clothing
+class ClothingPutOnEffect(Effect):
+    """Put on a clothing item and set its state """
+    type: Literal["clothing_put_on"] = "clothing_put_on"
+    target: CharacterId
+    item: ClothingId
+    state: ClothingState | None = ClothingState.INTACT
+
+class ClothingTakeOffEffect(Effect):
+    """Take off a clothing item."""
+    type: Literal["clothing_take_off"] = "clothing_take_off"
+    target: CharacterId
+    item: ClothingId
+
+class ClothingStateEffect(Effect):
+    """Change the state of a clothing item."""
+    type: Literal["clothing_state"] = "clothing_state"
+    target: CharacterId
+    item: ClothingId
+    state: ClothingState
+
+class ClothingSlotStateEffect(Effect):
+    """Change the state of an item in the specific slot."""
+    type: Literal["clothing_slot_state"] = "clothing_slot_state"
+    target: CharacterId
+    slot: ClothingSlot
+    state: ClothingState
+
+class OutfitPutOnEffect(Effect):
+    """Put on an outfit."""
+    type: Literal["outfit_put_on"] = "outfit_put_on"
+    target: CharacterId
+    item: OutfitId
+
+class OutfitTakeOffEffect(Effect):
+    """Take of an outfit."""
+    type: Literal["outfit_take_off"] = "outfit_take_off"
+    target: CharacterId
+    item: OutfitId
+
+
 class ClothingChangeEffect(Effect):
-    """Change a character's clothing state."""
+    """Legacy outfit/clothing adjustments used by the current engine."""
     type: Literal["outfit_change", "clothing_set"]
-    character: str
-    outfit: str | None = None  # for outfit_change
-    layer: str | None = None  # for clothing_set
-    state: Literal["intact", "displaced", "removed"] | None = None  # for clothing_set
+    character: CharacterId
+    outfit: OutfitId | None = None
+    layer: ClothingSlot | None = None
+    state: ClothingState | None = None
+
+# Movement & Time
+
+class MoveEffect(Effect):
+    """Move locally in a specified direction."""
+    type: Literal["move"] = "move"
+    direction: LocalDirection
+    with_characters: list[CharacterId] = Field(default_factory=list)
 
 class MoveToEffect(Effect):
-    """Move the player and optionally characters to a new location."""
+    """Move locally to a new location."""
     type: Literal["move_to"] = "move_to"
-    location: str
-    with_characters: list[str] = Field(default_factory=list)
+    location: LocationId
+    with_characters: list[CharacterId] = Field(default_factory=list)
+
+class TravelToEffect(Effect):
+    """Travel to a location in another zone."""
+    type: Literal["travel_to"] = "travel_to"
+    location: LocationId
+    method: MovementMethod
+    with_characters: list[CharacterId] = Field(default_factory=list)
 
 class AdvanceTimeEffect(Effect):
     """Advance game time."""
     type: Literal["advance_time"] = "advance_time"
     minutes: int
 
-class GotoNodeEffect(Effect):
-    """Transition to another node."""
-    type: Literal["goto_node"] = "goto_node"
-    node: str
+class AdvanceTimeSlotEffect(Effect):
+    """Advance game time."""
+    type: Literal["advance_time_slot"] = "advance_time_slot"
+    slots: int
 
-class UnlockEffect(Effect):
-    """Unlock game content."""
-    type: Literal["unlock_outfit", "unlock_actions", "unlock_ending"]
-    character: str | None = None  # for unlock_outfit
-    outfit: str | None = None  # for unlock_outfit
-    actions: list[str] | None = None  # for unlock_actions
-    ending: str | None = None  # for unlock_ending
+# Modifiers
 
 class ApplyModifierEffect(Effect):
     type: Literal["apply_modifier"] = "apply_modifier"
-    character: str
-    modifier_id: str
-    duration_min: int | None = None
+    target: CharacterId
+    modifier_id: ModifierId
+    duration: int | None = None
 
 class RemoveModifierEffect(Effect):
     type: Literal["remove_modifier"] = "remove_modifier"
-    character: str
-    modifier_id: str
+    target: CharacterId
+    modifier_id: ModifierId
 
-AnyEffect = ForwardRef('AnyEffect')
+
+# Unlocks & locks
+
+class UnlockEffect(Effect):
+    """Unlock game content."""
+    type: Literal["unlock", "unlock_outfit", "unlock_ending", "unlock_actions"] = "unlock"
+    character: CharacterId | None = None
+    outfit: OutfitId | None = None
+    ending: NodeId | None = None
+    items: list[ItemId] | None = None
+    clothing: list[ClothingId] | None = None
+    outfits: list[OutfitId] | None = None
+    zones: list[ZoneId] | None = None
+    locations: list[LocationId] | None = None
+    actions: list[str] | None = None
+    endings: list[NodeId] | None = None
+
+class LockEffect(Effect):
+    """Lock game content."""
+    type: Literal["lock"] = "lock"
+    items: list[ItemId] | None = None
+    clothing: list[ClothingId] | None = None
+    outfits: list[OutfitId] | None = None
+    zones: list[ZoneId] | None = None
+    locations: list[LocationId] | None = None
+    actions: list[str] | None = None
+    endings: list[NodeId] | None = None
+
+# Flow control
+
+class GotoEffect(Effect):
+    """Transition to another node."""
+    type: Literal["goto"] = "goto"
+    node: NodeId
+
 
 class ConditionalEffect(Effect):
     """An effect that branches based on a condition."""
     type: Literal["conditional"] = "conditional"
-    then: list["AnyEffect"] = Field(default_factory=list)
-    otherwise: list["AnyEffect"] = Field(default_factory=list)
+    then: list[AnyEffect] = Field(default_factory=list)
+    otherwise: list[AnyEffect] = Field(default_factory=list)
 
-class RandomChoice(BaseModel):
+class RandomChoice(SimpleModel):
     """A single weighted choice for a random effect."""
     weight: int
-    effects: list["AnyEffect"] = Field(default_factory=list)
+    effects: list[AnyEffect] = Field(default_factory=list)
 
 class RandomEffect(Effect):
     """An effect that executes a random set of sub-effects from a weighted list."""
@@ -97,13 +266,30 @@ class RandomEffect(Effect):
     choices: list[RandomChoice] = Field(default_factory=list)
 
 AnyEffect = Annotated[
-    Union[MeterChangeEffect, FlagSetEffect, InventoryChangeEffect, ClothingChangeEffect,
-    MoveToEffect, AdvanceTimeEffect, GotoNodeEffect, UnlockEffect, ApplyModifierEffect,
-    RemoveModifierEffect, ConditionalEffect, RandomEffect, Effect],
+    Union[MeterChangeEffect, FlagSetEffect,
+    InventoryAddEffect, InventoryRemoveEffect, InventoryTakeEffect, InventoryDropEffect,
+    InventoryPurchaseEffect, InventorySellEffect, InventoryGiveEffect,
+    ClothingPutOnEffect, ClothingTakeOffEffect,ClothingStateEffect, ClothingSlotStateEffect,
+    OutfitPutOnEffect, OutfitTakeOffEffect, ClothingChangeEffect,
+    MoveEffect, MoveToEffect, TravelToEffect, AdvanceTimeEffect, AdvanceTimeSlotEffect,
+    ApplyModifierEffect, RemoveModifierEffect, UnlockEffect, LockEffect,
+    GotoEffect, ConditionalEffect, RandomEffect
+],
     Field(discriminator="type")
     ]
 
+EffectsList = list[AnyEffect]
 
 ConditionalEffect.model_rebuild()
 RandomChoice.model_rebuild()
 RandomEffect.model_rebuild()
+
+# Helper function to parse effect dicts into effect objects
+_effect_adapter: TypeAdapter | None = None
+
+def parse_effect(effect_dict: dict[str, Any]) -> AnyEffect:
+    """Parse a dict into an AnyEffect object using Pydantic's discriminated union."""
+    global _effect_adapter
+    if _effect_adapter is None:
+        _effect_adapter = TypeAdapter(AnyEffect)
+    return _effect_adapter.validate_python(effect_dict)

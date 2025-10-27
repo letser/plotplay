@@ -1,34 +1,47 @@
-# ===============================
-# Locations - Coffee Shop Date (v3 Spec)
-# ===============================
-
 zones:
   - id: "downtown"
     name: "Downtown"
-    discovered: true
-    accessible: true
-
+    summary: "A lively commercial strip with independent shops and the scent of espresso in the air."
+    privacy: "low"
+    access:
+      discovered: true
     locations:
-      - id: "outside"
-        name: "Outside the Coffee Shop"
-        type: "public"
-        privacy: "low"
-        discovered: true
-        description: "The afternoon sun warms the sidewalk. Through the window, you can see your date Alex already inside, looking at her phone."
-        features: ["sidewalk", "bench", "mint jar"]
+      - id: "cafe_patio"
+        name: "Cafe Patio"
+        summary: "A sunlit patio with wrought-iron tables and a mint jar by the door."
+        privacy: "medium"
+        access:
+          discovered: true
         connections:
-          - to: "coffee_shop"
-            type: "door"
-            distance: "immediate"
-
-      - id: "coffee_shop"
-        name: "Corner Coffee Shop"
-        type: "public"
+          - to: "cafe_counter"
+            description: "Step inside toward the counter."
+            direction: "n"
+      - id: "cafe_counter"
+        name: "Coffee Shop Counter"
+        summary: "A wooden counter lined with pastries, the hum of grinders filling the room."
         privacy: "low"
-        discovered: true
-        description: "The cozy interior smells of fresh espresso and pastries. Soft jazz plays in the background."
-        features: ["counter", "tables", "window_seats", "menu_board"]
         connections:
-          - to: "outside"
-            type: "door"
-            distance: "immediate"
+          - to: "cafe_patio"
+            description: "Carry the drinks back outside."
+            direction: "s"
+          - to: "cafe_table"
+            description: "Weave between tables to the quiet corner."
+            direction: "e"
+        inventory:
+          items:
+            - id: "vanilla_latte"
+              count: 2
+            - id: "spiced_matcha"
+              count: 2
+      - id: "cafe_table"
+        name: "Corner Table"
+        summary: "A tucked-away table with soft light and chalk doodles on the brick wall."
+        privacy: "medium"
+        connections:
+          - to: "cafe_counter"
+            description: "Return to the counter."
+            direction: "w"
+        inventory:
+          items: []
+    entrances: ["cafe_patio"]
+    exits: ["cafe_patio"]

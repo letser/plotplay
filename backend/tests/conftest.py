@@ -1,185 +1,412 @@
-"""
-Shared pytest fixtures and configuration for PlotPlay tests.
-"""
+from pathlib import Path
+
 import pytest
-import json
-from unittest.mock import AsyncMock, MagicMock
+import yaml
 
-import pytest_asyncio
-
-from app.core.game_loader import GameLoader
-from app.core.game_engine import GameEngine
-from app.services.ai_service import AIService, AIResponse, AISettings
-from app.models.game import GameDefinition, MetaConfig, StartConfig
-from app.models.character import Character
-from app.models.location import Zone, Location, LocationPrivacy
-from app.models.node import Node, Choice
-from app.models.enums import NodeType
-from app.models.meters import Meter
-from app.models.flag import Flag
-from app.models.time import TimeConfig, TimeStart
+from app.core.state_manager import GameState
+from app.models.locations import LocationPrivacy
 
 
-@pytest.fixture
-def game_loader():
-    """Provides a GameLoader instance."""
-    return GameLoader()
+def write_yaml(path: Path, data: dict) -> None:
+    path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
 
 
-@pytest.fixture
-def mock_ai_service():
-    """Provides a mock AI service with configurable responses."""
-    service = MagicMock(spec=AIService)
-    service.settings = AISettings()
-
-    def create_response(content: str, memory: list[str] = None):
-        if memory:
-            return AIResponse(content=json.dumps({"memory": memory}))
-        return AIResponse(content=content)
-
-    service.create_response = create_response
-    service.generate = AsyncMock(return_value=AIResponse(content="Test narrative"))
-    return service
+def load_yaml(path: Path) -> dict:
+    return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
 
 
-@pytest.fixture
-def minimal_game_def():
-    """Creates a minimal valid game definition for testing."""
-    return GameDefinition(
-        meta=MetaConfig(
-            id="test_game",
-            title="Test Game",
-            authors=["tester"]
-        ),
-        start=StartConfig(
-            node="start_node",
-            location={"zone": "test_zone", "id": "test_location"}
-        ),
-        time=TimeConfig(
-            start=TimeStart(day=1, slot="morning")
-        ),
-        nodes=[
-            Node(
-                id="start_node",
-                type="scene",
-                title="Start Node",
-                transitions=[]
-            )
-        ],
-        zones=[
-            Zone(
-                id="test_zone",
-                name="Test Zone",
-                locations=[
-                    Location(
-                        id="test_location",
-                        name="Test Location"
-                    )
-                ]
-            )
-        ],
-        characters=[
-            Character(
-                id="player",
-                name="Player",
-                age=25,
-                gender="unspecified"
-            )
-        ],
-        meters={
-            "player": {
-                "health": Meter(min=0, max=100, default=100)
-            }
+def minimal_game(tmp_path: Path) -> Path:
+    """Create a minimal spec-compliant game for loader tests."""
+    game_dir = tmp_path / "campus_story"
+    game_dir.mkdir()
+
+    write_yaml(
+        game_dir / "game.yaml",
+        {
+            "meta": {
+                "id": "campus_story",
+                "title": "Campus Story",
+                "authors": ["Test Author"],
+                "nsfw_allowed": False,
+            },
+            "narration": {"pov": "second", "tense": "present", "paragraphs": "1-2"},
+            "start": {
+                "location": "campus_quad",
+                "node": "intro",
+                "day": 1,
+                "slot": "morning",
+                "time": "08:00",
+            },
+            "meters": {
+                "player": {
+                    "energy": {"min": 0, "max": 100, "default": 70},
+                },
+                "template": {
+                    "trust": {"min": 0, "max": 100, "default": 10},
+                },
+            },
+            "flags": {
+                "met_friend": {"type": "bool", "default": False},
+                "quad_event_seen": {"type": "bool", "default": False},
+                "arc_stage_meet": {"type": "bool", "default": False},
+                "arc_stage_bond": {"type": "bool", "default": False},
+            },
+            "time": {
+                "mode": "slots",
+                "slots": ["morning", "evening"],
+                "actions_per_slot": 3,
+            },
+            "economy": {"enabled": True},
+            "movement": {
+                "base_time": 1,
+                "use_entry_exit": False,
+                "methods": [{"walk": 1}],
+            },
+            "includes": ["items.yaml", "characters.yaml", "locations.yaml", "nodes.yaml", "events.yaml"],
         },
-        flags={
-            "game_started": Flag(type="bool", default=False)
-        }
     )
 
+    write_yaml(
+        game_dir / "items.yaml",
+        {
+            "items": [
+                {"id": "coffee", "name": "Coffee", "category": "drink", "value": 5, "stackable": True},
+                {"id": "sword", "name": "Iron Sword", "category": "weapon", "value": 150, "stackable": False},
+            ],
+            "wardrobe": {
+                "slots": ["top", "bottom", "feet"],
+                "items": [
+                    {
+                        "id": "player_top",
+                        "name": "T-Shirt",
+                        "value": 10,
+                        "look": {"intact": "A comfy tee."},
+                        "occupies": ["top"],
+                        "conceals": [],
+                    },
+                ],
+                "outfits": [
+                    {
+                        "id": "player_outfit",
+                        "name": "Campus Casual",
+                        "items": ["player_top"],
+                        "grant_items": True,
+                    },
+                ],
+            },
+        },
+    )
+
+    write_yaml(
+        game_dir / "characters.yaml",
+        {
+            "characters": [
+                {
+                    "id": "player",
+                    "name": "You",
+                    "age": 20,
+                    "gender": "unspecified",
+                    "clothing": {"outfit": "player_outfit"},
+                    "inventory": {"items": []},
+                },
+                {
+                    "id": "friend",
+                    "name": "Friend",
+                    "age": 20,
+                    "gender": "female",
+                    "inventory": {"items": []},
+                },
+            ]
+        },
+    )
+
+    write_yaml(
+        game_dir / "locations.yaml",
+        {
+            "zones": [
+                {
+                    "id": "campus",
+                    "name": "Campus",
+                    "summary": "Central campus spaces.",
+                    "privacy": "low",
+                    "access": {"discovered": True},
+                    "locations": [
+                        {
+                            "id": "campus_quad",
+                            "name": "Campus Quad",
+                            "summary": "Students scurry between classes.",
+                            "privacy": "low",
+                            "access": {"discovered": True},
+                        }
+                    ],
+                    "entrances": ["campus_quad"],
+                    "exits": ["campus_quad"],
+                }
+            ]
+        },
+    )
+
+    write_yaml(
+        game_dir / "nodes.yaml",
+        {
+            "nodes": [
+                {
+                    "id": "intro",
+                    "type": "scene",
+                    "title": "First Morning",
+                    "characters_present": [],
+                    "beats": ["You step onto the quad, ready for the day."],
+                    "choices": [],
+                }
+            ]
+        },
+    )
+
+    write_yaml(
+        game_dir / "events.yaml",
+        {
+            "events": [
+                {
+                    "id": "energy_boost",
+                    "title": "Morning Energy",
+                    "when": "meters.player.energy < 50",
+                    "cooldown": 5,
+                    "on_entry": [
+                        {
+                            "type": "meter_change",
+                            "target": "player",
+                            "meter": "energy",
+                            "op": "add",
+                            "value": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "location_event",
+                    "title": "Quad Event",
+                    "when": "meters.player.energy > 30 and location.id == 'campus_quad'",
+                    "on_entry": [
+                        {
+                            "type": "flag_set",
+                            "key": "quad_event_seen",
+                            "value": True
+                        }
+                    ]
+                },
+                {
+                    "id": "random_event_1",
+                    "title": "Random Event 1",
+                    "probability": 67,
+                    "cooldown": 3,
+                    "effects": []
+                },
+                {
+                    "id": "random_event_2",
+                    "title": "Random Event 2",
+                    "probability": 33,
+                    "cooldown": 3,
+                    "effects": []
+                }
+            ],
+            "arcs": [
+                {
+                    "id": "friendship_arc",
+                    "title": "Building Friendship",
+                    "description": "Develop friendships on campus",
+                    "repeatable": False,
+                    "stages": [
+                        {
+                            "id": "meet",
+                            "title": "First Meeting",
+                            "description": "Meet someone new",
+                            "advance_when": "visited_node:intro",
+                            "on_advance": [
+                                {
+                                    "type": "flag_set",
+                                    "key": "arc_stage_meet",
+                                    "value": True
+                                }
+                            ]
+                        },
+                        {
+                            "id": "bond",
+                            "title": "Bonding",
+                            "description": "Form a connection",
+                            "advance_when": "met_friend == true",
+                            "on_advance": [
+                                {
+                                    "type": "flag_set",
+                                    "key": "arc_stage_bond",
+                                    "value": True
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        },
+    )
+
+    return game_dir
+
 
 @pytest.fixture
-async def mock_game_engine(minimal_game_def, mock_ai_service):
-    """Creates a GameEngine with mocked AI service."""
-    engine = GameEngine(minimal_game_def, "test_session")
-    engine.ai_service = mock_ai_service
-
-    # Mock standard AI responses
-    async def mock_generate(*args, **kwargs):
-        return AIResponse(content="Test narrative")
-
-    engine.ai_service.generate = AsyncMock(side_effect=mock_generate)
-    return engine
-
-
-@pytest.fixture
-def sample_game_state():
-    """Provides a sample game state for testing."""
-    from app.core.state_manager import GameState
-    from app.models.location import LocationPrivacy
-
+def sample_game_state() -> GameState:
     state = GameState()
+    state.day = 3
+    state.time_slot = "evening"
+    state.time_hhmm = "19:30"
+    state.weekday = "wednesday"
+
+    state.location_current = "campus_quad"
+    state.zone_current = "campus"
+    state.location_privacy = LocationPrivacy.MEDIUM
+
+    state.present_chars = ["player", "emma"]
+
     state.meters = {
-        "player": {"health": 100, "energy": 75, "money": 50}
+        "player": {"energy": 65, "money": 40},
+        "emma": {"trust": 55, "attraction": 42},
     }
+
     state.flags = {
-        "game_started": True,
-        "tutorial_complete": False
+        "met_emma": True,
+        "invitation_sent": False,
     }
+
     state.inventory = {
-        "player": {"key": 1, "potion": 3}
+        "player": {"coffee": 1, "ticket": 0},
     }
-    state.current_node = "start_node"
-    state.day = 1
-    state.time_slot = "morning"
-    state.time_hhmm = None  # For clock/hybrid modes
-    state.weekday = None  # For calendar system
-    state.location_current = "test_location"
-    state.zone_current = "test_zone"
-    state.location_privacy = LocationPrivacy.LOW  # Add this required field
-    state.present_chars = ["player"]
-    state.memory_log = []
-    state.narrative_history = []
-    state.modifiers = {}  # Add this for modifiers
-    state.clothing_states = {}  # Add this for clothing
-    state.active_arcs = {}  # Add this for arcs
-    state.completed_milestones = []  # Add this for arc milestones
+
+    state.modifiers = {
+        "player": [{"id": "inspired"}],
+        "emma": [],
+    }
+
+    state.clothing_states = {
+        "player": {"layers": {"top": "intact"}, "current_outfit": "campus_ready"}
+    }
+
+    state.active_arcs = {"emma_path": "study_buddies"}
+    state.completed_milestones = ["intro_scene"]
+
+    state.cooldowns = {}
+    state.actions_this_slot = 0
+    state.current_node = "quad_intro"
+    state.turn_count = 5
 
     return state
 
 
 @pytest.fixture
-def temp_game_dir(tmp_path):
-    """Creates a temporary directory structure for game files."""
-    game_dir = tmp_path / "test_game"
-    game_dir.mkdir()
+def wardrobe_game():
+    """Game fixture with complete wardrobe system for clothing tests."""
+    from app.models.wardrobe import WardrobeConfig, Clothing, Outfit, ClothingLook
+    from app.models.characters import Character, ClothingConfig
+    from app.models.game import GameDefinition, MetaConfig, GameStartConfig
+    from app.models.time import TimeConfig
+    from app.models.locations import Zone, Location
+    from app.models.nodes import Node
 
-    # Create minimal game.yaml
-    game_yaml = game_dir / "game.yaml"
-    game_yaml.write_text("""
-meta:
-  id: temp_test
-  title: Temp Test Game
-  authors: [tester]
-start:
-  node: start
-  location:
-    zone: main
-    id: entrance
-includes:
-  - nodes.yaml
-""")
+    # Define clothing items
+    t_shirt = Clothing(
+        id="t_shirt",
+        name="T-shirt",
+        occupies=["top"],
+        look=ClothingLook(intact="a casual t-shirt")
+    )
 
-    # Create minimal nodes.yaml
-    nodes_yaml = game_dir / "nodes.yaml"
-    nodes_yaml.write_text("""
-nodes:
-  - id: start
-    type: normal
-    transitions: []
-""")
+    jeans = Clothing(
+        id="jeans",
+        name="Jeans",
+        occupies=["bottom"],
+        look=ClothingLook(intact="blue jeans")
+    )
 
-    return game_dir
+    dress = Clothing(
+        id="dress",
+        name="Dress",
+        occupies=["top", "bottom"],
+        conceals=["top", "bottom"],
+        can_open=True,
+        look=ClothingLook(
+            intact="a flowy dress",
+            opened="an unbuttoned dress"
+        )
+    )
 
+    jacket = Clothing(
+        id="jacket",
+        name="Jacket",
+        occupies=["top_outer"],
+        conceals=["top"],
+        look=ClothingLook(intact="a leather jacket")
+    )
 
-# Async test markers
-pytest.mark.asyncio_mode = "auto"
+    # Define outfits
+    casual_outfit = Outfit(
+        id="casual",
+        name="Casual Outfit",
+        items=["t_shirt", "jeans"]
+    )
+
+    formal_outfit = Outfit(
+        id="formal",
+        name="Formal Outfit",
+        items=["dress"]
+    )
+
+    # Create wardrobe config
+    wardrobe = WardrobeConfig(
+        items=[t_shirt, jeans, dress, jacket],
+        outfits=[casual_outfit, formal_outfit]
+    )
+
+    # Create character with wardrobe
+    emma = Character(
+        id="emma",
+        name="Emma",
+        age=20,
+        gender="female",
+        clothing=ClothingConfig(outfit="casual"),
+        wardrobe=wardrobe
+    )
+
+    # Create game definition
+    game = GameDefinition(
+        meta=MetaConfig(
+            id="wardrobe_test",
+            title="Wardrobe Test Game",
+            version="1.0.0"
+        ),
+        start=GameStartConfig(
+            node="start",
+            location="room",
+            day=1,
+            slot="morning"
+        ),
+        time=TimeConfig(
+            mode="slots",
+            slots=["morning", "afternoon", "evening"]
+        ),
+        zones=[
+            Zone(
+                id="zone1",
+                name="Zone",
+                locations=[
+                    Location(
+                        id="room",
+                        name="Room",
+                        description="A room."
+                    )
+                ]
+            )
+        ],
+        characters=[emma],
+        nodes=[
+            Node(id="start", type="scene", title="Start")
+        ],
+        wardrobe=wardrobe
+    )
+
+    return game

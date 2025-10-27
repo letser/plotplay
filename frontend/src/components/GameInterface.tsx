@@ -1,27 +1,45 @@
-// frontend/src/components/GameInterface.tsx
 import { useGameStore } from '../stores/gameStore';
+import { useSnapshot, useLocation, useTimeInfo } from '../hooks';
+import { formatLocationName } from '../utils';
+import { ErrorBoundary } from './ErrorBoundary';
 import { NarrativePanel } from './NarrativePanel';
-import { PlayerPanel } from './PlayerPanel'; // Import the new component
+import { PlayerPanel } from './PlayerPanel';
 import { CharacterPanel } from './CharacterPanel';
 import { FlagsPanel } from './FlagsPanel';
 import { ChoicePanel } from './ChoicePanel';
-import {InventoryPanel} from "./InventoryPanel";
+import { InventoryPanel } from './InventoryPanel';
+import { MovementControls } from './MovementControls';
+import { DeterministicControls } from './DeterministicControls';
+import { EconomyPanel } from './EconomyPanel';
 import { DebugPanel } from './DebugPanel';
-import { MapPin, Clock, Calendar, Package } from 'lucide-react';
+import { MapPin, Clock, Calendar, Layers, Shield, Coins } from 'lucide-react';
 
 export const GameInterface = () => {
     const {
         currentGame,
-        narrative,
-        choices,
         gameState,
+        turnLog,
+        choices,
         resetGame
     } = useGameStore();
 
-    if (!gameState) return null;
+    const snapshot = useSnapshot();
+    const location = useLocation();
+    const timeInfo = useTimeInfo();
 
-    // Filter out the 'player' from the list of present characters for the CharacterPanel
-    const presentNPCs = gameState.present_characters.filter(charId => charId !== 'player');
+    // Early return if no snapshot available
+    if (!snapshot || !location || !timeInfo) return null;
+
+    const locationName = location.name;
+    const timeClock = timeInfo.time_hhmm;
+    const dayNumber = timeInfo.day;
+    const zoneName = location.zone ?? 'unknown zone';
+    const privacy = location.privacy;
+
+    // Economy data
+    const economy = gameState?.economy;
+    const playerMoney = economy?.player_money;
+    const currencySymbol = economy?.symbol ?? '$';
 
     return (
         <div className="max-w-7xl mx-auto p-4 pb-24">
@@ -30,22 +48,45 @@ export const GameInterface = () => {
                 <h1 className="text-2xl font-bold">{currentGame?.title}</h1>
 
                 <div className="flex items-center gap-6 text-sm">
+                    {/* Zone */}
+                    <div className="flex items-center gap-2">
+                        <Layers className="w-4 h-4" />
+                        <span>{formatLocationName(zoneName)}</span>
+                    </div>
+
+                    {/* Location */}
                     <div className="flex items-center gap-2">
                         <MapPin className="w-4 h-4" />
-                        <span className="capitalize">{gameState.location.replace('_', ' ')}</span>
+                        <span>{formatLocationName(locationName)}</span>
                     </div>
+
+                    {/* Privacy */}
+                    <div className="flex items-center gap-2">
+                        <Shield className="w-4 h-4" />
+                        <span className="capitalize">{privacy ? formatLocationName(privacy) : '—'}</span>
+                    </div>
+
+                    {/* Day */}
                     <div className="flex items-center gap-2">
                         <Calendar className="w-4 h-4" />
-                        <span>Day {gameState.day}</span>
+                        <span>Day {dayNumber}</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                        <Clock className="w-4 h-4" />
-                        <span className="capitalize">{gameState.time}</span>
-                        {/* Conditionally render HH:MM time */}
-                        {gameState.time_hhmm && (
-                            <span className="text-gray-400 font-mono">({gameState.time_hhmm})</span>
-                        )}
-                    </div>
+
+                    {/* Time (only show in clock/hybrid mode) */}
+                    {timeClock && (
+                        <div className="flex items-center gap-2">
+                            <Clock className="w-4 h-4" />
+                            <span className="font-mono">{timeClock}</span>
+                        </div>
+                    )}
+
+                    {/* Money */}
+                    {playerMoney !== null && playerMoney !== undefined && (
+                        <div className="flex items-center gap-2">
+                            <Coins className="w-4 h-4" />
+                            <span className="font-mono">{currencySymbol}{playerMoney}</span>
+                        </div>
+                    )}
                 </div>
 
                 <button
@@ -59,30 +100,51 @@ export const GameInterface = () => {
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
                 {/* Left Sidebar */}
                 <div className="lg:col-span-1 space-y-4">
-                    <PlayerPanel /> {/* Add the new PlayerPanel */}
+                    <ErrorBoundary fallbackTitle="Error loading player stats">
+                        <PlayerPanel />
+                    </ErrorBoundary>
 
-                    <CharacterPanel
-                        characters={presentNPCs}
-                        characterDetails={gameState.character_details}
-                        meters={gameState.meters}
-                        modifiers={gameState.modifiers}
-                    />
+                    <ErrorBoundary fallbackTitle="Error loading economy">
+                        <EconomyPanel />
+                    </ErrorBoundary>
 
-                    <FlagsPanel />
+                    <ErrorBoundary fallbackTitle="Error loading characters">
+                        <CharacterPanel />
+                    </ErrorBoundary>
 
-                    <InventoryPanel />
+                    <ErrorBoundary fallbackTitle="Error loading flags">
+                        <FlagsPanel />
+                    </ErrorBoundary>
 
+                    <ErrorBoundary fallbackTitle="Error loading inventory">
+                        <InventoryPanel />
+                    </ErrorBoundary>
+
+                    <ErrorBoundary fallbackTitle="Error loading controls">
+                        <DeterministicControls />
+                    </ErrorBoundary>
+
+                    <ErrorBoundary fallbackTitle="Error loading movement">
+                        <MovementControls />
+                    </ErrorBoundary>
                 </div>
 
                 {/* Main Panel */}
                 <div className="lg:col-span-3 space-y-4">
-                    <NarrativePanel narrative={narrative} />
-                    <ChoicePanel choices={choices} />
+                    <ErrorBoundary fallbackTitle="Error loading narrative">
+                        <NarrativePanel entries={turnLog} />
+                    </ErrorBoundary>
+
+                    <ErrorBoundary fallbackTitle="Error loading actions">
+                        <ChoicePanel choices={choices} />
+                    </ErrorBoundary>
                 </div>
             </div>
 
             {/* Debug Panel */}
-            <DebugPanel />
+            <ErrorBoundary fallbackTitle="Error loading debug panel">
+                <DebugPanel />
+            </ErrorBoundary>
         </div>
     );
 };

@@ -3,68 +3,104 @@ PlotPlay main game engine. Handles game logic and state management.
 """
 
 from typing import Any, Literal, cast
-import json
-import re
-import random
 
-from app.core.clothing_manager import ClothingManager
-from app.core.conditions import ConditionEvaluator
-from app.core.event_manager import EventManager
-from app.core.arc_manager import ArcManager
-from app.core.modifier_manager import ModifierManager
-from app.core.inventory_manager import InventoryManager
-from app.core.state_manager import StateManager
-from app.models.action import GameAction
-from app.models.character import Character
-from app.models.effects import (
-    AnyEffect, MeterChangeEffect, FlagSetEffect, GotoNodeEffect,
-    ApplyModifierEffect, RemoveModifierEffect, InventoryChangeEffect,
-    ClothingChangeEffect, MoveToEffect, UnlockEffect, ConditionalEffect, RandomEffect,
-    AdvanceTimeEffect
+from app.engine import (
+    SessionRuntime,
+    TurnManager,
+    EffectResolver,
+    MovementService,
+    TimeService,
+    TimeAdvance,
+    ChoiceService,
+    EventPipeline,
+    NodeService,
+    StateSummaryService,
+    ActionFormatter,
+    PresenceService,
+    DiscoveryService,
+    NarrativeReconciler,
+    InventoryService,
+    ClothingService,
+    ModifierService,
 )
-from app.models.enums import NodeType
+from app.core.conditions import ConditionEvaluator
+from app.models.actions import GameAction
+from app.models.characters import Character
+from app.models.effects import (
+    AnyEffect,
+    InventoryChangeEffect,
+    InventoryTakeEffect,
+    InventoryDropEffect,
+    InventoryGiveEffect,
+    InventoryPurchaseEffect,
+    InventorySellEffect,
+    MeterChangeEffect,
+    FlagSetEffect,
+    ClothingSlotStateEffect,
+    ClothingStateEffect,
+    ClothingPutOnEffect,
+    ClothingTakeOffEffect,
+    MoveEffect,
+    MoveToEffect,
+    TravelToEffect,
+    ApplyModifierEffect,
+    RemoveModifierEffect,
+)
 from app.models.game import GameDefinition
-from app.models.location import Location, LocationConnection, LocationPrivacy
-from app.models.node import Node, Choice
+from app.models.locations import Location, LocationPrivacy
+from app.models.nodes import Node, Choice, NodeType
 from app.services.ai_service import AIService
-from app.services.prompt_builder import PromptBuilder
-from app.core.logger import setup_session_logger
+from app.engine.prompt_builder import PromptBuilder
 
 
 class GameEngine:
     def __init__(self, game_def: GameDefinition, session_id: str):
-        self.game_def = game_def
+        self.runtime = SessionRuntime(game_def, session_id)
+        self.game_def = self.runtime.game
         self.session_id = session_id
-        self.logger = setup_session_logger(session_id)
-        self.state_manager = StateManager(game_def)
-        self.clothing_manager = ClothingManager(game_def, self.state_manager.state)
-        self.arc_manager = ArcManager(game_def)
-        self.event_manager = EventManager(game_def)
-        self.modifier_manager = ModifierManager(game_def, self)
-        self.inventory_manager = InventoryManager(game_def)
+        self.logger = self.runtime.logger
+        self.state_manager = self.runtime.state_manager
+        self.index = self.runtime.index
+
         self.ai_service = AIService()
-        self.prompt_builder = PromptBuilder(game_def, self.clothing_manager)
-        self.nodes_map: dict[str, Node] = {node.id: node for node in self.game_def.nodes}
-        self.actions_map: dict[str, GameAction] = {action.id: action for action in self.game_def.actions}
-        self.characters_map: dict[str, Character] = {char.id: char for char in self.game_def.characters}
-        self.locations_map: dict[str, Location] = {
-            loc.id: loc for zone in self.game_def.zones for loc in zone.locations
-        }
-        self.zones_map = {zone.id: zone for zone in self.game_def.zones}
+
+        self.modifiers = ModifierService(self)
+        self.effect_resolver = EffectResolver(self)
+        self.clothing = ClothingService(self)
+        self.inventory = InventoryService(self)
+        self.movement = MovementService(self)
+        self.time = TimeService(self)
+        self.choices = ChoiceService(self)
+        self.events = EventPipeline(self)
+        self.nodes = NodeService(self)
+        self.state_summary = StateSummaryService(self)
+        self.action_formatter = ActionFormatter(self)
+        self.presence = PresenceService(self)
+        self.discovery = DiscoveryService(self)
+        self.narrative = NarrativeReconciler(self)
+
+        # PromptBuilder must be initialized AFTER clothing service
+        self.prompt_builder = PromptBuilder(self.game_def, self)
+
+        self.nodes_map: dict[str, Node] = dict(self.index.nodes)
+        self.actions_map: dict[str, GameAction] = dict(self.index.actions)
+        self.characters_map: dict[str, Character] = dict(self.index.characters)
+        self.locations_map: dict[str, Location] = dict(self.index.locations)
+        self.zones_map = dict(self.index.zones)
+        self.items_map = dict(self.index.items)
         self.turn_meter_deltas: dict[str, dict[str, float]] = {}
 
-        # --- Seed Initialization ---
-        self.base_seed: int | None = None
-        self.generated_seed: int | None = None
-        if isinstance(self.game_def.rng_seed, int):
-            self.base_seed = self.game_def.rng_seed
-            self.logger.info(f"Using fixed RNG seed from game definition: {self.base_seed}")
-        elif self.game_def.rng_seed == "auto":
-            self.generated_seed = random.randint(0, 2 ** 32 - 1)
-            self.base_seed = self.generated_seed
-            self.logger.info(f"Auto-generated RNG seed for session: {self.base_seed}")
+        self.turn_manager = TurnManager(self)
 
         self.logger.info(f"GameEngine for session {session_id} initialized.")
+
+    @property
+    def base_seed(self) -> int | None:
+        return self.runtime.base_seed
+
+    @property
+    def generated_seed(self) -> int | None:
+        return self.runtime.generated_seed
 
     async def process_action(
             self,
@@ -72,441 +108,42 @@ class GameEngine:
             action_text: str | None = None,
             target: str | None = None,
             choice_id: str | None = None,
-            item_id: str | None = None
+            item_id: str | None = None,
+            skip_ai: bool = False,
     ) -> dict[str, Any]:
-        self.logger.info(f"--- Turn Start ---")
-        self.turn_meter_deltas = {}
-        state = self.state_manager.state
-        current_node = self._get_current_node()
-
-        if current_node.type == NodeType.ENDING:
-            self.logger.warning("Attempted to process action in an ENDING node. Halting turn.")
-            return {
-                "narrative": "The story has concluded.",
-                "choices": [],
-                "current_state": self._get_state_summary()
-            }
-
-        if current_node.present_characters:
-            state.present_chars = [char for char in current_node.present_characters if char in self.characters_map]
-            self.logger.info(f"Set present characters from node '{current_node.id}': {state.present_chars}")
-
-        # Initial action formatting for logging and AI prompts
-        player_action_str = self._format_player_action(action_type, action_text, target, choice_id, item_id)
-        self.logger.info(f"Player Action: {player_action_str}")
-
-        # Handle both local and zone travel
-        if choice_id and (choice_id.startswith("move_") or choice_id.startswith("travel_")):
-            return await self._handle_movement_choice(choice_id)
-        if action_type == "do" and action_text and self._is_movement_action(action_text):
-            return await self._handle_movement(action_text)
-
-        # Pre-AI effects
-        active_events = self.event_manager.get_triggered_events(state, rng_seed=self._get_turn_seed())
-        event_choices = [c for e in active_events for c in e.choices]
-        event_narratives = [event.narrative for event in active_events if event.narrative]
-        for event in active_events:
-            self.apply_effects(event.effects)
-
-        if action_type == "choice" and choice_id:
-            await self._handle_predefined_choice(choice_id, event_choices)
-
-        newly_entered_stages, newly_exited_stages = self.arc_manager.check_and_advance_arcs(state, rng_seed=self._get_turn_seed())
-        for stage in newly_exited_stages:
-            self.apply_effects(stage.effects_on_exit)
-        for stage in newly_entered_stages:
-            self.apply_effects(stage.effects_on_enter)
-            self.apply_effects(stage.effects_on_advance)
-
-        # AI Generation
-        writer_prompt = self.prompt_builder.build_writer_prompt(state, player_action_str, current_node,
-                                                                state.narrative_history, rng_seed=self._get_turn_seed())
-        narrative_from_ai = (await self.ai_service.generate(writer_prompt)).content
-
-        checker_prompt = self.prompt_builder.build_checker_prompt(narrative_from_ai, player_action_str, state)
-        checker_response = await self.ai_service.generate(
-            checker_prompt,
-            model=self.ai_service.settings.checker_model,
-            system_prompt="""You are the PlotPlay Checker - a strict JSON extraction engine. 
-        Extract ONLY concrete state changes and factual memories from the narrative.
-        Output ONLY valid JSON. Never add commentary, explanations, or markdown formatting.
-        Focus on actions that happened, not dialogue or hypotheticals.""",
-            json_mode=True,
-            temperature=0.1  # Lower temperature for consistency
+        return await self.turn_manager.process_action(
+            action_type=action_type,
+            action_text=action_text,
+            target=target,
+            choice_id=choice_id,
+            item_id=item_id,
+            skip_ai=skip_ai,
         )
-
-        state_deltas = {}
-        try:
-            state_deltas = json.loads(checker_response.content)
-            self.logger.info(f"State Deltas Parsed: {json.dumps(state_deltas, indent=2)}")
-
-            # Memory extraction
-            if "memory" in state_deltas:
-                memories = state_deltas.get("memory", [])
-                if isinstance(memories, list):
-                    valid_memories = []
-                    for memory in memories[:2]:  # Max 2 memories per turn
-                        if memory and isinstance(memory, str):
-                            cleaned = memory.strip()
-                            # Validate memory quality - not too short, not too long
-                            if 10 < len(cleaned) < 200:
-                                valid_memories.append(cleaned)
-                            else:
-                                self.logger.warning(f"Skipped invalid memory: {cleaned[:50]}...")
-
-                    # Add valid memories to log
-                    state.memory_log.extend(valid_memories)
-
-                    # Keep last 20 memories
-                    state.memory_log = state.memory_log[-20:]
-
-                    if valid_memories:
-                        self.logger.info(f"Extracted memories: {valid_memories}")
-
-        except json.JSONDecodeError:
-            self.logger.warning(f"Checker AI returned invalid JSON. Content: {checker_response.content}")
-
-        # Handle Gifting Action
-        if action_type == "give" and item_id and target:
-            if target not in state.present_chars:
-                self.logger.warning(f"Player tried to give item to '{target}' who is not present.")
-            else:
-                item_def = self.inventory_manager.item_defs.get(item_id)
-                if item_def and item_def.can_give:
-                    # Apply gift effects
-                    self.apply_effects(item_def.gift_effects)
-                    # Remove item from the player inventory
-                    self.inventory_manager.apply_effect(
-                        InventoryChangeEffect(type="inventory_remove", owner="player", item=item_id, count=1),
-                        self.state_manager.state
-                    )
-                    self.logger.info(f"Player gave item '{item_id}' to '{target}'.")
-                else:
-                    self.logger.warning(f"Player tried to give non-giftable item '{item_id}'.")
-
-        # Post-AI State Updates
-        reconciled_narrative = self._reconcile_narrative(player_action_str, narrative_from_ai, state_deltas, target)
-        self._apply_ai_state_changes(state_deltas)
-        final_narrative = "\n\n".join(event_narratives + [reconciled_narrative])
-        state.narrative_history.append(final_narrative)
-
-        if action_type == "use" and item_id:
-            item_effects = self.inventory_manager.use_item("player", item_id, state)
-            self.apply_effects(item_effects)
-
-        self._check_and_apply_node_transitions()
-        self.modifier_manager.update_modifiers_for_turn(state, rng_seed=self._get_turn_seed())
-        self._update_discoveries()
-
-        # Pass time advancement info to process meter dynamics
-        time_advanced_info = self._advance_time()
-        self.modifier_manager.tick_durations(state, time_advanced_info["minutes_passed"])
-        self._process_meter_dynamics(time_advanced_info)
-        self.event_manager.decrement_cooldowns(state)
-
-        final_node = self._get_current_node()
-        choices = self._generate_choices(final_node, event_choices)
-        final_state_summary = self._get_state_summary()
-        self.logger.info(f"End of Turn State: {json.dumps(final_state_summary, indent=2)}")
-        self.logger.info(f"--- Turn End ---")
-
-        return {"narrative": final_narrative, "choices": choices, "current_state": final_state_summary}
 
     def _update_discoveries(self):
         """Checks for and applies new location discoveries."""
-        state = self.state_manager.state
-        evaluator = ConditionEvaluator(state, rng_seed=self._get_turn_seed())
-
-        for zone in self.game_def.zones:
-            # Check for zone discovery first
-            if zone.discovery_conditions:
-                for condition in zone.discovery_conditions:
-                    if evaluator.evaluate(condition):
-                        # If a zone is discovered, all its non-hidden locations become discovered
-                        for loc in zone.locations:
-                            if loc.id not in state.discovered_locations:
-                                state.discovered_locations.append(loc.id)
-                                self.logger.info(f"Discovered new location '{loc.id}' in zone '{zone.id}'.")
-                        break  # Stop checking conditions for this zone once discovered
-
-            # Check individual locations in already discovered zones
-            for loc in zone.locations:
-                if loc.id not in state.discovered_locations and loc.discovery_conditions:
-                    for condition in loc.discovery_conditions:
-                        if evaluator.evaluate(condition):
-                            state.discovered_locations.append(loc.id)
-                            self.logger.info(f"Discovered new location: '{loc.id}'.")
-                            break
+        self.discovery.refresh()
 
     async def _handle_movement_choice(self, choice_id: str) -> dict[str, Any]:
-        state = self.state_manager.state
-
-        if choice_id.startswith("move_"):
-            # Local movement
-            destination_id = choice_id.replace("move_", "")
-            current_location = self._get_location(state.location_current)
-            if current_location and current_location.connections:
-                for connection in current_location.connections:
-                    if isinstance(connection.to, str) and connection.to == destination_id:
-                        return await self._execute_local_movement(destination_id, connection)
-                    elif isinstance(connection.to, list) and destination_id in connection.to:
-                        return await self._execute_local_movement(destination_id, connection)
-
-        elif choice_id.startswith("travel_"):
-            # Zone travel
-            destination_zone_id = choice_id.replace("travel_", "")
-            current_zone = self.zones_map.get(state.zone_current)
-            if current_zone and current_zone.transport_connections:
-                for connection in current_zone.transport_connections:
-                    if connection.get("to") == destination_zone_id:
-                        return await self._execute_zone_travel(destination_zone_id, connection)
-
-        # Fallback if no valid movement found
-        return {
-            "narrative": "You can't seem to go that way.",
-            "choices": self._generate_choices(self._get_current_node(), []),
-            "current_state": self._get_state_summary()
-        }
-
-    async def _execute_zone_travel(self, destination_zone_id: str, connection: dict) -> dict[str, Any]:
-        """Executes a player-initiated movement between zones."""
-        state = self.state_manager.state
-        move_rules = self.game_def.movement
-
-        # Find the entry point of the destination zone
-        dest_zone = self.zones_map.get(destination_zone_id)
-        if not dest_zone or not dest_zone.locations:
-            return {"narrative": "That area is not yet accessible.",
-                    "choices": self._generate_choices(self._get_current_node(), []),
-                    "current_state": self._get_state_summary()}
-
-        # For simplicity, we'll assume the first location is the entry point
-        destination_location_id = dest_zone.locations[0].id
-
-        # --- Calculate Time Cost ---
-        time_cost_minutes = 15  # Default
-        if move_rules and move_rules.zone_travel:
-            # Simple formula for now, which can be expanded later with DSL evaluation
-            distance = connection.get("distance", 1)
-            base_time = 10  # Placeholder for a more complex formula base
-            time_cost_minutes = base_time * distance
-
-        # --- Update State ---
-        state.location_previous = state.location_current
-        state.zone_current = destination_zone_id
-        state.location_current = destination_location_id
-        state.location_privacy = self._get_location_privacy(destination_location_id)
-
-        state.present_chars = ["player"]  # Companions are left behind for zone travel for now
-        self._advance_time(minutes=time_cost_minutes)
-        self._update_npc_presence()
-
-        new_location = self._get_location(destination_location_id)
-        loc_desc = new_location.description if new_location and isinstance(new_location.description,
-                                                                           str) else "You arrive in a new area."
-
-        final_narrative = f"You travel to {dest_zone.name}.\n\n{loc_desc}"
-        self.logger.info(f"Zone travel to '{destination_zone_id}' completed. Time cost: {time_cost_minutes}m.")
-
-        return {"narrative": final_narrative, "choices": self._generate_choices(self._get_current_node(), []),
-                "current_state": self._get_state_summary()}
-
-    async def _execute_local_movement(self, destination_id: str, connection: LocationConnection) -> dict[str, Any]:
-        """Executes a player-initiated movement between locations."""
-        state = self.state_manager.state
-        evaluator = ConditionEvaluator(state, rng_seed=self._get_turn_seed())
-        move_rules = self.game_def.movement
-
-        # --- Companion Consent Check ---
-        moving_companions = []
-        for char_id in state.present_chars:
-            if char_id == "player": continue
-
-            character_def = self.characters_map.get(char_id)
-            if not character_def or not character_def.movement:
-                # If no rules, assume they stay behind.
-                continue
-
-            is_willing = False
-            for rule in character_def.movement.willing_locations:
-                if rule.get("location") == destination_id and evaluator.evaluate(rule.get("when")):
-                    is_willing = True
-                    break
-
-            if is_willing:
-                moving_companions.append(char_id)
-            else:
-                # Movement is blocked if any present NPC is unwilling to move.
-                refusal_text = character_def.movement.refusal_text.get(
-                    "low_trust") if character_def.movement.refusal_text else "They don't want to go there right now."
-                return {
-                    "narrative": f"{character_def.name} seems hesitant. \"{refusal_text}\"",
-                    "choices": self._generate_choices(self._get_current_node(), []),
-                    "current_state": self._get_state_summary()
-                }
-
-        # --- Movement Cost & Restriction Checks ---
-        if move_rules and move_rules.restrictions:
-            # Check for consciousness
-            if move_rules.restrictions.requires_consciousness:
-                # This is a placeholder for a future "conscious" flag/modifier
-                is_conscious = state.flags.get("is_conscious", True)
-                if not is_conscious:
-                    return {
-                        "narrative": "You are unconscious and cannot move.",
-                        "choices": self._generate_choices(self._get_current_node(), []),
-                        "current_state": self._get_state_summary()
-                    }
-            min_energy = move_rules.restrictions.min_energy or 0
-            if state.meters.get("player", {}).get("energy", 100) < min_energy:
-                return {
-                    "narrative": "You are too exhausted to move.",
-                    "choices": self._generate_choices(self._get_current_node(), []),
-                    "current_state": self._get_state_summary()
-                }
-
-            energy_cost = move_rules.restrictions.energy_cost_per_move or 0
-            self._apply_meter_change(
-                MeterChangeEffect(target="player", meter="energy", op="subtract", value=energy_cost))
-
-        # --- Calculate Time Cost ---
-        time_cost_minutes = 0
-        if move_rules and move_rules.local:
-            base_cost = move_rules.local.base_time or 0
-            modifier = move_rules.local.distance_modifiers.get(connection.distance, 1) if connection.distance else 1
-            time_cost_minutes = base_cost * modifier
-
-        # --- Update State ---
-        state.location_previous = state.location_current
-        state.location_current = destination_id
-        state.location_privacy = self._get_location_privacy(destination_id)
-
-        # Update presence: only player and willing companions are now present
-        state.present_chars = ["player"] + moving_companions
-        self._advance_time(minutes=time_cost_minutes)
-        self._update_npc_presence() #
-
-        new_location = self._get_location(destination_id)
-        loc_desc = new_location.description if new_location and isinstance(new_location.description,
-                                                                           str) else "You arrive."
-
-        npc_names = [self.characters_map[cid].name for cid in state.present_chars if cid in self.characters_map]
-        presence_desc = f"{', '.join(npc_names)} are here." if npc_names else ""
-        final_narrative = f"You move to the {new_location.name}.\n\n{loc_desc}\n\n{presence_desc}".strip()
-
-        self.logger.info(
-            f"Movement from '{state.location_previous}' to '{destination_id}' completed. Time cost: {time_cost_minutes}m, Energy cost: {energy_cost if move_rules else 0}.")
-
-        return {
-            "narrative": final_narrative,
-            "choices": self._generate_choices(self._get_current_node(), []),
-            "current_state": self._get_state_summary()
-        }
-
-    def _advance_time(self, minutes: int | None = None) -> dict[str, bool]:
-        """Advances game time by minutes (for clock/hybrid) or by a single action tick (for slots)."""
-        state = self.state_manager.state
-        time_config = self.game_def.time
-
-        day_advanced = False
-        slot_advanced = False
-
-        original_day = state.day
-        original_slot = state.time_slot
-
-        minutes_passed = 0
-        if time_config.mode in ("hybrid", "clock") and time_config.clock:
-            minutes_passed = minutes if minutes is not None else 10
-            time_cost = minutes_passed
-
-            if time_cost != 0:
-                current_hh, current_mm = map(int, state.time_hhmm.split(':'))
-                total_minutes_today = current_hh * 60 + current_mm
-                total_minutes_today += time_cost
-
-                if total_minutes_today >= time_config.clock.minutes_per_day:
-                    state.day += 1
-                    total_minutes_today %= time_config.clock.minutes_per_day
-
-                new_hh = total_minutes_today // 60
-                new_mm = total_minutes_today % 60
-                state.time_hhmm = f"{new_hh:02d}:{new_mm:02d}"
-
-                if time_config.mode == "hybrid" and time_config.clock.slot_windows:
-                    new_slot_found = False
-                    for slot, window in time_config.clock.slot_windows.items():
-                        start_hh, start_mm = map(int, window.start.split(':'))
-                        end_hh, end_mm = map(int, window.end.split(':'))
-
-                        if start_hh > end_hh:
-                            if (new_hh > start_hh) or (new_hh < end_hh) or (
-                                    new_hh == start_hh and new_mm >= start_mm) or (
-                                    new_hh == end_hh and new_mm <= end_mm):
-                                if state.time_slot != slot:
-                                    state.time_slot = slot
-                                    self.logger.info(f"Time slot advanced to '{slot}'.")
-                                new_slot_found = True
-                                break
-                        else:
-                            if window.start <= state.time_hhmm <= window.end:
-                                if state.time_slot != slot:
-                                    state.time_slot = slot
-                                    self.logger.info(f"Time slot advanced to '{slot}'.")
-                                new_slot_found = True
-                                break
-                    if not new_slot_found:
-                        self.logger.warning(f"Could not find a slot for time {state.time_hhmm}")
-
-                self.logger.info(f"Time advanced by {time_cost} minutes to {state.time_hhmm}.")
-
-        elif time_config.mode == "slots":
-            state.actions_this_slot += 1
-            # In slots mode, we can estimate minutes passed if needed, or just tick by 1 "turn"
-            # For simplicity, let's say one action is roughly 10 minutes.
-            minutes_passed = 10
-            if time_config.slots and state.actions_this_slot >= time_config.actions_per_slot:
-                state.actions_this_slot = 0
-                current_slot_index = time_config.slots.index(state.time_slot)
-                if current_slot_index + 1 < len(time_config.slots):
-                    state.time_slot = time_config.slots[current_slot_index + 1]
-                else:
-                    state.day += 1
-                    state.time_slot = time_config.slots[0]
-                self.logger.info(f"Time slot advanced to '{state.time_slot}'.")
-
-        if state.day > original_day:
-            day_advanced = True
-            # Recalculate weekday when day changes
-            self.state_manager.state.weekday = self.state_manager.calculate_weekday()
-            self.logger.info(
-                f"Day advanced to {self.state_manager.state.day}, weekday is {self.state_manager.state.weekday}")
-
-        if state.time_slot != original_slot:
-            slot_advanced = True
-
-        return {"day_advanced": day_advanced, "slot_advanced": slot_advanced, "minutes_passed": minutes_passed}
-
-
-    def _is_movement_action(self, action_text: str) -> bool:
-        patterns = [r'\b(go|walk|run|head|travel|enter|exit|leave)\b']
-        return any(re.search(pattern, action_text, re.IGNORECASE) for pattern in patterns)
+        """Compatibility wrapper around the movement service."""
+        return await self.movement.handle_choice(choice_id)
 
     async def _handle_movement(self, action_text: str) -> dict[str, Any]:
-        current_location = self._get_location(self.state_manager.state.location_current)
-        if not current_location or not current_location.connections:
-            return {"narrative": "There's nowhere to go from here.", "choices": [],
-                    "current_state": self._get_state_summary()}
+        """Compatibility wrapper around freeform movement handling."""
+        return await self.movement.handle_freeform(action_text)
 
-        action_lower = action_text.lower()
-        for connection in current_location.connections:
-            # Ensure connection.to is not a list
-            if isinstance(connection.to, str):
-                dest_location = self._get_location(connection.to)
-                if dest_location and dest_location.name.lower() in action_lower:
-                    return await self._execute_local_movement(dest_location.id, connection)
+    def _is_movement_action(self, action_text: str) -> bool:
+        return self.movement.is_movement_action(action_text)
 
-        # If no match, defer to general action processing
-        return await self.process_action("do", "look around for exits")
+    def _advance_time(self, minutes: int | None = None) -> dict[str, bool]:
+        """Compatibility wrapper for legacy callers; prefer TimeService.advance."""
+        info = self.time.advance(minutes)
+        return {
+            "day_advanced": info.day_advanced,
+            "slot_advanced": info.slot_advanced,
+            "minutes_passed": info.minutes_passed,
+        }
+
 
     def _update_npc_presence(self):
         """
@@ -514,489 +151,567 @@ class GameEngine:
         current location. This logic assumes schedules determine appearance, but will
         not remove characters who arrived by other means (e.g., following the player).
         """
-        state = self.state_manager.state
-        current_loc = state.location_current
-        evaluator = ConditionEvaluator(state, rng_seed=self._get_turn_seed())
-
-        for char in self.game_def.characters:
-            if char.id == "player" or not char.schedule:
-                continue
-
-            # Check if any schedule rule places the character in the current location
-            for rule in char.schedule:
-                if rule.get("location") == current_loc:
-                    if evaluator.evaluate(rule.get("when")):
-                        if char.id not in state.present_chars:
-                            state.present_chars.append(char.id)
-                            self.logger.info(f"NPC '{char.id}' appeared in '{current_loc}' based on schedule.")
-                        # Found a matching rule, no need to check further for this character
-                        break
+        self.presence.refresh()
 
     def _reconcile_narrative(self, player_action: str, ai_narrative: str, deltas: dict,
                              target_char_id: str | None) -> str:
-        gate_map = {"kiss": "accept_kiss", "sex": "accept_sex", "oral": "accept_oral"}
-        for keyword, gate_id in gate_map.items():
-            if keyword in player_action.lower() and target_char_id:
-                evaluator = ConditionEvaluator(self.state_manager.state, rng_seed=self._get_turn_seed())
-                target_char = self.characters_map.get(target_char_id)
-                if not target_char or not target_char.behaviors: continue
-                gate = next((g for g in target_char.behaviors.gates if g.id == gate_id), None)
-                if not gate: continue
-                condition = gate.when or (
-                    " or ".join(f"({c})" for c in gate.when_any) if gate.when_any else " and ".join(
-                        f"({c})" for c in gate.when_all))
-                if not evaluator.evaluate(condition):
-                    if f"{target_char_id}_first_{keyword}" not in deltas.get("flag_changes", {}):
-                        if target_char.behaviors.refusals:
-                            return target_char.behaviors.refusals.generic or "They are not comfortable with that right now."
-                        return "They are not comfortable with that right now."
-        return ai_narrative
+        return self.narrative.reconcile(player_action, ai_narrative, deltas, target_char_id)
 
     def _apply_ai_state_changes(self, deltas: dict):
+        if not deltas:
+            return
+
+        state = self.state_manager.state
+        effects: list[AnyEffect] = []
+        has_new_schema = any(
+            key in deltas
+            for key in ("meters", "flags", "inventory", "clothing", "movement", "discoveries", "modifiers")
+        )
+
+        # ------------------------------------------------------------------ #
+        # New schema handling
+        # ------------------------------------------------------------------ #
+        meters_payload = deltas.get("meters")
+        if isinstance(meters_payload, dict):
+            for char_id, changes in meters_payload.items():
+                if not isinstance(changes, list):
+                    continue
+                for change in changes:
+                    if not isinstance(change, dict):
+                        continue
+                    meter_id = change.get("meter")
+                    if not meter_id:
+                        continue
+
+                    op: Literal["add", "subtract", "set", "multiply", "divide"] | None = change.get("operation")
+                    value = change.get("value")
+                    delta = change.get("delta")
+
+                    if delta is not None and isinstance(delta, (int, float)) and delta != 0:
+                        op = "add" if delta > 0 else "subtract"
+                        value = abs(delta)
+
+                    if value is None and isinstance(delta, (int, float)):
+                        value = abs(delta)
+                        if delta < 0 and op is None:
+                            op = "subtract"
+
+                    if value is None:
+                        continue
+
+                    if op is None:
+                        op = "add"
+
+                    if op not in {"add", "subtract", "set", "multiply", "divide"}:
+                        self.logger.warning("Checker proposed unknown meter operation '%s' for %s.%s", op, char_id, meter_id)
+                        continue
+
+                    try:
+                        numeric_value = float(value)
+                    except (TypeError, ValueError):
+                        self.logger.warning("Checker meter change value invalid for %s.%s: %s", char_id, meter_id, value)
+                        continue
+
+                    effects.append(
+                        MeterChangeEffect(
+                            target=char_id,
+                            meter=meter_id,
+                            op=op,
+                            value=numeric_value,
+                        )
+                    )
+
+        flags_payload = deltas.get("flags")
+        if isinstance(flags_payload, list):
+            for change in flags_payload:
+                if not isinstance(change, dict):
+                    continue
+                key = change.get("key")
+                if not key:
+                    continue
+                value = change.get("value")
+                effects.append(FlagSetEffect(key=key, value=value))
+
+        inventory_payload = deltas.get("inventory")
+        if isinstance(inventory_payload, list):
+            for change in inventory_payload:
+                if not isinstance(change, dict):
+                    continue
+                op = (change.get("op") or "").lower()
+                item_id = change.get("item")
+                if not op or not item_id:
+                    continue
+                raw_count = change.get("count", 1)
+                try:
+                    count = abs(int(raw_count))
+                except (TypeError, ValueError):
+                    self.logger.warning("Checker inventory count invalid for item '%s': %s", item_id, raw_count)
+                    continue
+                if count <= 0:
+                    count = 1
+                item_type = self.inventory.get_item_type(item_id) or "item"
+
+                match op:
+                    case "add":
+                        owner = change.get("owner") or change.get("to")
+                        if not owner:
+                            continue
+                        legacy = InventoryChangeEffect(type="inventory_add", owner=owner, item=item_id, count=count)
+                        effects.append(legacy)
+                    case "remove":
+                        owner = change.get("owner") or change.get("from")
+                        if not owner:
+                            continue
+                        legacy = InventoryChangeEffect(type="inventory_remove", owner=owner, item=item_id, count=count)
+                        effects.append(legacy)
+                    case "take":
+                        target = change.get("owner") or change.get("to")
+                        if not target:
+                            continue
+                        effects.append(
+                            InventoryTakeEffect(
+                                target=target,
+                                item_type=item_type,
+                                item=item_id,
+                                count=count,
+                            )
+                        )
+                    case "drop":
+                        owner = change.get("owner") or change.get("from")
+                        if not owner:
+                            continue
+                        effects.append(
+                            InventoryDropEffect(
+                                target=owner,
+                                item_type=item_type,
+                                item=item_id,
+                                count=count,
+                            )
+                        )
+                    case "give":
+                        source = change.get("from") or change.get("owner")
+                        target = change.get("to")
+                        if not source or not target:
+                            continue
+                        effects.append(
+                            InventoryGiveEffect(
+                                source=source,
+                                target=target,
+                                item_type=item_type,
+                                item=item_id,
+                                count=count,
+                            )
+                        )
+                    case "purchase":
+                        buyer = change.get("buyer") or change.get("owner") or "player"
+                        seller = change.get("seller") or change.get("from") or self.state_manager.state.location_current
+                        price = change.get("price")
+                        effects.append(
+                            InventoryPurchaseEffect(
+                                target=buyer,
+                                source=seller,
+                                item_type=item_type,
+                                item=item_id,
+                                count=count,
+                                price=price,
+                            )
+                        )
+                    case "sell":
+                        seller = change.get("seller") or change.get("owner") or "player"
+                        buyer = change.get("buyer") or change.get("to") or state.location_current
+                        price = change.get("price")
+                        effects.append(
+                            InventorySellEffect(
+                                source=seller,
+                                target=buyer,
+                                item_type=item_type,
+                                item=item_id,
+                                count=count,
+                                price=price,
+                            )
+                        )
+                    case _:
+                        self.logger.warning("Checker proposed unknown inventory op '%s'", op)
+
+        clothing_payload = deltas.get("clothing")
+        if isinstance(clothing_payload, list):
+            for change in clothing_payload:
+                if not isinstance(change, dict):
+                    continue
+                target = change.get("character")
+                if not target:
+                    continue
+                action_type = (change.get("type") or "").lower()
+                slot = change.get("slot")
+                item = change.get("item")
+                slot_state = change.get("state")
+
+                if action_type == "put_on" and item:
+                    effects.append(ClothingPutOnEffect(target=target, item=item, state=slot_state))
+                elif action_type == "take_off" and item:
+                    effects.append(ClothingTakeOffEffect(target=target, item=item))
+                elif action_type == "item_state" and item and slot_state:
+                    effects.append(ClothingStateEffect(target=target, item=item, state=slot_state))
+                elif slot and slot_state:
+                    effects.append(ClothingSlotStateEffect(target=target, slot=slot, state=slot_state))
+
+        movement_payload = deltas.get("movement")
+        if isinstance(movement_payload, list):
+            for change in movement_payload:
+                if not isinstance(change, dict):
+                    continue
+                move_type = (change.get("type") or "").lower()
+                companions = change.get("with") or []
+
+                if move_type == "move":
+                    direction = change.get("direction")
+                    if direction:
+                        effects.append(MoveEffect(direction=direction, with_characters=companions))
+                elif move_type == "move_to":
+                    location = change.get("location")
+                    if location:
+                        effects.append(MoveToEffect(location=location, with_characters=companions))
+                elif move_type == "travel_to":
+                    location = change.get("location")
+                    methods = self.game_def.movement.methods if self.game_def.movement else []
+                    fallback_method = methods[0].name if methods else "walk"
+                    method = change.get("method") or fallback_method
+                    if location and method:
+                        effects.append(TravelToEffect(location=location, method=method, with_characters=companions))
+
+        discoveries_payload = deltas.get("discoveries")
+        if isinstance(discoveries_payload, dict):
+            if locations := discoveries_payload.get("locations"):
+                for location_id in locations:
+                    if location_id and location_id not in state.discovered_locations:
+                        state.discovered_locations.append(location_id)
+            if zones := discoveries_payload.get("zones"):
+                for zone_id in zones:
+                    if zone_id and zone_id not in state.discovered_zones:
+                        state.discovered_zones.append(zone_id)
+            if actions := discoveries_payload.get("actions"):
+                for action_id in actions:
+                    if action_id and action_id not in state.unlocked_actions:
+                        state.unlocked_actions.append(action_id)
+            if endings := discoveries_payload.get("endings"):
+                for ending_id in endings:
+                    if ending_id and ending_id not in state.unlocked_endings:
+                        state.unlocked_endings.append(ending_id)
+            if outfits := discoveries_payload.get("outfits"):
+                if isinstance(outfits, dict):
+                    for char_id, outfit_ids in outfits.items():
+                        unlocked = state.unlocked_outfits.setdefault(char_id, [])
+                        for outfit_id in outfit_ids or []:
+                            if outfit_id and outfit_id not in unlocked:
+                                unlocked.append(outfit_id)
+                elif isinstance(outfits, list):
+                    unlocked = state.unlocked_outfits.setdefault("player", [])
+                    for outfit_id in outfits:
+                        if outfit_id and outfit_id not in unlocked:
+                            unlocked.append(outfit_id)
+            if nodes := discoveries_payload.get("nodes"):
+                for node_id in nodes:
+                    if node_id and node_id not in state.visited_nodes:
+                        state.visited_nodes.append(node_id)
+
+        modifiers_payload = deltas.get("modifiers")
+        if isinstance(modifiers_payload, dict):
+            for addition in modifiers_payload.get("add", []) or []:
+                if not isinstance(addition, dict):
+                    continue
+                modifier_id = addition.get("modifier")
+                target = addition.get("target")
+                if not modifier_id or not target:
+                    continue
+                duration = addition.get("duration")
+                effects.append(
+                    ApplyModifierEffect(
+                        target=target,
+                        modifier_id=modifier_id,
+                        duration=duration,
+                    )
+                )
+            for removal in modifiers_payload.get("remove", []) or []:
+                if not isinstance(removal, dict):
+                    continue
+                modifier_id = removal.get("modifier")
+                target = removal.get("target")
+                if not modifier_id or not target:
+                    continue
+                effects.append(
+                    RemoveModifierEffect(
+                        target=target,
+                        modifier_id=modifier_id,
+                    )
+                )
+
+        if has_new_schema:
+            if effects:
+                self.effect_resolver.apply_effects(effects)
+            return
+
+        # ------------------------------------------------------------------ #
+        # Legacy fallback for older checker payloads
+        # ------------------------------------------------------------------ #
         if meter_changes := deltas.get("meter_changes"):
             for char_id, meters in meter_changes.items():
                 for meter, value in meters.items():
-                    self._apply_meter_change(MeterChangeEffect(target=char_id, meter=meter, op="add", value=value))
+                    self.effect_resolver.apply_meter_change(
+                        MeterChangeEffect(target=char_id, meter=meter, op="add", value=value)
+                    )
         if flag_changes := deltas.get("flag_changes"):
             for key, value in flag_changes.items():
-                self._apply_flag_set(FlagSetEffect(key=key, value=value))
+                self.effect_resolver.apply_flag_set(FlagSetEffect(key=key, value=value))
         if inventory_changes := deltas.get("inventory_changes"):
             for owner_id, items in inventory_changes.items():
-                effect_type = cast(Literal["inventory_add", "inventory_remove"],
-                                   "inventory_add" if items.get(list(items.keys())[0], 0) > 0 else "inventory_remove")
+                effect_type = cast(
+                    Literal["inventory_add", "inventory_remove"],
+                    "inventory_add" if items.get(list(items.keys())[0], 0) > 0 else "inventory_remove",
+                )
                 for item_id, count in items.items():
                     effect = InventoryChangeEffect(type=effect_type, owner=owner_id, item=item_id, count=abs(count))
-                    self.inventory_manager.apply_effect(effect, self.state_manager.state)
+                    self.inventory.apply_effect(effect)
         if clothing_changes := deltas.get("clothing_changes"):
-            self.clothing_manager.apply_ai_changes(clothing_changes)
+            self.clothing.apply_ai_changes(clothing_changes)
+
+    # ------------------------------------------------------------------ #
+    # Deterministic helpers
+    # ------------------------------------------------------------------ #
+    def _describe_item(self, item_id: str) -> str:
+        item_def = self.inventory.get_item_definition(item_id)
+        if item_def and getattr(item_def, "name", None):
+            return item_def.name
+        return item_id
+
+    def _describe_owner(self, owner_id: str | None) -> str:
+        if not owner_id or owner_id == self.state_manager.state.location_current:
+            current_location = self.locations_map.get(self.state_manager.state.location_current)
+            return current_location.name if current_location else "the area"
+        if owner_id == "player":
+            return "you"
+        if owner_id in self.characters_map:
+            return self.characters_map[owner_id].name
+        if owner_id in self.locations_map:
+            return self.locations_map[owner_id].name
+        return owner_id
+
+    def purchase_item(
+        self,
+        buyer: str,
+        seller: str | None,
+        item_id: str,
+        *,
+        count: int = 1,
+        price: float | None = None,
+    ) -> tuple[bool, str]:
+        item_type = self.inventory.get_item_type(item_id)
+        if not item_type:
+            return False, f"Item '{item_id}' is not available."
+
+        state = self.state_manager.state
+        buyer_inventory = state.inventory.get(buyer, {})
+        before_count = buyer_inventory.get(item_id, 0)
+        before_money = state.meters.get(buyer, {}).get("money") if buyer in state.meters else None
+
+        effect = InventoryPurchaseEffect(
+            target=buyer,
+            source=seller or state.location_current,
+            item_type=item_type,
+            item=item_id,
+            count=count,
+            price=price,
+        )
+        self.effect_resolver.apply_effects([effect])
+
+        after_count = state.inventory.get(buyer, {}).get(item_id, 0)
+        after_money = state.meters.get(buyer, {}).get("money") if buyer in state.meters else None
+
+        if after_count <= before_count:
+            return False, "Purchase could not be completed."
+
+        spent = None
+        if before_money is not None and after_money is not None:
+            spent = before_money - after_money
+
+        seller_label = self._describe_owner(seller or state.location_current)
+        item_label = self._describe_item(item_id)
+        message = f"You purchase {count}x {item_label} from {seller_label}."
+        if spent is not None:
+            message += f" It costs {spent:.2f}."
+        return True, message
+
+    def sell_item(
+        self,
+        seller: str,
+        buyer: str | None,
+        item_id: str,
+        *,
+        count: int = 1,
+        price: float | None = None,
+    ) -> tuple[bool, str]:
+        item_type = self.inventory.get_item_type(item_id)
+        if not item_type:
+            return False, f"Item '{item_id}' is not available."
+
+        state = self.state_manager.state
+        seller_inventory = state.inventory.get(seller, {})
+        before_count = seller_inventory.get(item_id, 0)
+        before_money = state.meters.get(seller, {}).get("money") if seller in state.meters else None
+
+        effect = InventorySellEffect(
+            source=seller,
+            target=buyer or state.location_current,
+            item_type=item_type,
+            item=item_id,
+            count=count,
+            price=price,
+        )
+        self.effect_resolver.apply_effects([effect])
+
+        after_count = state.inventory.get(seller, {}).get(item_id, 0)
+        after_money = state.meters.get(seller, {}).get("money") if seller in state.meters else None
+
+        if after_count >= before_count:
+            return False, "Sale could not be completed."
+
+        earned = None
+        if before_money is not None and after_money is not None:
+            earned = after_money - before_money
+
+        buyer_label = self._describe_owner(buyer or state.location_current)
+        item_label = self._describe_item(item_id)
+        message = f"You sell {count}x {item_label} to {buyer_label}."
+        if earned is not None:
+            message += f" You receive {earned:.2f}."
+        return True, message
+
+    def give_item(
+        self,
+        source: str,
+        target: str,
+        item_id: str,
+        *,
+        count: int = 1,
+    ) -> tuple[bool, str]:
+        item_type = self.inventory.get_item_type(item_id)
+        if not item_type:
+            return False, f"Item '{item_id}' is not available."
+
+        state = self.state_manager.state
+        before_source = state.inventory.get(source, {}).get(item_id, 0)
+        before_target = state.inventory.get(target, {}).get(item_id, 0)
+
+        effect = InventoryGiveEffect(
+            source=source,
+            target=target,
+            item_type=item_type,
+            item=item_id,
+            count=count,
+        )
+        self.effect_resolver.apply_effects([effect])
+
+        after_source = state.inventory.get(source, {}).get(item_id, 0)
+        after_target = state.inventory.get(target, {}).get(item_id, 0)
+
+        if after_source >= before_source or after_target <= before_target:
+            return False, "Gift could not be completed."
+
+        item_label = self._describe_item(item_id)
+        target_label = self._describe_owner(target)
+        message = f"You hand {count}x {item_label} to {target_label}."
+        return True, message
+
+    def take_item(
+        self,
+        target: str,
+        item_id: str,
+        *,
+        count: int = 1,
+    ) -> tuple[bool, str]:
+        item_type = self.inventory.get_item_type(item_id)
+        if not item_type:
+            return False, f"Item '{item_id}' is not available."
+
+        state = self.state_manager.state
+        location_id = state.location_current
+        location_inventory = state.location_inventory.get(location_id, {})
+        before_location = location_inventory.get(item_id, 0)
+        before_target = state.inventory.get(target, {}).get(item_id, 0)
+
+        effect = InventoryTakeEffect(
+            target=target,
+            item_type=item_type,
+            item=item_id,
+            count=count,
+        )
+        self.effect_resolver.apply_effects([effect])
+
+        after_location = state.location_inventory.get(location_id, {}).get(item_id, 0)
+        after_target = state.inventory.get(target, {}).get(item_id, 0)
+
+        if before_location == after_location or after_target <= before_target:
+            return False, "Nothing to take here."
+
+        item_label = self._describe_item(item_id)
+        location_label = self._describe_owner(location_id)
+        message = f"You take {count}x {item_label} from {location_label}."
+        return True, message
+
+    def drop_item(
+        self,
+        source: str,
+        item_id: str,
+        *,
+        count: int = 1,
+    ) -> tuple[bool, str]:
+        item_type = self.inventory.get_item_type(item_id)
+        if not item_type:
+            return False, f"Item '{item_id}' is not available."
+
+        state = self.state_manager.state
+        location_id = state.location_current
+        before_source = state.inventory.get(source, {}).get(item_id, 0)
+        before_location = state.location_inventory.get(location_id, {}).get(item_id, 0)
+
+        effect = InventoryDropEffect(
+            target=source,
+            item_type=item_type,
+            item=item_id,
+            count=count,
+        )
+        self.effect_resolver.apply_effects([effect])
+
+        after_source = state.inventory.get(source, {}).get(item_id, 0)
+        after_location = state.location_inventory.get(location_id, {}).get(item_id, 0)
+
+        if after_source >= before_source or after_location <= before_location:
+            return False, "Drop could not be completed."
+
+        item_label = self._describe_item(item_id)
+        location_label = self._describe_owner(location_id)
+        message = f"You drop {count}x {item_label} at {location_label}."
+        return True, message
 
     def _format_player_action(self, action_type, action_text, target, choice_id, item_id) -> str:
-        if action_type == 'use' and item_id:
-            item_def = self.inventory_manager.item_defs.get(item_id)
-            return item_def.use_text if item_def and item_def.use_text else f"Player uses {item_id}."
-        elif action_type == 'choice' and choice_id:
-            all_choices = self._get_current_node().choices + self._get_current_node().dynamic_choices
-            # Also check unlocked actions
-            unlocked_action_defs = [self.actions_map.get(act_id) for act_id in self.state_manager.state.unlocked_actions
-                                    if act_id in self.actions_map]
-
-            choice = next((c for c in all_choices if c.id == choice_id), None)
-            if choice:
-                return f"Player chooses to: '{choice.prompt}'"
-
-            action = next((a for a in unlocked_action_defs if a.id == choice_id), None)
-            if action:
-                return f"Player chooses to: '{action.prompt}'"
-
-            return f"Player chooses action: '{choice_id}'"
-
-        elif action_type == 'say':
-            return f"Player says to {target or 'everyone'}: \"{action_text}\""
-        return f"Player action: {action_text}"
+        return self.action_formatter.format(action_type, action_text, target, choice_id, item_id)
 
     def _check_and_apply_node_transitions(self):
-        evaluator = ConditionEvaluator(self.state_manager.state, rng_seed=self._get_turn_seed())
-        current_node = self._get_current_node()
-
-        for transition in current_node.transitions:
-            if evaluator.evaluate(transition.when):
-                target_node = self.nodes_map.get(transition.to)
-                if not target_node:
-                    self.logger.warning(
-                        f"Transition in node '{current_node.id}' points to non-existent node '{transition.to}'.")
-                    continue
-
-                # Check for Ending Unlock
-                if target_node.type == NodeType.ENDING:
-                    if not target_node.ending_id or target_node.ending_id not in self.state_manager.state.unlocked_endings:
-                        self.logger.info(
-                            f"Transition to ending node '{target_node.id}' blocked: ending '{target_node.ending_id}' is not unlocked.")
-                        continue  # Skip this transition
-
-                self.state_manager.state.current_node = transition.to
-                self.logger.info(
-                    f"Transitioning from '{current_node.id}' to '{transition.to}' because '{transition.when}' was true.")
-                return  # Stop after the first valid transition
+        self.nodes.apply_transitions()
 
     async def _handle_predefined_choice(self, choice_id: str, event_choices: list[Choice]):
         # Check node and event choices
-        current_node = self._get_current_node()
-        all_choices = event_choices + current_node.choices + current_node.dynamic_choices
-        found_choice = next((c for c in all_choices if c.id == choice_id), None)
-        if found_choice:
-            if found_choice.effects: self.apply_effects(found_choice.effects)
-            if found_choice.goto: self.state_manager.state.current_node = found_choice.goto
+        handled = await self.nodes.handle_predefined_choice(choice_id, event_choices)
+        if handled:
             return
-
-        # Check unlocked actions
-        if choice_id in self.state_manager.state.unlocked_actions:
-            action_def = self.actions_map.get(choice_id)
-            if action_def:
-                if action_def.effects: self.apply_effects(action_def.effects)
-                # Unlocked actions do not have a 'goto'
 
     def apply_effects(self, effects: list[AnyEffect]):
-        evaluator = ConditionEvaluator(self.state_manager.state, rng_seed=self._get_turn_seed())
-        for effect in effects:
-            # First, identify and process container-like effects that have their own internal logic.
-            if isinstance(effect, ConditionalEffect):
-                self._apply_conditional_effect(effect)
-                continue  # Skip to the next effect in the list
-
-            # For all other "simple" effects, evaluate their 'when' clause before applying.
-            if evaluator.evaluate(effect.when):
-                match effect:
-                    case RandomEffect():
-                        self._apply_random_effect(effect)
-                    case MeterChangeEffect():
-                        self._apply_meter_change(effect)
-                    case FlagSetEffect():
-                        self._apply_flag_set(effect)
-                    case GotoNodeEffect():
-                        self._apply_goto_node(effect)
-                    case MoveToEffect():
-                        self._apply_move_to(effect)
-                    case InventoryChangeEffect():
-                        self.inventory_manager.apply_effect(effect, self.state_manager.state)
-                    case ClothingChangeEffect():
-                        self.clothing_manager.apply_effect(effect)
-                    case ApplyModifierEffect() | RemoveModifierEffect():
-                        self.modifier_manager.apply_effect(effect, self.state_manager.state)
-                    case UnlockEffect():
-                        self._apply_unlock(effect)
-                    case AdvanceTimeEffect():
-                        self._apply_advance_time(effect)
-
-    def _apply_conditional_effect(self, effect: ConditionalEffect):
-        """Applies a conditional effect."""
-        evaluator = ConditionEvaluator(self.state_manager.state, rng_seed=self._get_turn_seed())
-        if evaluator.evaluate(effect.when):
-            self.apply_effects(effect.then)
-        else:
-            self.apply_effects(effect.otherwise)
-
-    def _apply_random_effect(self, effect: RandomEffect):
-        """Applies a random effect."""
-        total_weight = sum(choice.weight for choice in effect.choices)
-        if total_weight <= 0:
-            return
-
-        roll = random.Random(self._get_turn_seed()).uniform(0, total_weight)
-        current_weight = 0
-        for choice in effect.choices:
-            current_weight += choice.weight
-            if roll <= current_weight:
-                self.apply_effects(choice.effects)
-                return
-
-    def _apply_unlock(self, effect: UnlockEffect):
-        """Dispatches unlock effects to their specific handlers."""
-        if effect.type == "unlock_outfit":
-            self._apply_unlock_outfit(effect)
-        elif effect.type == "unlock_ending":
-            self._apply_unlock_ending(effect)
-        elif effect.type == "unlock_actions":
-            self._apply_unlock_actions(effect)
-
-    def _apply_unlock_outfit(self, effect: UnlockEffect):
-        """Applies an unlock_outfit effect."""
-        if not effect.character or not effect.outfit:
-            self.logger.warning(f"Invalid unlock_outfit effect: missing character or outfit. Effect: {effect}")
-            return
-
-        char_unlocks = self.state_manager.state.unlocked_outfits.setdefault(effect.character, [])
-        if effect.outfit not in char_unlocks:
-            char_unlocks.append(effect.outfit)
-            self.logger.info(f"Unlocked outfit '{effect.outfit}' for character '{effect.character}'.")
-
-    def _apply_unlock_ending(self, effect: UnlockEffect):
-        """Applies an unlock_ending effect."""
-        if not effect.ending:
-            self.logger.warning(f"Invalid unlock_ending effect: missing ending ID. Effect: {effect}")
-            return
-
-        if effect.ending not in self.state_manager.state.unlocked_endings:
-            self.state_manager.state.unlocked_endings.append(effect.ending)
-            self.logger.info(f"Unlocked ending '{effect.ending}'.")
-
-    def _apply_unlock_actions(self, effect: UnlockEffect):
-        """Applies an unlock_actions effect."""
-        if not effect.actions:
-            self.logger.warning(f"Invalid unlock_actions effect: missing actions list. Effect: {effect}")
-            return
-
-        for action_id in effect.actions:
-            if action_id not in self.state_manager.state.unlocked_actions:
-                self.state_manager.state.unlocked_actions.append(action_id)
-                self.logger.info(f"Unlocked action '{action_id}'.")
-
-    def _apply_move_to(self, effect: MoveToEffect):
-        """Applies a move_to effect and updates character presence."""
-
-        # Ignore unknown or locked locations
-        if effect.location not in self.state_manager.state.discovered_locations:
-            return
-
-        # Collect characters provided by effect from the current location
-        chars_to_move = [char for char in effect.with_characters if char in self.state_manager.state.present_chars]
-
-        self.state_manager.state.location_current = effect.location
-        self.state_manager.state.location_privacy = self._get_location_privacy(effect.location)
-
-        self._update_npc_presence()
-
-        # Force characters provided by effect to be in the current location
-        current_node = self._get_current_node()
-        current_node.present_characters.extend(chars_to_move)
-
-        # After moving, immediately check the destination node for characters
-        if current_node.present_characters:
-            self.state_manager.state.present_chars = [
-                char for char in current_node.present_characters if char in self.characters_map
-            ]
-
-    def _apply_meter_change(self, effect: MeterChangeEffect):
-        """Applies a meter change, respecting turn-based delta caps."""
-        target_meters = self.state_manager.state.meters.get(effect.target)
-        if target_meters is None:
-            return
-
-        meter_def = self._get_meter_def(effect.target, effect.meter)
-
-        # Just exit if the meter does not exist
-        if meter_def is None:
-            return
-
-        value_to_apply = effect.value
-        op_to_apply = effect.op
-
-        # --- Delta Cap Logic ---
-        if meter_def and meter_def.delta_cap_per_turn is not None:
-            cap = meter_def.delta_cap_per_turn
-            self.turn_meter_deltas.setdefault(effect.target, {}).setdefault(effect.meter, 0)
-            current_turn_delta = self.turn_meter_deltas[effect.target][effect.meter]
-            remaining_cap = cap - abs(current_turn_delta)
-
-            if remaining_cap <= 0:
-                self.logger.warning(f"Meter change for '{effect.target}.{effect.meter}' blocked by delta cap.")
-                return
-
-            if op_to_apply in ["add", "subtract"]:
-                change_sign = 1 if op_to_apply == "add" else -1
-                actual_change = max(-remaining_cap, min(remaining_cap, value_to_apply * change_sign))
-
-                value_to_apply = abs(actual_change)
-                op_to_apply = "add" if actual_change > 0 else "subtract"
-
-                self.turn_meter_deltas[effect.target][effect.meter] += actual_change
-
-        # --- Apply the change ---
-        current_value = target_meters.get(effect.meter, 0)
-        op_map = {
-            "add": lambda a, b: a + b,
-            "subtract": lambda a, b: a - b,
-            "multiply": lambda a, b: a * b,
-            "divide": lambda a, b: a / b if b != 0 else a,
-            "set": lambda a, b: b}
-
-        if operation := op_map.get(op_to_apply):
-            new_value = operation(current_value, value_to_apply)
-
-            effective_min = meter_def.min if meter_def else new_value
-            effective_max = meter_def.max if meter_def else new_value
-
-            active_modifiers = self.state_manager.state.modifiers.get(effect.target, [])
-            for mod_state in active_modifiers:
-                mod_def = self.modifier_manager.library.get(mod_state['id'])
-                if mod_def and mod_def.clamp_meters:
-                    if meter_clamp := mod_def.clamp_meters.get(effect.meter):
-                        if 'min' in meter_clamp:
-                            effective_min = max(effective_min, meter_clamp['min'])
-                        if 'max' in meter_clamp:
-                            effective_max = min(effective_max, meter_clamp['max'])
-
-            new_value = max(effective_min, min(new_value, effective_max))
-            target_meters[effect.meter] = new_value
-
-    def _apply_flag_set(self, effect: FlagSetEffect):
-        if effect.key in self.state_manager.state.flags:
-            self.state_manager.state.flags[effect.key] = effect.value
-
-    def _apply_goto_node(self, effect: GotoNodeEffect):
-        if effect.node in self.nodes_map:
-            self.state_manager.state.current_node = effect.node
-
-    def _apply_advance_time(self, effect: AdvanceTimeEffect):
-        """Applies an advance_time effect by calling the main time function."""
-        self.logger.info(f"Applying AdvanceTimeEffect: {effect.minutes} minutes.")
-        self._advance_time(minutes=effect.minutes)
+        self.effect_resolver.apply_effects(effects)
 
     def _generate_choices(self, node: Node, event_choices: list[Choice]) -> list[dict[str, Any]]:
-        evaluator = ConditionEvaluator(self.state_manager.state, rng_seed=self._get_turn_seed())
-        available_choices = []
-
-        active_choices = event_choices if event_choices else node.choices
-        for choice in active_choices:
-            if evaluator.evaluate(choice.conditions):
-                available_choices.append({"id": choice.id, "text": choice.prompt, "type": "node_choice"})
-
-        # Add dynamic choices if their conditions are met
-        for choice in node.dynamic_choices:
-            if evaluator.evaluate(choice.conditions):
-                available_choices.append({"id": choice.id, "text": choice.prompt, "type": "node_choice"})
-
-        # Add Unlocked Actions
-        for action_id in self.state_manager.state.unlocked_actions:
-            if action_def := self.actions_map.get(action_id):
-                if evaluator.evaluate(action_def.conditions):
-                    available_choices.append({
-                        "id": action_def.id,
-                        "text": action_def.prompt,
-                        "type": "unlocked_action"
-                    })
-
-        # Local Movement Choices
-        current_location = self._get_location(self.state_manager.state.location_current)
-        if current_location and current_location.connections:
-            for connection in current_location.connections:
-                targets = [connection.to] if isinstance(connection.to, str) else connection.to
-                for target_id in targets:
-                    if target_id not in self.state_manager.state.discovered_locations:
-                        continue
-                    dest_location = self._get_location(target_id)
-                    if dest_location:
-                        choice = {"id": f"move_{dest_location.id}", "text": f"Go to {dest_location.name}",
-                                  "type": "movement", "disabled": False}
-                        if dest_location.access and dest_location.access.locked:
-                            if not evaluator.evaluate(dest_location.access.unlocked_when):
-                                choice["disabled"] = True
-                        available_choices.append(choice)
-
-        # Zone Travel Choices
-        current_zone = self.zones_map.get(self.state_manager.state.zone_current)
-        if current_zone and current_zone.transport_connections:
-            for connection in current_zone.transport_connections:
-                dest_zone_id = connection.get("to")
-                if dest_zone := self.zones_map.get(dest_zone_id):
-                    if dest_zone.discovered:
-                        # For simplicity, we'll use the first travel method listed
-                        method = connection.get("methods", ["travel"])[0]
-                        choice = {
-                            "id": f"travel_{dest_zone.id}",
-                            "text": f"Take the {method} to {dest_zone.name}",
-                            "type": "movement",
-                            "disabled": not dest_zone.accessible
-                        }
-                        available_choices.append(choice)
-
-        return available_choices
+        return self.choices.build(node, event_choices)
 
     def _get_state_summary(self) -> dict[str, Any]:
-        state = self.state_manager.state
-        evaluator = ConditionEvaluator(state, rng_seed=self._get_turn_seed())
-
-        summary_meters = {}
-        for char_id, meter_values in state.meters.items():
-            summary_meters[char_id] = {}
-            if char_id == "player":
-                meter_defs = self.game_def.meters.get("player", {})
-            else:
-                meter_defs = self.game_def.meters.get("character_template", {})
-
-            for meter_id, value in meter_values.items():
-                definition = meter_defs.get(meter_id)
-                if definition:
-                    if definition.visible:
-                        summary_meters[char_id][meter_id] = {
-                            "value": int(value),
-                            "min": definition.min,
-                            "max": definition.max,
-                            "icon": definition.icon,
-                            "visible": definition.visible
-                        }
-                else:
-                    char_def = self.characters_map.get(char_id)
-                    if char_def and char_def.meters and meter_id in char_def.meters:
-                        definition = char_def.meters[meter_id]
-                        if definition.visible:
-                            summary_meters[char_id][meter_id] = {
-                                "value": int(value),
-                                "min": definition.min,
-                                "max": definition.max,
-                                "icon": definition.icon,
-                                "visible": definition.visible
-                            }
-
-        summary_flags = {}
-        # Combine global and character flags for evaluation
-        all_flag_defs = self.game_def.flags.copy() if self.game_def.flags else {}
-        for char in self.game_def.characters:
-            if char.flags:
-                for key, flag_def in char.flags.items():
-                    all_flag_defs[f"{char.id}.{key}"] = flag_def
-
-        if all_flag_defs:
-            for flag_id, flag_def in all_flag_defs.items():
-                # A flag is sent to the frontend if it's either explicitly visible
-                # or if its reveal_when condition is met.
-                if flag_def.visible or evaluator.evaluate(flag_def.reveal_when):
-                    summary_flags[flag_id] = {
-                        "value": state.flags.get(flag_id, flag_def.default),
-                        "label": flag_def.label or flag_id
-                    }
-
-
-        summary_modifiers = {}
-        for char_id, active_mods in state.modifiers.items():
-            if active_mods:
-                summary_modifiers[char_id] = [
-                    self.modifier_manager.library[mod['id']].model_dump()
-                    for mod in active_mods if mod['id'] in self.modifier_manager.library
-                ]
-
-        character_details = {}
-        for char_id in state.present_chars:
-            if char_def := self.characters_map.get(char_id):
-                character_details[char_id] = {
-                    "name": char_def.name,
-                    "pronouns": char_def.pronouns,
-                    "wearing": self.clothing_manager.get_character_appearance(char_id)
-                }
-
-        # Add player-specific details, including their clothing
-        player_char_def = self.characters_map.get("player")
-        player_details = {
-            "name": "You",
-            "pronouns": player_char_def.pronouns if player_char_def else ["you"],
-            "wearing": self.clothing_manager.get_character_appearance("player")
-        }
-
-        player_inventory_details = {}
-        if player_inv := state.inventory.get("player"):
-            for item_id, count in player_inv.items():
-                if count > 0 and (item_def := self.inventory_manager.item_defs.get(item_id)):
-                    player_inventory_details[item_id] = item_def.model_dump()
-
-        summary = {
-            'day': state.day,
-            'time': state.time_slot,
-            'location': self.locations_map.get(
-                state.location_current).name if state.location_current in self.locations_map else state.location_current,
-            'present_characters': state.present_chars,
-            'character_details': character_details,
-            'player_details': player_details,
-            'meters': summary_meters,
-            'inventory': state.inventory.get("player", {}),
-            'inventory_details': player_inventory_details,
-            'flags': summary_flags,
-            'modifiers': summary_modifiers
-        }
-
-        # Add time_hhmm if it exists (for hybrid/clock modes)
-        if state.time_hhmm:
-            summary['time_hhmm'] = state.time_hhmm
-
-        return summary
+        return self.state_summary.build()
 
     def _get_current_node(self) -> Node:
         node = self.nodes_map.get(self.state_manager.state.current_node)
@@ -1010,77 +725,47 @@ class GameEngine:
         return self.locations_map.get(location_id)
 
     def _process_meter_dynamics(self, time_advanced_info: dict[str, bool]):
-        """Apply decay and process interactions at the end of a turn."""
-        if time_advanced_info["day_advanced"]:
-            self._apply_meter_decay("day")
-        if time_advanced_info["slot_advanced"]:
-            self._apply_meter_decay("slot")
+        """Compatibility wrapper for meter decay."""
+        time_info = TimeAdvance(
+            day_advanced=time_advanced_info.get("day_advanced", False),
+            slot_advanced=time_advanced_info.get("slot_advanced", False),
+            minutes_passed=time_advanced_info.get("minutes_passed", 0),
+        )
+        self.time.apply_meter_dynamics(time_info)
 
     def _apply_meter_decay(self, decay_type: Literal["day", "slot"]):
-        """Applies decay/regen to all relevant meters."""
-        for char_id, meters in self.state_manager.state.meters.items():
-            for meter_id in meters.keys():
-                meter_def = self._get_meter_def(char_id, meter_id)
-                if not meter_def:
-                    continue
-
-                decay_value = 0
-                if decay_type == "day" and meter_def.decay_per_day != 0:
-                    decay_value = meter_def.decay_per_day
-                elif decay_type == "slot" and meter_def.decay_per_slot != 0:
-                    decay_value = meter_def.decay_per_slot
-
-                if decay_value != 0:
-                    self._apply_meter_change(MeterChangeEffect(
-                        target=char_id,
-                        meter=meter_id,
-                        op="add",  # Decay is just adding a negative value
-                        value=decay_value
-                    ))
-        self.logger.info(f"Applied '{decay_type}' meter decay.")
+        """Compatibility wrapper that defers to TimeService."""
+        self.time.apply_meter_decay(decay_type)
 
     def _get_meter_def(self, char_id: str, meter_id: str) -> Any | None:
         """Helper to find the definition for a specific meter."""
-        # For player get meter definition from the player's section
+        # Player meters live in the index for O(1) lookup
         if char_id == "player":
-            if self.game_def.meters and "player" in self.game_def.meters:
-                return self.game_def.meters["player"].get(meter_id)
-            else:
-                return None
+            return self.index.player_meters.get(meter_id)
 
-        # For character get meter definition from the character_template
-        meter_def = None
-        if self.game_def.meters and "character_template" in self.game_def.meters:
-            meter_def = self.game_def.meters["character_template"].get(meter_id, None)
+        meter_def = self.index.template_meters.get(meter_id)
 
-        # Also check the character's override
-        meter_override = None
         char_def = self.characters_map.get(char_id)
-        if char_def and char_def.meters:
-            meter_override = char_def.meters.get(meter_id, None)
-
-        # Return exiting definition or build merged one
-        if meter_def and meter_override is None:
+        if not char_def or not char_def.meters:
             return meter_def
-        elif meter_override and meter_def is None:
+
+        meter_override = char_def.meters.get(meter_id)
+        if meter_override is None:
+            return meter_def
+
+        if meter_def is None:
             return meter_override
-        elif meter_def and meter_override:
-            patch = meter_override.model_dump(exclude_unset=True, exclude_none=True, exclude_defaults=True)
-            merged_def = meter_def.model_copy(update=patch)
-            return merged_def
-        else:
-            return None
+
+        patch = meter_override.model_dump(
+            exclude_unset=True,
+            exclude_none=True,
+            exclude_defaults=True,
+        )
+        return meter_def.model_copy(update=patch)
 
     def _get_turn_seed(self) -> int:
         """Generate a deterministic seed for the current turn."""
-        # If seed was provided from the game config or generated before, then use it
-        if self.base_seed is not None:
-            return self.base_seed * self.state_manager.state.turn_count
-
-        # Otherwise combine game ID, session ID, and turn count for deterministic randomness
-        seed_string = f"{self.game_def.meta.id}_{self.session_id}_{self.state_manager.state.turn_count}"
-        # Convert to integer hash
-        return hash(seed_string) % (2 ** 32)
+        return self.runtime.turn_seed()
 
     def _get_location_privacy(self, location_id: str | None = None) -> LocationPrivacy:
         """Get the privacy level of a location."""

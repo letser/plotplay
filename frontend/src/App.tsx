@@ -1,6 +1,7 @@
 import { useGameStore } from './stores/gameStore';
 import { GameSelector } from './components/GameSelector';
 import { GameInterface } from './components/GameInterface';
+import { ToastContainer } from './components/ToastContainer';
 
 function App() {
     const { sessionId } = useGameStore();
@@ -18,6 +19,7 @@ function App() {
             ) : (
                 <GameInterface />
             )}
+            <ToastContainer />
         </div>
     );
 }

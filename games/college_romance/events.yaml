@@ -1,147 +1,56 @@
-# ===============================
-# Events - College Romance (v3 Spec)
-# ===============================
-
 events:
-  - id: "monday_blues"
-    title: "Monday Morning Blues"
-    category: "ambient"
-    scope: "global"
-    trigger:
-      scheduled:
-        - when: "time.weekday == 'monday' and time.slot == 'morning'"
-    narrative: "It's Monday morning. The campus feels sluggish as students drag themselves to their first classes of the week."
-    effects:
-      - { type: "meter_change", target: "player", meter: "energy", op: "subtract", value: 5 }
-    cooldown: { turns: 10 }
-
-  - id: "emma_text_thinking"
-    title: "Emma's Text"
-    category: "relationship"
-    scope: "global"
-    trigger:
-      conditional:
-        - when: "time.slot in ['night', 'late_night'] and time.day >= 3 and meters.emma.attraction >= 35 and not npc_present('emma')"
-    narrative: "Your phone buzzes. It's a text from Emma: 'Hey... can't sleep. Been thinking about you. 😊'"
+  - id: "emma_quad_wave"
+    type: "event"
+    title: "Emma Waves You Over"
+    characters_present: ["emma"]
+    when: "state.location.id == 'campus_quad' and time.slot == 'afternoon' and flags.met_emma == false"
+    probability: 100
+    cooldown: 1
+    once_per_game: true
+    beats:
+      - "Emma spots you across the quad, closing her textbook with a hopeful smile."
     choices:
-      - id: "invite_emma"
-        prompt: "Invite her over"
-        conditions: "meters.emma.trust >= 50 and location.id == 'player_room'"
-        effects:
-          - { type: "flag_set", key: "emma_coming_over", value: true }
-          - { type: "meter_change", target: "emma", meter: "attraction", op: "add", value: 10 }
-          - { type: "meter_change", target: "emma", meter: "arousal", op: "add", value: 15 }
-        goto: "emma_night_visit"
+      - id: "emma_event_greet"
+        prompt: "Cross the grass and say hi."
+        on_select:
+          - type: "flag_set"
+            key: "met_emma"
+            value: true
+          - type: "meter_change"
+            target: "emma"
+            meter: "trust"
+            op: "add"
+            value: 6
+          - type: "goto"
+            node: "quad_catchup"
 
-      - id: "sweet_reply"
-        prompt: "Send a sweet message back"
-        effects:
-          - { type: "meter_change", target: "emma", meter: "trust", op: "add", value: 5 }
-          - { type: "meter_change", target: "emma", meter: "attraction", op: "add", value: 5 }
-    cooldown: { turns: 7 }
-
-  - id: "gym_with_liam"
-    title: "Workout Buddy Liam"
-    category: "friendship"
-    scope: "location"
-    location: "gym"
-    trigger:
-      location_enter: true
-    narrative: "Liam spots you from across the gym and waves enthusiastically. 'Yo! Let's hit some weights together, bro!'"
+  - id: "zoe_pop_up_gig"
+    type: "event"
+    title: "Pop-Up Gig Invitation"
+    characters_present: ["zoe"]
+    when: "state.location.id == 'campus_cafe' and time.slot == 'evening' and flags.met_zoe == true and flags.zoe_band_invite == false"
+    probability: 60
+    cooldown: 2
+    beats:
+      - "Zoe leans over the counter, lowering her voice conspiratorially."
+      - "\"We're playing a pop-up set downtown tonight. You in?\""
     choices:
-      - id: "workout_with_liam"
-        prompt: "Work out with Liam"
-        effects:
-          - { type: "meter_change", target: "player", meter: "body", op: "add", value: 8 }
-          - { type: "meter_change", target: "player", meter: "energy", op: "subtract", value: 20 }
-          - { type: "meter_change", target: "liam", meter: "trust", op: "add", value: 5 }
-          - { type: "advance_time", minutes: 60 }
-
-      - id: "decline_workout"
-        prompt: "Politely decline"
-        effects:
-          - { type: "meter_change", target: "liam", meter: "trust", op: "subtract", value: 2 }
-    cooldown: { turns: 3 }
-
-  - id: "zoe_at_cafe"
-    title: "Zoe on Shift"
-    category: "relationship"
-    scope: "location"
-    location: "campus_cafe"
-    trigger:
-      conditional:
-        - when: "time.weekday in ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'] and time.slot in ['afternoon', 'evening']"
-    narrative: "Zoe is working behind the counter. She notices you and shoots you a wink. 'Well, well. What can I get you, handsome?'"
-    choices:
-      - id: "flirt_with_zoe"
-        prompt: "Flirt back"
-        conditions: "gates.zoe.accept_flirting"
-        effects:
-          - { type: "meter_change", target: "zoe", meter: "attraction", op: "add", value: 8 }
-          - { type: "meter_change", target: "zoe", meter: "arousal", op: "add", value: 5 }
-          - { type: "flag_set", key: "zoe_flirted", value: true }
-
-      - id: "just_order"
-        prompt: "Just order coffee ($3)"
-        conditions: "meters.player.money >= 3"
-        effects:
-          - { type: "meter_change", target: "player", meter: "money", op: "subtract", value: 3 }
-          - { type: "meter_change", target: "player", meter: "energy", op: "add", value: 10 }
-    cooldown: { turns: 2 }
-
-  - id: "club_invitation"
-    title: "Club Night Invitation"
-    category: "social"
-    scope: "global"
-    trigger:
-      conditional:
-        - when: "time.weekday == 'friday' and time.slot == 'evening' and meters.player.confidence >= 40"
-    narrative: "Your phone buzzes with a group message: 'Pulse Nightclub tonight! Who's coming?' Several people have already said yes."
-    choices:
-      - id: "accept_club"
-        prompt: "Say you'll go"
-        effects:
-          - { type: "flag_set", key: "invited_to_club", value: true }
-          - { type: "flag_set", key: "knows_downtown", value: true }
-
-      - id: "decline_club"
-        prompt: "Stay in tonight"
-        effects:
-          - { type: "meter_change", target: "player", meter: "confidence", op: "subtract", value: 3 }
-    cooldown: { turns: 15 }
-
-  - id: "midterms_reminder"
-    title: "Midterms Week"
-    category: "academic"
-    scope: "global"
-    trigger:
-      scheduled:
-        - when: "time.day == 14 and time.slot == 'morning'"
-    once: true
-    narrative: "It's midterms week. The campus is buzzing with stressed-out students cramming for exams. You need to study hard to maintain your grades."
-    effects:
-      - { type: "flag_set", key: "midterms_week", value: true }
-
-  - id: "random_compliment"
-    title: "Random Compliment"
-    category: "ambient"
-    scope: "global"
-    trigger:
-      random:
-        weight: 15
-        cooldown: 10
-    narrative: "A passing student smiles at you. 'Nice outfit!' They're gone before you can respond, but it boosts your mood."
-    effects:
-      - { type: "meter_change", target: "player", meter: "confidence", op: "add", value: 3 }
-
-  - id: "found_money"
-    title: "Found Money"
-    category: "ambient"
-    scope: "global"
-    trigger:
-      random:
-        weight: 10
-        cooldown: 15
-    narrative: "You spot a $10 bill on the ground. Lucky you!"
-    effects:
-      - { type: "meter_change", target: "player", meter: "money", op: "add", value: 10 }
+      - id: "zoe_event_accept"
+        prompt: "Promise to be there."
+        on_select:
+          - type: "flag_set"
+            key: "zoe_band_invite"
+            value: true
+          - type: "meter_change"
+            target: "zoe"
+            meter: "trust"
+            op: "add"
+            value: 5
+      - id: "zoe_event_decline"
+        prompt: "Apologize and admit you have to study."
+        on_select:
+          - type: "meter_change"
+            target: "zoe"
+            meter: "trust"
+            op: "subtract"
+            value: 3

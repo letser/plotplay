@@ -2,18 +2,44 @@
 
 from pathlib import Path
 from typing import Any
+from copy import deepcopy
 import yaml
 
 from app.models.game import GameDefinition
-from app.models.location import LocationAccess
 from app.core.game_validator import GameValidator
 from app.core.game_settings import GameSettings
 
+_ALLOWED_ROOT_KEYS: set[str] = {
+    "meta",
+    "narration",
+    "rng_seed",
+    "start",
+    "meters",
+    "flags",
+    "time",
+    "economy",
+    "items",
+    "wardrobe",
+    "characters",
+    "zones",
+    "movement",
+    "nodes",
+    "modifiers",
+    "actions",
+    "events",
+    "arcs",
+    "includes",
+}
+
 
 class GameLoader:
-    """Loads and validates v3 game content from YAML files."""
+    """Loads and validates game definition."""
 
     def __init__(self, games_dir: Path | None = None):
+        """
+        Initialize the GameLoader.
+        :param games_dir: Path to the games' directory.
+        """
         self.settings = GameSettings()
         if games_dir:
             self.games_dir = games_dir
@@ -21,7 +47,13 @@ class GameLoader:
             self.games_dir = Path(self.settings.games_path)
 
     def load_game(self, game_id: str) -> GameDefinition:
-        """Load a game from its directory using the v3 specification."""
+        """
+        Load a game from its directory.
+        :param game_id: The game to load; must be a directory under games_dir.
+        :return: The loaded GameDefinition.
+        :raises ValueError: If the game is invalid or not found.
+        """
+        # First, check the path exists and contains a game.yaml manifest
         try:
             game_path = (self.games_dir / game_id).resolve()
         except ValueError:
@@ -32,18 +64,43 @@ class GameLoader:
 
         # Load the main game manifest (game.yaml)
         manifest_data = self._load_yaml(game_path / "game.yaml")
+        self._validate_root_keys(manifest_data, "game.yaml")
 
-        # The manifest data itself becomes the base for our final game definition
-        constructor_data = manifest_data.copy()
+        # The manifest data itself becomes the base for the final game definition
+        game_data = self._clone(manifest_data)
 
-        # Initialize content lists to ensure they exist even if not in includes
-        content_keys = ["characters", "nodes", "zones", "events", "arcs", "items", "actions"]
-        for key in content_keys:
-            if key not in constructor_data:
-                constructor_data[key] = []
+        # Ensure expected top-level collections exist so includes merge cleanly
+        defaults: dict[str, Any] = {
+            'meters': {},
+            'flags': {},
+            'time': {},
+            'economy': {},
+            'start': {},
+            'wardrobe': {},
+            'movement': {},
+
+            "items": [],
+            "characters": [],
+            "zones": [],
+
+            "nodes": [],
+            'modifiers': {},
+            "actions": [],
+            "events": [],
+            "arcs": [],
+        }
+        for key in defaults:
+            if key not in game_data:
+                game_data[key] = self._clone(defaults[key])
 
         # Iterate over the included files and merge their contents
-        for include_file in constructor_data.get("includes", []):
+        includes = game_data.get("includes") or []
+        if not isinstance(includes, list):
+            raise ValueError("The 'includes' entry must be a list of file paths.")
+
+        for include_file in includes:
+            if not isinstance(include_file, str) or not include_file.strip():
+                raise ValueError("Include entries must be non-empty strings.")
             file_path = (game_path / include_file).resolve()
             try:
                 _ = file_path.relative_to(game_path)
@@ -51,73 +108,70 @@ class GameLoader:
                 raise ValueError(f"Invalid include file path: '{include_file}'")
             if file_path.exists():
                 included_content = self._load_yaml(file_path)
+                self._validate_root_keys(included_content, include_file)
                 merge_config = included_content.pop("__merge__", {})
-                merge_mode = merge_config.get("mode", "append")
+                if merge_config and not isinstance(merge_config, dict):
+                    raise ValueError(
+                        f"__merge__ block in '{include_file}' must be a mapping."
+                    )
+                merge_mode = merge_config.get("mode", "append") if isinstance(merge_config, dict) else "append"
+                replace_mode = self._parse_merge_mode(merge_mode, include_file)
+
+                if "includes" in included_content:
+                    raise ValueError(
+                        f"Nested includes detected in '{include_file}'. Nested includes are not supported."
+                    )
 
                 try:
-                    constructor_data = self._merge_dicts(constructor_data, included_content, merge_mode)
+                    game_data = self._merge_dicts(game_data, included_content, replace_mode)
                 except ValueError as e:
                     raise ValueError(f"Error merging included file '{include_file}': {e}")
             else:
                 # It's better to raise an error for a missing file than to warn
                 raise FileNotFoundError(f"Included file '{include_file}' not found in '{game_path}'")
 
-        # Now, create the GameDefinition object with the fully merged data
-        game_def = GameDefinition(**constructor_data)
+        meta_id = game_data.get("meta", {}).get("id")
+        if isinstance(meta_id, str) and meta_id != game_id:
+            raise ValueError(
+                f"Game '{game_id}' manifest meta.id '{meta_id}' does not match folder name."
+            )
 
-        # Post-processing for an item unlocks
-        self._compile_item_unlocks(game_def)
+        # Create the GameDefinition object with the fully merged data
+        game_def = GameDefinition(**game_data)
 
         # Perform an integrity validation pass
         GameValidator(game_def).validate()
 
         return game_def
 
-    def _compile_item_unlocks(self, game_def: GameDefinition):
-        """
-        Dynamically adds 'unlocked_when' conditions to locations based on item 'unlocks' fields.
-        """
-        if not game_def.items or not game_def.zones:
-            return
-
-        # Create a quick-access map of all locations
-        locations_map = {loc.id: loc for zone in game_def.zones for loc in zone.locations}
-
-        for item in game_def.items:
-            if item.unlocks and "location" in item.unlocks:
-                location_id = item.unlocks["location"]
-                if location_id in locations_map:
-                    location = locations_map[location_id]
-                    if not location.access:
-                        location.access = LocationAccess()
-
-                    unlock_condition = f"has_item('{item.id}')"
-
-                    if location.access.unlocked_when:
-                        # Append with an 'or' if a condition already exists
-                        location.access.unlocked_when = f"({location.access.unlocked_when}) or ({unlock_condition})"
-                    else:
-                        location.access.unlocked_when = unlock_condition
-
-
     def list_games(self) -> list[dict[str, str]]:
         """List all available games by reading their manifests."""
         games = []
         for game_dir in self.games_dir.iterdir():
-            if game_dir.is_dir() and (game_dir / "game.yaml").exists():
-                try:
-                    manifest_data = self._load_yaml(game_dir / "game.yaml")
-                    meta = manifest_data.get("meta", {})
-
-                    games.append({
-                        'id': meta.get('id', game_dir.name),
-                        'title': meta.get('title', 'Untitled'),
-                        'author': meta.get('author', 'Unknown'),
-                        'content_rating': meta.get('content_rating', 'none'),
-                        'version': meta.get('version', 'unknown')
-                    })
-                except Exception as e:
-                    print(f"Warning: Could not load manifest for game '{game_dir.name}': {e}")
+            if not game_dir.is_dir():
+                continue
+            manifest_path = game_dir / "game.yaml"
+            if not manifest_path.exists():
+                continue
+            try:
+                manifest_data = self._load_yaml(manifest_path)
+                meta = manifest_data.get("meta", {})
+                authors = meta.get("authors") or []
+                author_name = (
+                    authors[0]
+                    if isinstance(authors, list) and authors
+                    else meta.get("author", "Unknown")
+                )
+                games.append(
+                    {
+                        "id": meta.get("id", game_dir.name),
+                        "title": meta.get("title", "Untitled"),
+                        "author": author_name,
+                        "version": meta.get("version", "unknown"),
+                    }
+                )
+            except Exception as exc:
+                print(f"Warning: Could not load manifest for game '{game_dir.name}': {exc}")
         return games
 
     @staticmethod
@@ -129,25 +183,27 @@ class GameLoader:
         with open(path, 'r', encoding='utf-8') as f:
             return yaml.safe_load(f) or {}
 
-    @staticmethod
+    @classmethod
     def _merge_dicts(
+            cls,
             base: dict[str, Any],
             incoming: dict[str, Any],
-            merge_mode: str
+            replace_mode: bool
     ) -> dict[str, Any]:
         """
-        Merge `incoming` into `base` recursively according to merge_mode.
+        Merge `incoming` into `base` recursively according to merge mode.
         - 'replace': overwrite items with the same ID.
         - 'append': error on duplicate IDs.
-        """
-        if merge_mode not in {"replace", "append"}:
-            raise ValueError(f"Invalid merge_mode: {merge_mode}")
+        :param base: The base dictionary.
+        :param incoming: The dictionary to merge into base.
+        :param replace_mode: Whether to replace or append on merge conflicts.
 
+        """
         result = base.copy()
 
         for key, inc_value in incoming.items():
             if key not in result:
-                # Key not present in base: just add it
+                # Key doesn't present in base: just add it
                 result[key] = inc_value
                 continue
 
@@ -155,15 +211,15 @@ class GameLoader:
 
             # Case 1: both are dicts → merge recursively
             if isinstance(base_value, dict) and isinstance(inc_value, dict):
-                result[key] = GameLoader._merge_dicts(base_value, inc_value, merge_mode)
+                result[key] = cls._merge_dicts(base_value, inc_value, replace_mode)
 
-            # Case 2: both are lists → treat as list of dicts with "id"
+            # Case 2: both are lists → treat as a list of dicts with "id"
             elif isinstance(base_value, list) and isinstance(inc_value, list):
-                result[key] = GameLoader._merge_lists(base_value, inc_value, merge_mode)
+                result[key] = cls._merge_lists(base_value, inc_value, replace_mode)
 
-            # Case 3: primitive or mismatched types → just overwrite in replace, or append check
+            # Case 3: primitive or mismatched types → just overwrite in replace_mode, or append check
             else:
-                if merge_mode == "replace":
+                if replace_mode:
                     result[key] = inc_value
                 else:  # append
                     # if both are scalars and equal → ok, else error
@@ -178,20 +234,24 @@ class GameLoader:
     def _merge_lists(
             base_list: list[Any],
             inc_list: list[Any],
-            merge_mode: str
+            replace_mode: bool
     ) -> list[Any]:
         """
         Merge two lists of dicts with 'id' fields.
         - 'replace': incoming replaces items with the same id.
         - 'append': error if duplicate IDs are found.
+        :param base_list: The base list.
+        :param inc_list: The list to merge into base.
+        :param replace_mode: Whether to replace or append on merge conflicts.
+        :raises ValueError: If duplicate IDs are found and replace_mode is False.
         """
         # Convert base list to dict by id if possible
         base_map: dict[str, Any] = {}
         result_list: list[Any] = []
 
-        def get_id(item: Any) -> str | None:
-            if isinstance(item, dict) and "id" in item:
-                return str(item["id"])
+        def get_id(value: Any) -> str | None:
+            if isinstance(value, dict) and "id" in value:
+                return str(value["id"])
             return None
 
         for item in base_list:
@@ -210,14 +270,14 @@ class GameLoader:
                 continue
 
             if inc_id in base_map:
-                if merge_mode == "replace":
+                if replace_mode:
                     base_map[inc_id] = inc_item
                 else:  # append mode
                     raise ValueError(f"Duplicate ID '{inc_id}' in append mode.")
             else:
                 base_map[inc_id] = inc_item
 
-        # Recombine: keep original order, then any new IDs
+        # Recombine: keep the original order, then any new IDs
         seen = set()
         final = []
         for item in base_list:
@@ -240,3 +300,45 @@ class GameLoader:
                 final.append(item)
 
         return final
+
+    @staticmethod
+    def _clone(value: Any) -> Any:
+        """
+        Return a deep copy of default configuration values.
+        :param value: The value to clone.
+        "return: The cloned value.
+        """
+        return deepcopy(value)
+
+    @staticmethod
+    def _parse_merge_mode(mode_value: Any, source: str) -> bool:
+        """Interpret merge mode config."""
+        if isinstance(mode_value, bool):
+            return mode_value
+
+        if isinstance(mode_value, str):
+            normalized = mode_value.strip().lower()
+            if normalized == "replace":
+                return True
+            if normalized == "append":
+                return False
+
+        raise ValueError(
+            f"Invalid merge mode '{mode_value}' in '{source}'. "
+            "Supported values are 'append' or 'replace'."
+        )
+
+    @staticmethod
+    def _validate_root_keys(data: dict[str, Any], source: str) -> None:
+        """Ensure only recognized top-level keys are present."""
+        if not isinstance(data, dict):
+            raise ValueError(
+                f"File '{source}' must define a mapping of root keys, got {type(data).__name__}."
+            )
+        unknown = set(data.keys()) - _ALLOWED_ROOT_KEYS - {"__merge__"}
+        if unknown:
+            raise ValueError(
+                f"Unknown top-level keys {sorted(unknown)} found in '{source}'. "
+                "Allowed keys: "
+                + ", ".join(sorted(_ALLOWED_ROOT_KEYS))
+            )

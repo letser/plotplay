@@ -1,24 +1,23 @@
 """
-PlotPlay Game Models - Complete game definition structures.
-
- ============== Narration & AI ==============
+PlotPlay Game Models.
+Game narration parameters
 """
 
-from typing import Literal
-from pydantic import BaseModel
+from enum import StrEnum
+from .model import SimpleModel
 
-from app.models.enums import POV, Tense
 
-class NarrationConfig(BaseModel):
+class POV(StrEnum):
+    FIRST = "first"
+    SECOND = "second"
+    THIRD = "third"
+
+class Tense(StrEnum):
+    PAST = "past"
+    PRESENT = "present"
+
+class GameNarration(SimpleModel):
     """Narration style configuration."""
     pov: POV = POV.SECOND
     tense: Tense = Tense.PRESENT
     paragraphs: str = "2-3"
-    token_budget: int = 350
-    checker_budget: int = 200
-
-
-class ModelProfiles(BaseModel):
-    """Model cost profiles."""
-    writer: Literal["cheap", "luxe", "custom", "default"] = "default"
-    checker:Literal["cheap", "luxe", "custom", "default"] = "default"

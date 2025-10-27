@@ -1,63 +1,95 @@
-# ===============================
-# Game Manifest - Coffee Shop Date (v3 Spec)
-# A quick, linear test game for basic mechanics validation
-# ===============================
-
 meta:
   id: "coffeeshop_date"
   title: "Coffee Shop Date"
-  version: "1.0.0"
-  spec_version: "3.1"
+  version: "1.1.0"
   authors: ["PlotPlay Team"]
-  content_rating: "teen"
-  tags: ["test", "romance", "linear"]
-  description: "A simple first-date scenario for testing core mechanics"
+  description: "A breezy afternoon meet-up where a first date can bloom into something more."
+  content_warnings: ["mild language"]
   nsfw_allowed: false
+  license: "CC-BY-NC-4.0"
 
-# Starting point
-start:
-  node: "outside_cafe"
-  location: { zone: "downtown", id: "outside" }
-
-# Narration style
 narration:
   pov: "second"
   tense: "present"
   paragraphs: "1-2"
-  token_budget: 300
-  checker_budget: 150
 
-# Meters
+start:
+  location: "cafe_patio"
+  node: "outside_cafe"
+  day: 1
+  slot: "afternoon"
+  time: "13:00"
+
 meters:
   player:
-    confidence: { min: 0, max: 100, default: 50, visible: true, icon: "😎" }
-    money: { min: 0, max: 100, default: 30, visible: true, icon: "💵" }
+    confidence:
+      min: 0
+      max: 100
+      default: 55
+      visible: true
+      icon: "😎"
+  template:
+    comfort:
+      min: 0
+      max: 100
+      default: 25
+      visible: true
+      icon: "🤝"
+      thresholds:
+        nervous: { min: 0, max: 39 }
+        relaxed: { min: 40, max: 69 }
+        warm: { min: 70, max: 100 }
+    interest:
+      min: 0
+      max: 100
+      default: 20
+      visible: false
+      icon: "💖"
+      thresholds:
+        polite: { min: 0, max: 39 }
+        curious: { min: 40, max: 69 }
+        eager: { min: 70, max: 100 }
 
-  character_template:
-    comfort: {
-      min: 0, max: 100, default: 20,
-      thresholds: { nervous: [0, 30], relaxed: [31, 70], comfortable: [71, 100] }
-    }
-    interest: {
-      min: 0, max: 100, default: 15,
-      thresholds: { polite: [0, 30], interested: [31, 70], attracted: [71, 100] }
-    }
+flags:
+  shared_laugh:
+    type: "bool"
+    default: false
+    visible: true
+    description: "Set when Alex laughs freely with you."
+  second_date_offer:
+    type: "bool"
+    default: false
+    visible: false
+    description: "Marks that you invited Alex to another date."
 
-# Time system
 time:
   mode: "slots"
   slots: ["afternoon", "evening"]
-  actions_per_slot: 10
-  auto_advance: false
-  start:
-    day: 1
-    slot: "afternoon"
+  actions_per_slot: 4
 
-# Included content files
+economy:
+  enabled: true
+  starting_money: 35
+  max_money: 500
+  currency_name: "dollars"
+  currency_symbol: "$"
+
+movement:
+  base_time: 1
+  use_entry_exit: false
+  methods:
+    - walk: 1
+
+modifiers:
+  stacking: {}
+  library: []
+
+actions: []
+events: []
+arcs: []
+
 includes:
-  - "characters.yaml"
-  - "flags.yaml"
-  - "modifiers.yaml"
-  - "locations.yaml"
   - "items.yaml"
+  - "characters.yaml"
+  - "locations.yaml"
   - "nodes.yaml"

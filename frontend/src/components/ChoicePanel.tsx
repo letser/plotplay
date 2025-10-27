@@ -1,13 +1,16 @@
-// frontend/src/components/ChoicePanel.tsx
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useGameStore } from '../stores/gameStore';
-import { MessageSquare, Hand, Send, MapPin, Users, ChevronDown } from 'lucide-react';
+import { usePresentCharacters } from '../hooks';
+import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
+import { LoadingSpinner } from './LoadingSpinner';
+import { MessageSquare, Hand, Send, Users, ChevronDown, MapPin } from 'lucide-react';
 
 interface Choice {
     id: string;
     text: string;
     type: string;
     disabled?: boolean;
+    skip_ai?: boolean;
 }
 
 interface Props {
@@ -15,17 +18,49 @@ interface Props {
 }
 
 export const ChoicePanel = ({ choices }: Props) => {
-    const { sendAction, loading, gameState } = useGameStore();
+    const { sendAction, performMovement, loading, deterministicActionsEnabled } = useGameStore();
+    const characters = usePresentCharacters();
     const [inputMode, setInputMode] = useState<'say' | 'do'>('say');
     const [inputText, setInputText] = useState('');
     const [targetChar, setTargetChar] = useState<string | null>(null);
     const [showTargetMenu, setShowTargetMenu] = useState(false);
+    const inputRef = useRef<HTMLInputElement>(null);
 
-    const presentCharacters = gameState?.present_characters || [];
+    // Get present character IDs
+    const presentCharacters = characters.map(char => char.id);
 
     // Group choices by type
     const movementChoices = choices.filter(c => c.type === 'movement' && !c.disabled);
     const nodeChoices = choices.filter(c => c.type === 'node_choice' && !c.disabled);
+
+    // Keyboard shortcuts
+    useKeyboardShortcuts([
+        {
+            key: 'Escape',
+            handler: () => {
+                setInputText('');
+                setShowTargetMenu(false);
+            },
+            description: 'Clear input or close menus',
+        },
+        {
+            key: 'k',
+            ctrl: true,
+            handler: () => {
+                inputRef.current?.focus();
+            },
+            description: 'Focus input field',
+        },
+        ...nodeChoices.slice(0, 9).map((choice, index) => ({
+            key: String(index + 1),
+            handler: () => {
+                if (!loading) {
+                    handleQuickAction(choice);
+                }
+            },
+            description: `Activate choice ${index + 1}: ${choice.text}`,
+        })),
+    ]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -36,7 +71,12 @@ export const ChoicePanel = ({ choices }: Props) => {
     };
 
     const handleQuickAction = (choice: Choice) => {
-        sendAction('choice', choice.text, null, choice.id);
+        if (deterministicActionsEnabled && choice.type === 'movement') {
+            void performMovement(choice.id);
+        } else {
+            const shouldSkip = deterministicActionsEnabled && (choice.skip_ai ?? false);
+            sendAction('choice', choice.text, null, choice.id, undefined, { skipAi: shouldSkip });
+        }
     };
 
     const getTargetDisplay = () => {
@@ -126,6 +166,7 @@ export const ChoicePanel = ({ choices }: Props) => {
 
                     {/* Input Field */}
                     <input
+                        ref={inputRef}
                         type="text"
                         value={inputText}
                         onChange={(e) => setInputText(e.target.value)}
@@ -143,10 +184,11 @@ export const ChoicePanel = ({ choices }: Props) => {
                     <button
                         type="submit"
                         disabled={loading || !inputText.trim()}
+                        aria-label="Submit"
                         className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600
                                  disabled:cursor-not-allowed rounded-lg flex items-center gap-2 transition-colors"
                     >
-                        <Send className="w-4 h-4" />
+                        {loading ? <LoadingSpinner size="sm" /> : <Send className="w-4 h-4" />}
                     </button>
                 </div>
             </form>
@@ -164,15 +206,17 @@ export const ChoicePanel = ({ choices }: Props) => {
                                 Actions
                             </h5>
                             <div className="flex flex-wrap gap-2">
-                                {nodeChoices.map((choice) => (
+                                {nodeChoices.map((choice, index) => (
                                     <button
                                         key={choice.id}
                                         onClick={() => handleQuickAction(choice)}
                                         disabled={loading}
                                         className="px-3 py-1.5 text-sm bg-green-600/20 hover:bg-green-600/30
                                                  border border-green-600/50 rounded-md transition-all
+                                                 hover:scale-105 active:scale-95
                                                  disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
+                                        {index < 9 && <span className="text-xs opacity-60 mr-1">{index + 1}</span>}
                                         {choice.text}
                                     </button>
                                 ))}

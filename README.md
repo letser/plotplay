@@ -64,5 +64,14 @@ npm run dev
 - `/games` - Game content files
 - `/shared` - Shared specifications
 
+## Deterministic API Endpoints
+The backend now exposes side-effect-only routes that bypass the AI Writer/Checker loop:
+
+- `POST /api/game/move/{session_id}` — deterministic movement by destination, zone, or direction.
+- `POST /api/game/shop/{session_id}/purchase` and `/sell` — execute economy flows with pricing.
+- `POST /api/game/inventory/{session_id}/take` / `drop` / `give` — manipulate inventories directly.
+
+Each response returns a fresh `state_summary` snapshot so the client can stay in sync without invoking the full turn pipeline.
+
 ## License
 MIT
