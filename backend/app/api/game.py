@@ -2,9 +2,12 @@
 Main game API endpoints.
 """
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from typing import Any, Literal, Dict
 import uuid
+import json
+import asyncio
 
 from app.core.game_loader import GameLoader
 from app.core.game_engine import GameEngine
@@ -136,9 +139,149 @@ async def start_game(request: StartGameRequest) -> GameResponse:
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@router.post("/start/stream")
+async def start_game_stream(request: StartGameRequest):
+    """Start a new game session with streaming narrative (fast opening scene)."""
+    session_id = str(uuid.uuid4())
+
+    async def generate():
+        try:
+            print(f"[START] Loading game {request.game_id}...")
+            loader = GameLoader()
+            game_def = loader.load_game(request.game_id)
+            print(f"[START] Game loaded, creating engine...")
+            engine = GameEngine(game_def, session_id)
+            print(f"[START] Engine created")
+
+            game_sessions[session_id] = engine
+
+            # Send session info first
+            session_event = {
+                "type": "session_created",
+                "session_id": session_id,
+                "generated_seed": engine.generated_seed
+            }
+            yield f"data: {json.dumps(session_event)}\n\n"
+            print(f"[START] Session created event sent")
+
+            # Send initial state snapshot immediately (before narrative)
+            # This populates all the panels right away
+            initial_state = engine._get_state_summary()
+            initial_choices = engine._generate_choices(engine._get_current_node(), [])
+
+            initial_state_event = {
+                "type": "initial_state",
+                "state_summary": initial_state,
+                "choices": initial_choices
+            }
+            yield f"data: {json.dumps(initial_state_event)}\n\n"
+            print(f"[START] Initial state sent")
+
+            # Send action summary immediately
+            action_summary_event = {
+                "type": "action_summary",
+                "content": "You arrive at the scene."
+            }
+            yield f"data: {json.dumps(action_summary_event)}\n\n"
+            print(f"[START] Action summary sent")
+
+            # Stream opening scene (Writer only, no Checker)
+            print(f"[START] Starting opening scene stream...")
+            async for chunk in engine.generate_opening_scene_stream():
+                print(f"[START] Chunk type: {chunk.get('type')}")
+                yield f"data: {json.dumps(chunk)}\n\n"
+
+            yield "data: [DONE]\n\n"
+            print(f"[START] Done!")
+
+        except Exception as e:
+            print(f"[START ERROR] {e}")
+            import traceback
+            traceback.print_exc()
+            error_event = {
+                "type": "error",
+                "message": str(e)
+            }
+            yield f"data: {json.dumps(error_event)}\n\n"
+
+    return StreamingResponse(generate(), media_type="text/event-stream")
+
+
 @router.post("/action/{session_id}")
 async def process_action(session_id: str, action: GameAction) -> GameResponse:
     """Process a game action."""
+    engine = _get_engine(session_id)
+
+    try:
+        result = await engine.process_action(
+            action_type=action.action_type,
+            action_text=action.action_text,
+            target=action.target,
+            choice_id=action.choice_id,
+            item_id=action.item_id,
+            skip_ai=action.skip_ai,
+        )
+
+        return GameResponse(
+            session_id=session_id,
+            narrative=result['narrative'],
+            choices=result['choices'],
+            state_summary=result['current_state'],
+            time_advanced=result.get('time_advanced', False),
+            location_changed=result.get('location_changed', False),
+            action_summary=result.get("action_summary"),
+        )
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/action/{session_id}/stream")
+async def process_action_stream(session_id: str, action: GameAction):
+    """Process a game action with streaming narrative response."""
+    engine = _get_engine(session_id)
+
+    async def generate():
+        try:
+            # First, send the action summary immediately
+            action_summary_event = {
+                "type": "action_summary",
+                "content": f"Processing action..."
+            }
+            yield f"data: {json.dumps(action_summary_event)}\n\n"
+
+            # Process action with streaming
+            async for chunk in engine.process_action_stream(
+                action_type=action.action_type,
+                action_text=action.action_text,
+                target=action.target,
+                choice_id=action.choice_id,
+                item_id=action.item_id,
+                skip_ai=action.skip_ai,
+            ):
+                yield f"data: {json.dumps(chunk)}\n\n"
+
+            yield "data: [DONE]\n\n"
+
+        except Exception as e:
+            error_event = {
+                "type": "error",
+                "message": str(e)
+            }
+            yield f"data: {json.dumps(error_event)}\n\n"
+
+    return StreamingResponse(generate(), media_type="text/event-stream")
+
+
+@router.post("/action/{session_id}/original")
+async def process_action_original(session_id: str, action: GameAction) -> GameResponse:
+    """Original non-streaming endpoint (kept for backwards compatibility)."""
+    return await process_action(session_id, action)
+
+
+@router.post("/action_old/{session_id}")
+async def process_action_old(session_id: str, action: GameAction) -> GameResponse:
+    """Deprecated: Use /action/{session_id} instead."""
     engine = _get_engine(session_id)
 
     try:

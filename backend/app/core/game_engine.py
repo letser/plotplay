@@ -120,6 +120,110 @@ class GameEngine:
             skip_ai=skip_ai,
         )
 
+    async def process_action_stream(
+            self,
+            action_type: str,
+            action_text: str | None = None,
+            target: str | None = None,
+            choice_id: str | None = None,
+            item_id: str | None = None,
+            skip_ai: bool = False,
+    ):
+        """Process action with streaming narrative (async generator)."""
+        async for chunk in self.turn_manager.process_action_stream(
+            action_type=action_type,
+            action_text=action_text,
+            target=target,
+            choice_id=choice_id,
+            item_id=item_id,
+            skip_ai=skip_ai,
+        ):
+            yield chunk
+
+    async def generate_opening_scene_stream(self):
+        """
+        Generate opening scene narrative (Writer only, no Checker).
+        Fast startup - just scene-setting prose based on start node.
+        Uses start node beats if available for author control.
+        """
+        state = self.state_manager.state
+        start_node = self._get_current_node()
+
+        # Initialize present characters from start node
+        if start_node.characters_present:
+            state.present_chars = [
+                char for char in start_node.characters_present if char in self.characters_map
+            ]
+
+        # Build simple opening prompt
+        # state.location is a LocationSnapshot with an id field
+        location_id = state.location.id
+        location = self.locations_map.get(location_id) if location_id else None
+        location_desc = location.description if location else ""
+
+        # Get present characters
+        present_chars = [
+            self.characters_map.get(char_id)
+            for char_id in state.present_chars
+            if char_id in self.characters_map
+        ]
+
+        # Build prompt for opening scene
+        char_list = ", ".join([c.name for c in present_chars if c]) if present_chars else "nobody else"
+
+        try:
+            # Use beats from start node if available
+            beats = ""
+            if hasattr(start_node, 'beats') and start_node.beats:
+                beats = "\n\nAuthor guidance:\n" + "\n".join(f"- {beat}" for beat in start_node.beats)
+
+            location_name = location.name if location else 'Unknown'
+            opening_prompt = f"""You are starting an interactive story. Set the opening scene.
+
+Location: {location_name}
+{location_desc}
+
+Present: {char_list}
+
+Write 2-3 short paragraphs establishing the scene. Focus on atmosphere and immediate surroundings.
+Use second person ("you") and present tense.{beats}
+
+Remember: This is just scene-setting. No need to describe player actions yet."""
+
+            self.logger.info(f"Opening scene prompt: {opening_prompt[:200]}...")
+
+            # Stream Writer output
+            accumulated = ""
+            async for chunk in self.ai_service.generate_stream(
+                opening_prompt,
+                temperature=0.8,
+                max_tokens=400  # Shorter than normal turns
+            ):
+                accumulated += chunk
+                yield {
+                    "type": "narrative_chunk",
+                    "content": chunk
+                }
+
+            # Generate choices from start node
+            choices = self._generate_choices(start_node, [])
+
+            # Build final state summary
+            final_state = self._get_state_summary()
+
+            self.logger.info(f"Opening scene generated: {len(accumulated)} chars")
+
+            yield {
+                "type": "complete",
+                "narrative": accumulated,
+                "choices": choices,
+                "state_summary": final_state,
+                "action_summary": "You arrive at the scene."
+            }
+        except Exception as e:
+            self.logger.error(f"Error generating opening scene: {e}", exc_info=True)
+            raise
+
     def _update_discoveries(self):
         """Checks for and applies new location discoveries."""
         self.discovery.refresh()

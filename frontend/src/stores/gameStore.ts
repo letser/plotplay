@@ -32,6 +32,7 @@ interface GameStore {
     loading: boolean;
     error: string | null;
     turnCounter: number;
+    checkerStatus: string | null;
     lastAction: {
         actionType: string;
         actionText: string | null;
@@ -104,6 +105,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     turnCounter: 0,
     deterministicActionsEnabled: true,
     lastAction: null,
+    checkerStatus: null,
 
     loadGames: async () => {
         set({ loading: true, error: null });
@@ -120,29 +122,115 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     startGame: async (gameId: string) => {
         set({ loading: true, error: null });
+
         try {
-            const response = await gameApi.startGame(gameId);
             const game = get().games.find(g => g.id === gameId) ?? null;
-            const firstTurn = buildTurnEntry(
-                1,
-                'ai',
-                response.action_summary,
-                response.narrative
-            );
+            let sessionId = '';
+            let actionSummary = '';
+            let accumulatedNarrative = '';
+            let finalResponse: any = null;
 
-            set({
-                currentGame: game,
-                sessionId: response.session_id,
-                turnLog: [firstTurn],
-                choices: response.choices,
-                gameState: response.state_summary,
-                loading: false,
-                turnCounter: 1,
-            });
+            // Process streaming chunks
+            const stream = gameApi.startGameStream(gameId);
 
-            // Persist session to localStorage
-            if (game) {
-                saveSession(response.session_id, gameId, game.title);
+            for await (const chunk of stream) {
+                if (chunk.type === 'session_created') {
+                    sessionId = chunk.session_id;
+                    // Immediately show game interface with placeholder entry
+                    const placeholderEntry = buildTurnEntry(1, 'ai', 'Starting game...', 'Loading...');
+
+                    // Create minimal placeholder state so UI can render
+                    const placeholderState: any = {
+                        snapshot: {
+                            player: {
+                                meters: {},
+                                clothing: {},
+                                modifiers: []
+                            },
+                            characters: [],
+                            location: {
+                                id: 'loading',
+                                name: 'Loading...',
+                                zone: '',
+                                privacy: 'public',
+                                exits: []
+                            },
+                            time: {
+                                day: 1,
+                                slot: 'morning',
+                                time_hhmm: '09:00',
+                                weekday: null,
+                                mode: 'slots'
+                            },
+                            flags: {},
+                            inventory: {},
+                            arcs: {}
+                        }
+                    };
+
+                    set({
+                        sessionId,
+                        currentGame: game,
+                        turnLog: [placeholderEntry],
+                        turnCounter: 1,
+                        loading: false,  // Show UI immediately, streaming will update it
+                        choices: [],     // Initialize as empty, will be populated when complete
+                        gameState: placeholderState  // Minimal state to allow UI render
+                    });
+                    // Persist session early
+                    if (game) {
+                        saveSession(sessionId, gameId, game.title);
+                    }
+                } else if (chunk.type === 'initial_state') {
+                    // Real state arrives - populate all panels immediately
+                    set({
+                        gameState: chunk.state_summary,
+                        choices: chunk.choices
+                    });
+                } else if (chunk.type === 'action_summary') {
+                    actionSummary = chunk.content;
+                    set(state => {
+                        const updatedLog = [...state.turnLog];
+                        updatedLog[0] = {
+                            ...updatedLog[0],
+                            summary: actionSummary,
+                            narrative: accumulatedNarrative || actionSummary
+                        };
+                        return { turnLog: updatedLog };
+                    });
+                } else if (chunk.type === 'narrative_chunk') {
+                    accumulatedNarrative += chunk.content;
+                    set(state => {
+                        const updatedLog = [...state.turnLog];
+                        updatedLog[0] = {
+                            ...updatedLog[0],
+                            narrative: accumulatedNarrative
+                        };
+                        return { turnLog: updatedLog };
+                    });
+                } else if (chunk.type === 'checker_status') {
+                    set({ checkerStatus: chunk.message });
+                } else if (chunk.type === 'complete') {
+                    finalResponse = chunk;
+                    set(state => {
+                        const updatedLog = [...state.turnLog];
+                        updatedLog[0] = {
+                            ...updatedLog[0],
+                            summary: chunk.action_summary || actionSummary,
+                            narrative: chunk.narrative
+                        };
+                        return {
+                            turnLog: updatedLog,
+                            choices: chunk.choices,
+                            gameState: chunk.state_summary,
+                            loading: false,
+                            turnCounter: 1,
+                            checkerStatus: null
+                        };
+                    });
+                } else if (chunk.type === 'error') {
+                    throw new Error(chunk.message);
+                }
             }
 
             useToast.getState().success('Game started successfully!');
@@ -166,11 +254,27 @@ export const useGameStore = create<GameStore>((set, get) => ({
         if (!sessionId) return;
 
         set({ loading: true, error: null });
-        try {
-            // Store action for potential retry
-            set({ lastAction: { actionType, actionText, target, choiceId, itemId, options } });
 
-            const response = await gameApi.sendAction(
+        // Store action for potential retry
+        set({ lastAction: { actionType, actionText, target, choiceId, itemId, options } });
+
+        try {
+            const nextTurn = get().turnCounter + 1;
+            const origin: TurnOrigin = options?.skipAi ? 'deterministic' : 'ai';
+
+            // Create a placeholder entry that will be updated with streaming chunks
+            let actionSummary = '';
+            let accumulatedNarrative = '';
+            let finalResponse: any = null;
+
+            // Add placeholder entry immediately
+            const placeholderEntry = buildTurnEntry(nextTurn, origin, 'Processing...', 'Processing...');
+            set(state => ({
+                turnLog: [...state.turnLog, placeholderEntry]
+            }));
+
+            // Process streaming chunks
+            const stream = gameApi.sendActionStream(
                 sessionId,
                 actionType,
                 actionText,
@@ -180,19 +284,74 @@ export const useGameStore = create<GameStore>((set, get) => ({
                 options
             );
 
-            set(state => {
-                const nextTurn = state.turnCounter + 1;
-                const origin: TurnOrigin = options?.skipAi ? 'deterministic' : 'ai';
-                const turnEntry = buildTurnEntry(nextTurn, origin, response.action_summary, response.narrative);
+            for await (const chunk of stream) {
+                if (chunk.type === 'action_summary') {
+                    actionSummary = chunk.content;
+                    // Update with action summary
+                    set(state => {
+                        const updatedLog = [...state.turnLog];
+                        updatedLog[updatedLog.length - 1] = {
+                            ...updatedLog[updatedLog.length - 1],
+                            summary: actionSummary,
+                            narrative: accumulatedNarrative || actionSummary
+                        };
+                        return { turnLog: updatedLog };
+                    });
+                } else if (chunk.type === 'narrative_chunk') {
+                    accumulatedNarrative += chunk.content;
+                    // Update with streaming narrative
+                    set(state => {
+                        const updatedLog = [...state.turnLog];
+                        updatedLog[updatedLog.length - 1] = {
+                            ...updatedLog[updatedLog.length - 1],
+                            narrative: accumulatedNarrative
+                        };
+                        return { turnLog: updatedLog };
+                    });
+                } else if (chunk.type === 'checker_status') {
+                    // Update checker status message
+                    set({ checkerStatus: chunk.message });
+                } else if (chunk.type === 'complete') {
+                    finalResponse = chunk;
+                    // Clear checker status and final update
+                    set(state => {
+                        const updatedLog = [...state.turnLog];
+                        updatedLog[updatedLog.length - 1] = {
+                            ...updatedLog[updatedLog.length - 1],
+                            summary: chunk.action_summary || actionSummary,
+                            narrative: chunk.narrative
+                        };
+                        return {
+                            turnLog: updatedLog,
+                            choices: chunk.choices,
+                            gameState: chunk.state_summary,
+                            loading: false,
+                            turnCounter: nextTurn,
+                            checkerStatus: null
+                        };
+                    });
+                } else if (chunk.type === 'error') {
+                    throw new Error(chunk.message);
+                }
+            }
 
-                return {
-                    turnLog: [...state.turnLog, turnEntry],
-                    choices: response.choices,
-                    gameState: response.state_summary,
-                    loading: false,
-                    turnCounter: nextTurn,
-                };
-            });
+            // If we never got a complete response, update with what we have
+            if (!finalResponse) {
+                set(state => {
+                    const updatedLog = [...state.turnLog];
+                    updatedLog[updatedLog.length - 1] = {
+                        ...updatedLog[updatedLog.length - 1],
+                        summary: actionSummary || 'Action completed',
+                        narrative: accumulatedNarrative || actionSummary
+                    };
+                    return {
+                        turnLog: updatedLog,
+                        loading: false,
+                        turnCounter: nextTurn
+                    };
+                });
+            }
+
         } catch (error) {
             console.error(error);
             const errorMsg = 'Failed to send action';

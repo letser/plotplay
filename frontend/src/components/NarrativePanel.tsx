@@ -9,16 +9,16 @@ type Props = {
 
 export const NarrativePanel = ({ entries }: Props) => {
     const bottomRef = useRef<HTMLDivElement | null>(null);
-    const { clearTurnLog, retryLastAction } = useGameStore();
+    const { clearTurnLog, retryLastAction, checkerStatus } = useGameStore();
     const [copied, setCopied] = useState(false);
     const [retrying, setRetrying] = useState<number | null>(null);
 
     useEffect(() => {
         const element = bottomRef.current;
         if (element) {
-            element.scrollIntoView({ behavior: 'smooth' });
+            element.scrollIntoView({ behavior: 'smooth', block: 'end' });
         }
-    }, [entries]);
+    }, [entries, checkerStatus]); // Scroll when entries or checker status changes
 
     const handleCopyLog = async () => {
         try {
@@ -122,7 +122,23 @@ export const NarrativePanel = ({ entries }: Props) => {
                         </div>
                     );
                 })}
-                <div ref={bottomRef} />
+
+                {/* Checker Status Indicator */}
+                {checkerStatus && (
+                    <div className="animate-fade-in-up">
+                        <div className="flex items-center gap-2 text-sm text-blue-300 italic py-2">
+                            <div className="flex gap-1">
+                                <span className="animate-pulse">●</span>
+                                <span className="animate-pulse" style={{ animationDelay: '150ms' }}>●</span>
+                                <span className="animate-pulse" style={{ animationDelay: '300ms' }}>●</span>
+                            </div>
+                            <span>{checkerStatus}</span>
+                        </div>
+                    </div>
+                )}
+
+                {/* Scroll anchor - ensures we scroll past the status message */}
+                <div ref={bottomRef} className="h-4" />
             </div>
         </div>
     );

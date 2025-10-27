@@ -193,6 +193,55 @@ class GameAPI {
         return response.data;
     }
 
+    async *startGameStream(gameId: string): AsyncGenerator<any, void, unknown> {
+        const response = await fetch(`${API_BASE}/game/start/stream`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ game_id: gameId }),
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const reader = response.body?.getReader();
+        if (!reader) {
+            throw new Error('No response body');
+        }
+
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        try {
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop() || '';
+
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        const data = line.slice(6).trim();
+                        if (data === '[DONE]') return;
+
+                        try {
+                            const parsed = JSON.parse(data);
+                            yield parsed;
+                        } catch (e) {
+                            console.error('Failed to parse SSE data:', data, e);
+                        }
+                    }
+                }
+            }
+        } finally {
+            reader.releaseLock();
+        }
+    }
+
     async sendAction(
         sessionId: string,
         actionType: string,
@@ -211,6 +260,75 @@ class GameAPI {
             skip_ai: options?.skipAi ?? false,
         });
         return response.data;
+    }
+
+    async *sendActionStream(
+        sessionId: string,
+        actionType: string,
+        actionText: string | null,
+        target?: string | null,
+        choiceId?: string | null,
+        itemId?: string | null,
+        options?: { skipAi?: boolean }
+    ): AsyncGenerator<any, void, unknown> {
+        const response = await fetch(`${API_BASE}/game/action/${sessionId}/stream`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                action_type: actionType,
+                action_text: actionText,
+                target,
+                choice_id: choiceId,
+                item_id: itemId,
+                skip_ai: options?.skipAi ?? false,
+            }),
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const reader = response.body?.getReader();
+        if (!reader) {
+            throw new Error('No response body');
+        }
+
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        try {
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+
+                // Keep the last incomplete line in the buffer
+                buffer = lines.pop() || '';
+
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        const data = line.slice(6).trim();
+
+                        if (data === '[DONE]') {
+                            return;
+                        }
+
+                        try {
+                            const parsed = JSON.parse(data);
+                            yield parsed;
+                        } catch (e) {
+                            console.error('Failed to parse SSE data:', data, e);
+                        }
+                    }
+                }
+            }
+        } finally {
+            reader.releaseLock();
+        }
     }
 
     async move(sessionId: string, payload: MovementRequest): Promise<DeterministicActionResponse> {
