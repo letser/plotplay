@@ -87,6 +87,7 @@ export interface SnapshotTime {
     slot: string | null;
     time_hhmm?: string | null;
     weekday?: string | null;
+    mode?: 'clock' | 'hybrid' | 'slots';
 }
 
 export interface SnapshotCharacter {

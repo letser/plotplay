@@ -10,7 +10,6 @@ import { ChoicePanel } from './ChoicePanel';
 import { InventoryPanel } from './InventoryPanel';
 import { MovementControls } from './MovementControls';
 import { DeterministicControls } from './DeterministicControls';
-import { EconomyPanel } from './EconomyPanel';
 import { DebugPanel } from './DebugPanel';
 import { MapPin, Clock, Calendar, Layers, Shield, Coins } from 'lucide-react';
 
@@ -32,6 +31,7 @@ export const GameInterface = () => {
 
     const locationName = location.name;
     const timeClock = timeInfo.time_hhmm;
+    const timeMode = timeInfo.mode ?? 'slots';
     const dayNumber = timeInfo.day;
     const zoneName = location.zone ?? 'unknown zone';
     const privacy = location.privacy;
@@ -73,7 +73,7 @@ export const GameInterface = () => {
                     </div>
 
                     {/* Time (only show in clock/hybrid mode) */}
-                    {timeClock && (
+                    {timeClock && (timeMode === 'clock' || timeMode === 'hybrid') && (
                         <div className="flex items-center gap-2">
                             <Clock className="w-4 h-4" />
                             <span className="font-mono">{timeClock}</span>
@@ -102,10 +102,6 @@ export const GameInterface = () => {
                 <div className="lg:col-span-1 space-y-4">
                     <ErrorBoundary fallbackTitle="Error loading player stats">
                         <PlayerPanel />
-                    </ErrorBoundary>
-
-                    <ErrorBoundary fallbackTitle="Error loading economy">
-                        <EconomyPanel />
                     </ErrorBoundary>
 
                     <ErrorBoundary fallbackTitle="Error loading characters">

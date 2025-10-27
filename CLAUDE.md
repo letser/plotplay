@@ -54,14 +54,12 @@ The backend follows a **service-oriented architecture** with clear separation of
 
 ### Test Suite
 
-**`backend/tests_v2/`** - Modern, service-oriented test suite
-- Run with: `pytest backend/tests_v2/`
+**`backend/tests/`** - Modern, service-oriented test suite
+- Run with: `pytest backend/tests/`
 - Tests all engine services in `app/engine/`
 - Shared fixtures in `conftest.py` and `conftest_services.py`
 - **Current status**: 145/145 tests passing, 17 skipped (stub implementations)
 - **Coverage**: All core systems tested
-
-**Note**: Legacy `backend/tests/` folder has been deleted (archived in git history)
 
 ## Development Commands
 
@@ -80,16 +78,16 @@ uvicorn app.main:app --reload
 # Docs at http://localhost:8000/docs
 
 # Run test suite (from backend/ directory)
-pytest tests_v2/
+pytest tests/
 
 # Run specific tests
-pytest tests_v2/test_game_loader.py tests_v2/test_conditions.py
+pytest tests/test_game_loader.py tests/test_conditions.py
 
 # Run with coverage
-pytest tests_v2/ --cov=app --cov-report=html
+pytest tests/ --cov=app --cov-report=html
 
 # Run with verbose output
-pytest tests_v2/ -v
+pytest tests/ -v
 ```
 
 ### Frontend Development
@@ -286,8 +284,8 @@ uvicorn app.main:app --reload
 # Logs show actual prompts sent to Writer/Checker
 
 # Run integration tests
-pytest tests_v2/test_ai_integration.py -v
-pytest tests_v2/test_narrative_reconciler.py -v
+pytest tests/test_ai_integration.py -v
+pytest tests/test_narrative_reconciler.py -v
 ```
 
 ### Prompt Testing Workflow
@@ -591,14 +589,14 @@ Use these as references when building game content or testing.
 
 1. Add Pydantic models in `app/models/`
 2. Add service logic in `app/engine/` (or extend existing service)
-3. Add tests in `tests_v2/` with fixtures (NOT in legacy `tests/`)
+3. Add tests in `tests/` with fixtures
 4. Update game YAML schema if needed
 5. Update `shared/plotplay_specification.md`
 
 ### Test Fixture Organization
 
-- `tests_v2/conftest.py` - Core game definition fixtures (minimal games, characters, locations)
-- `tests_v2/conftest_services.py` - Engine service fixtures (runtime, managers, composed engine)
+- `tests/conftest.py` - Core game definition fixtures (minimal games, characters, locations)
+- `tests/conftest_services.py` - Engine service fixtures (runtime, managers, composed engine)
 - Individual test files can add specialized fixtures as needed
 
 ## API Structure

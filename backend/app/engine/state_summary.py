@@ -128,6 +128,7 @@ class StateSummaryService:
             "slot": state.time_slot,
             "time_hhmm": state.time_hhmm,
             "weekday": state.weekday,
+            "mode": self.engine.game_def.time.mode.value if self.engine.game_def.time else "slots",
         }
 
         location_detail = {}

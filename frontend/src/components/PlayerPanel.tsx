@@ -26,27 +26,29 @@ export const PlayerPanel = () => {
                 </div>
             )}
 
-            {/* Player Meters */}
+            {/* Player Meters (excluding money) */}
             <div className="space-y-2 text-sm">
-                {Object.entries(player.meters).map(([meterId, meterData]) => (
-                    <div key={meterId}>
-                        <div className="flex items-center justify-between mb-1">
-                            <div className="flex items-center gap-2">
-                                {renderMeterIcon(meterData.icon)}
-                                <span className="text-gray-300">{formatMeterId(meterId)}</span>
+                {Object.entries(player.meters)
+                    .filter(([meterId]) => meterId !== 'money')
+                    .map(([meterId, meterData]) => (
+                        <div key={meterId}>
+                            <div className="flex items-center justify-between mb-1">
+                                <div className="flex items-center gap-2">
+                                    {renderMeterIcon(meterData.icon)}
+                                    <span className="text-gray-300">{formatMeterId(meterId)}</span>
+                                </div>
+                                <span className="font-mono text-gray-200">
+                                    {meterData.value}
+                                </span>
                             </div>
-                            <span className="font-mono text-gray-200">
-                                {meterData.value}
-                            </span>
+                            <div className="w-full bg-gray-700 rounded-full h-2">
+                                <div
+                                    className={`h-2 rounded-full transition-all ${getMeterColor(meterId)}`}
+                                    style={{ width: `${(meterData.value / meterData.max) * 100}%` }}
+                                />
+                            </div>
                         </div>
-                        <div className="w-full bg-gray-700 rounded-full h-2">
-                            <div
-                                className={`h-2 rounded-full transition-all ${getMeterColor(meterId)}`}
-                                style={{ width: `${(meterData.value / meterData.max) * 100}%` }}
-                            />
-                        </div>
-                    </div>
-                ))}
+                    ))}
             </div>
         </div>
     );
