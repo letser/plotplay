@@ -32,6 +32,14 @@ interface GameStore {
     loading: boolean;
     error: string | null;
     turnCounter: number;
+    lastAction: {
+        actionType: string;
+        actionText: string | null;
+        target?: string | null;
+        choiceId?: string | null;
+        itemId?: string | null;
+        options?: { skipAi?: boolean };
+    } | null;
 
     loadGames: () => Promise<void>;
     startGame: (gameId: string) => Promise<void>;
@@ -43,6 +51,7 @@ interface GameStore {
         itemId?: string | null,
         options?: { skipAi?: boolean }
     ) => Promise<void>;
+    retryLastAction: () => Promise<void>;
     performMovement: (choiceId: string) => Promise<void>;
     purchaseItem: (itemId: string, count?: number, price?: number, sellerId?: string) => Promise<void>;
     sellItem: (itemId: string, count?: number, price?: number, buyerId?: string) => Promise<void>;
@@ -94,6 +103,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     error: null,
     turnCounter: 0,
     deterministicActionsEnabled: true,
+    lastAction: null,
 
     loadGames: async () => {
         set({ loading: true, error: null });
@@ -157,6 +167,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
         set({ loading: true, error: null });
         try {
+            // Store action for potential retry
+            set({ lastAction: { actionType, actionText, target, choiceId, itemId, options } });
+
             const response = await gameApi.sendAction(
                 sessionId,
                 actionType,
@@ -345,6 +358,53 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     setDeterministicActionsEnabled: (value: boolean) => {
         set({ deterministicActionsEnabled: value });
+    },
+
+    retryLastAction: async () => {
+        const { lastAction, sessionId } = get();
+        if (!lastAction || !sessionId || lastAction.options?.skipAi) {
+            useToast.getState().error('No AI action to retry');
+            return;
+        }
+
+        set({ loading: true, error: null });
+        try {
+            const response = await gameApi.sendAction(
+                sessionId,
+                lastAction.actionType,
+                lastAction.actionText,
+                lastAction.target,
+                lastAction.choiceId,
+                lastAction.itemId,
+                lastAction.options
+            );
+
+            // Replace the last entry with the new response
+            set(state => {
+                const updatedLog = [...state.turnLog];
+                const lastEntry = updatedLog[updatedLog.length - 1];
+                if (lastEntry) {
+                    updatedLog[updatedLog.length - 1] = {
+                        ...lastEntry,
+                        narrative: response.narrative,
+                        timestamp: new Date().toISOString(),
+                    };
+                }
+
+                return {
+                    turnLog: updatedLog,
+                    choices: response.choices,
+                    gameState: response.state_summary,
+                    loading: false,
+                };
+            });
+
+            useToast.getState().success('Response regenerated!');
+        } catch (error) {
+            console.error('Failed to retry action:', error);
+            useToast.getState().error('Failed to regenerate response');
+            set({ loading: false });
+        }
     },
 
     clearTurnLog: () => {

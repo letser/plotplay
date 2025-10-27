@@ -14,6 +14,36 @@ class ActionFormatter:
     def __init__(self, engine: "GameEngine") -> None:
         self.engine = engine
 
+    def _get_player_subject(self) -> str:
+        """Get the subject pronoun based on configured POV."""
+        pov = self.engine.game_def.narration.pov.value if self.engine.game_def.narration else "second"
+        if pov == "first":
+            return "I"
+        elif pov == "third":
+            # For third person, we'd need to know the player's gender/pronouns
+            # For now, default to "The player" or could use player name
+            return "The player"
+        else:  # second person (default)
+            return "You"
+
+    def _get_player_verb(self, base_verb: str) -> str:
+        """Conjugate verb based on POV."""
+        pov = self.engine.game_def.narration.pov.value if self.engine.game_def.narration else "second"
+        if pov == "first":
+            # First person: "I say", "I use"
+            return base_verb
+        elif pov == "third":
+            # Third person: "says", "uses"
+            if base_verb == "say":
+                return "says"
+            elif base_verb == "use":
+                return "uses"
+            else:
+                return base_verb + "s"
+        else:  # second person (default)
+            # Second person: "You say", "You use"
+            return base_verb
+
     def format(
         self,
         action_type: str,
@@ -26,18 +56,22 @@ class ActionFormatter:
             item_def = self.engine.inventory.item_defs.get(item_id)
             if item_def and getattr(item_def, "use_text", None):
                 return item_def.use_text
-            return f"Player uses {item_id}."
+            subject = self._get_player_subject()
+            verb = self._get_player_verb("use")
+            return f"{subject} {verb} {item_id}."
 
         if action_type == "choice" and choice_id:
             # Handle custom actions (custom_say, custom_do)
             if choice_id.startswith("custom_") and action_text:
+                subject = self._get_player_subject()
                 if choice_id == "custom_say":
                     target_display = target or "everyone"
-                    return f"You say to {target_display}: \"{action_text}\""
+                    verb = self._get_player_verb("say")
+                    return f"{subject} {verb} to {target_display}: \"{action_text}\""
                 elif choice_id == "custom_do":
-                    return f"You {action_text}"
+                    return f"{subject} {action_text}"
                 else:
-                    return f"You: {action_text}"
+                    return f"{subject}: {action_text}"
 
             node = self.engine._get_current_node()
             all_choices = list(node.choices) + list(node.dynamic_choices)
@@ -47,18 +81,22 @@ class ActionFormatter:
                 if act_id in self.engine.actions_map
             ]
 
+            subject = self._get_player_subject()
             choice = next((c for c in all_choices if c.id == choice_id), None)
             if choice:
-                return f"You {choice.prompt.lower()}" if choice.prompt else f"You choose: {choice_id}"
+                return f"{subject} {choice.prompt.lower()}" if choice.prompt else f"{subject} choose: {choice_id}"
 
             action = next((a for a in unlocked_action_defs if a and a.id == choice_id), None)
             if action:
-                return f"You {action.prompt.lower()}" if action.prompt else f"You choose: {action.id}"
+                return f"{subject} {action.prompt.lower()}" if action.prompt else f"{subject} choose: {action.id}"
 
-            return f"You choose: {choice_id}"
+            return f"{subject} choose: {choice_id}"
 
     # default to 'say' formatting
         if action_type == "say":
-            return f"Player says to {target or 'everyone'}: \"{action_text}\""
+            subject = self._get_player_subject()
+            verb = self._get_player_verb("say")
+            return f"{subject} {verb} to {target or 'everyone'}: \"{action_text}\""
 
-        return f"Player action: {action_text}"
+        subject = self._get_player_subject()
+        return f"{subject}: {action_text}"

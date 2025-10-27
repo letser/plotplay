@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { TurnLogEntry, useGameStore } from '../stores/gameStore';
+import { Sparkles, CheckCircle, RotateCcw } from 'lucide-react';
 import clsx from 'clsx';
 
 type Props = {
@@ -8,8 +9,9 @@ type Props = {
 
 export const NarrativePanel = ({ entries }: Props) => {
     const bottomRef = useRef<HTMLDivElement | null>(null);
-    const { clearTurnLog } = useGameStore();
+    const { clearTurnLog, retryLastAction } = useGameStore();
     const [copied, setCopied] = useState(false);
+    const [retrying, setRetrying] = useState<number | null>(null);
 
     useEffect(() => {
         const element = bottomRef.current;
@@ -28,17 +30,21 @@ export const NarrativePanel = ({ entries }: Props) => {
         }
     };
 
+    const handleRetry = async (entryId: number) => {
+        setRetrying(entryId);
+        try {
+            await retryLastAction();
+        } finally {
+            setRetrying(null);
+        }
+    };
+
     const disableClear = entries.length <= 1;
 
     return (
         <div className="bg-gray-800/50 backdrop-blur border border-gray-700 rounded-lg p-6 h-[500px] overflow-y-auto">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
-                <div>
-                    <h2 className="text-lg font-semibold text-gray-100">Turn Log</h2>
-                    <p className="text-xs text-gray-400">
-                        Each entry shows the quick summary first, followed by AI narrative when available.
-                    </p>
-                </div>
+            <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-gray-100">Turn Log</h2>
                 <div className="flex items-center gap-2">
                     <button
                         onClick={handleCopyLog}
@@ -57,48 +63,62 @@ export const NarrativePanel = ({ entries }: Props) => {
             </div>
 
             <div className="space-y-6">
-                {entries.map((entry) => {
+                {entries.map((entry, index) => {
                     const showNarrative =
                         entry.narrative &&
                         entry.narrative.trim().toLowerCase() !== entry.summary.trim().toLowerCase();
                     const isDeterministic = entry.origin === 'deterministic';
+                    const isLastEntry = index === entries.length - 1;
                     const formattedTime = new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
                     return (
                         <div key={entry.id} className="animate-fade-in-up">
-                            <div className="flex items-start justify-between gap-3 mb-2">
-                                <p className="text-sm uppercase tracking-wide text-blue-200 font-semibold">
-                                    {entry.summary}
-                                </p>
-                                <div className="flex items-center gap-2 text-xs">
-                                    <span
-                                        className={clsx(
-                                            'px-2 py-0.5 rounded-full font-semibold',
-                                            isDeterministic
-                                                ? 'bg-green-500/20 text-green-200 border border-green-500/40'
-                                                : 'bg-blue-500/20 text-blue-200 border border-blue-500/40'
+                            {/* Action Summary with better visual separation */}
+                            <div className="bg-gray-700/30 rounded-lg p-3 mb-3">
+                                <div className="flex items-start justify-between gap-3">
+                                    <p className="text-sm uppercase tracking-wide text-blue-300 font-semibold">
+                                        {entry.summary}
+                                    </p>
+                                    <div className="flex items-center gap-2 text-xs flex-shrink-0">
+                                        {isDeterministic ? (
+                                            <CheckCircle className="w-4 h-4 text-green-400" title="Deterministic action" />
+                                        ) : (
+                                            <Sparkles className="w-4 h-4 text-blue-400" title="AI-generated" />
                                         )}
-                                    >
-                                        {isDeterministic ? 'Deterministic' : 'AI-generated'}
-                                    </span>
-                                    <span className="text-gray-400 font-mono">{formattedTime}</span>
+                                        <span className="text-gray-400 font-mono">{formattedTime}</span>
+                                    </div>
                                 </div>
                             </div>
+
+                            {/* Narrative */}
                             {showNarrative && (
-                                <div className="space-y-3 text-gray-100 leading-relaxed">
-                                    {entry.narrative.split('\n').map((paragraph, index) => (
-                                        <p key={index} className="text-base">
-                                            {paragraph}
-                                        </p>
-                                    ))}
+                                <div className="mb-3">
+                                    <div className="space-y-3 text-gray-100 leading-relaxed">
+                                        {entry.narrative.split('\n').map((paragraph, pIndex) => (
+                                            <p key={pIndex} className="text-base">
+                                                {paragraph}
+                                            </p>
+                                        ))}
+                                    </div>
+                                    {!isDeterministic && isLastEntry && (
+                                        <button
+                                            onClick={() => handleRetry(entry.id)}
+                                            disabled={retrying === entry.id}
+                                            className="mt-3 flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                            title="Regenerate this response"
+                                        >
+                                            <RotateCcw className={clsx('w-3.5 h-3.5', retrying === entry.id && 'animate-spin')} />
+                                            {retrying === entry.id ? 'Regenerating...' : 'Retry'}
+                                        </button>
+                                    )}
                                 </div>
                             )}
                             {!showNarrative && (
-                                <p className="text-xs text-gray-500 italic">
+                                <p className="text-xs text-gray-500 italic mb-3">
                                     No additional AI prose for this entry.
                                 </p>
                             )}
-                            <div className="border-b border-gray-700 mt-4" />
+                            <div className="border-b border-gray-700" />
                         </div>
                     );
                 })}
