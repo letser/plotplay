@@ -27,7 +27,7 @@ def build_engine(tmp_path, monkeypatch, mock_ai_service) -> GameEngine:
 
 def test_node_service_applies_transitions(tmp_path, monkeypatch, mock_ai_service):
     engine = build_engine(tmp_path, monkeypatch, mock_ai_service)
-    current_node = engine._get_current_node()
+    current_node = engine.get_current_node()
 
     next_node = Node(id="next", type=NodeType.SCENE, title="Next")
     engine.game_def.nodes.append(next_node)
@@ -43,7 +43,7 @@ def test_node_service_applies_transitions(tmp_path, monkeypatch, mock_ai_service
 def test_node_service_handles_predefined_choice(tmp_path, monkeypatch, mock_ai_service):
     engine = build_engine(tmp_path, monkeypatch, mock_ai_service)
     state = engine.state_manager.state
-    current_node = engine._get_current_node()
+    current_node = engine.get_current_node()
 
     flag_effect = FlagSetEffect(key="met_friend", value=True)
     node_choice = Choice(id="greet", prompt="Greet warmly", on_select=[flag_effect])

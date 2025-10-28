@@ -17,32 +17,35 @@ class ActionFormatter:
     def _get_player_subject(self) -> str:
         """Get the subject pronoun based on configured POV."""
         pov = self.engine.game_def.narration.pov.value if self.engine.game_def.narration else "second"
-        if pov == "first":
-            return "I"
-        elif pov == "third":
-            # For third person, we'd need to know the player's gender/pronouns
-            # For now, default to "The player" or could use player name
-            return "The player"
-        else:  # second person (default)
-            return "You"
+        match pov:
+            case "first":
+                return "I"
+            case "third":
+                # For the third person, we'd need to know the player's gender/pronouns
+                # For now, default to "The player" or could use player name
+                return "The player"
+            case _:
+                # second person(default)
+                return "You"
 
     def _get_player_verb(self, base_verb: str) -> str:
         """Conjugate verb based on POV."""
         pov = self.engine.game_def.narration.pov.value if self.engine.game_def.narration else "second"
-        if pov == "first":
-            # First person: "I say", "I use"
-            return base_verb
-        elif pov == "third":
-            # Third person: "says", "uses"
-            if base_verb == "say":
-                return "says"
-            elif base_verb == "use":
-                return "uses"
-            else:
-                return base_verb + "s"
-        else:  # second person (default)
-            # Second person: "You say", "You use"
-            return base_verb
+        match pov:
+            case "first":
+                # First person: "I say", "I use"
+                return base_verb
+            case "third":
+                # Third person: "says", "uses"
+                if base_verb == "say":
+                    return "says"
+                elif base_verb == "use":
+                    return "uses"
+                else:
+                    return base_verb + "s"
+            case _:
+                # Second person: "You say", "You use"
+                return base_verb
 
     def format(
         self,
@@ -52,6 +55,7 @@ class ActionFormatter:
         choice_id: str | None,
         item_id: str | None,
     ) -> str:
+        """Format player action into a human-readable string."""
         if action_type == "use" and item_id:
             item_def = self.engine.inventory.item_defs.get(item_id)
             if item_def and getattr(item_def, "use_text", None):
@@ -72,7 +76,7 @@ class ActionFormatter:
                 else:
                     return f"{subject}: {action_text}"
 
-            node = self.engine._get_current_node()
+            node = self.engine.get_current_node()
             all_choices = list(node.choices) + list(node.dynamic_choices)
             unlocked_action_defs = [
                 self.engine.actions_map.get(act_id)

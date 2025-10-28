@@ -20,7 +20,7 @@ class NodeService:
 
     def apply_transitions(self) -> bool:
         """Evaluate current node transitions and update current_node if a rule fires."""
-        current_node = self.engine._get_current_node()
+        current_node = self.engine.get_current_node()
         transitions = getattr(current_node, "transitions", None)
         if transitions is None:
             transitions = getattr(current_node, "triggers", [])
@@ -28,7 +28,7 @@ class NodeService:
         if not transitions:
             return False
 
-        evaluator = ConditionEvaluator(self.engine.state_manager.state, rng_seed=self.engine._get_turn_seed())
+        evaluator = ConditionEvaluator(self.engine.state_manager.state, rng_seed=self.engine.get_turn_seed())
 
         for transition in transitions:
             condition = getattr(transition, "when", None)
@@ -72,7 +72,7 @@ class NodeService:
         event_choices: Iterable[NodeChoice],
     ) -> bool:
         """Apply effects/goto for a predefined choice or unlocked action."""
-        current_node = self.engine._get_current_node()
+        current_node = self.engine.get_current_node()
         choices = list(event_choices) + list(current_node.choices) + list(current_node.dynamic_choices)
 
         found_choice = next((choice for choice in choices if choice.id == choice_id), None)

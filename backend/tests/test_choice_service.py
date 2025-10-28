@@ -27,7 +27,7 @@ def make_engine(tmp_path, monkeypatch, mock_ai_service) -> GameEngine:
 def test_choice_service_combines_sources(tmp_path, monkeypatch, mock_ai_service):
     engine = make_engine(tmp_path, monkeypatch, mock_ai_service)
     state = engine.state_manager.state
-    node = engine._get_current_node()
+    node = engine.get_current_node()
 
     node.choices.append(Choice(id="wave", prompt="Wave hello", when="always"))
     node.dynamic_choices.append(Choice(id="hug", prompt="Offer a hug", when="flags.met_friend"))
@@ -46,7 +46,7 @@ def test_choice_service_combines_sources(tmp_path, monkeypatch, mock_ai_service)
     engine.game_def.zones[0].locations.append(new_location)
     engine.locations_map[new_location.id] = new_location
 
-    current_location = engine._get_location(state.location_current)
+    current_location = engine.get_location(state.location_current)
     current_location.connections.append(
         LocationConnection(to=new_location.id, direction="north")
     )

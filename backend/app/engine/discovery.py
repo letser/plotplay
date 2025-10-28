@@ -19,7 +19,7 @@ class DiscoveryService:
 
     def refresh(self) -> None:
         state = self.engine.state_manager.state
-        evaluator = ConditionEvaluator(state, rng_seed=self.engine._get_turn_seed())
+        evaluator = ConditionEvaluator(state, rng_seed=self.engine.get_turn_seed())
 
         for zone in self.engine.game_def.zones:
             if zone.id not in state.discovered_zones:

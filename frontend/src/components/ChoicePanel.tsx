@@ -4,6 +4,7 @@ import { useLocation } from '../hooks';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { toTitleCase } from '../utils';
 import { LoadingSpinner } from './LoadingSpinner';
+import { ZoneConnection } from '../services/gameApi';
 import { MessageSquare, Hand, Send, MapPin, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Lock } from 'lucide-react';
 
 const directionIconMap: Record<string, ReactNode> = {
@@ -25,19 +26,99 @@ interface Props {
     choices: Choice[];
 }
 
+// Zone Travel Widget Component
+const ZoneTravelWidget = ({ connection, onTravel, loading }: { connection: ZoneConnection, onTravel: (zoneId: string, method: string | null, entryLocationId: string | null) => void, loading: boolean }) => {
+    const [selectedMethod, setSelectedMethod] = useState<string | null>(
+        connection.available_methods.length > 0 ? connection.available_methods[0] : null
+    );
+    const [selectedEntry, setSelectedEntry] = useState<string | null>(
+        connection.entry_locations.length > 0 ? connection.entry_locations[0].id : null
+    );
+
+    const handleTravel = () => {
+        onTravel(connection.zone_id, selectedMethod, selectedEntry);
+    };
+
+    const hasMultipleMethods = connection.available_methods.length > 1;
+    const hasMultipleEntries = connection.entry_locations.length > 1;
+    const needsSelectors = hasMultipleMethods || hasMultipleEntries;
+
+    if (!needsSelectors) {
+        // Simple button for single method/entry
+        return (
+            <button
+                onClick={handleTravel}
+                disabled={!connection.available || loading}
+                className="w-full bg-orange-600/20 hover:bg-orange-600/30 border border-orange-600/50 rounded-md px-3 py-2 text-left text-sm disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+                Travel to {connection.zone_name}
+            </button>
+        );
+    }
+
+    // Complex widget with selectors
+    return (
+        <div className="bg-orange-600/10 rounded-md px-3 py-2 border border-orange-600/50">
+            <div className="text-sm font-medium text-gray-200 mb-2">Travel to {connection.zone_name}</div>
+
+            <div className="flex items-center gap-2 flex-wrap text-xs">
+                {hasMultipleEntries && (
+                    <select
+                        value={selectedEntry || ''}
+                        onChange={(e) => setSelectedEntry(e.target.value)}
+                        className="flex-1 min-w-[100px] bg-gray-800 text-gray-200 rounded px-2 py-1 border border-gray-600 focus:border-orange-500 focus:outline-none"
+                        disabled={!connection.available || loading}
+                    >
+                        {connection.entry_locations.map((entry) => (
+                            <option key={entry.id} value={entry.id}>
+                                {entry.name}
+                            </option>
+                        ))}
+                    </select>
+                )}
+
+                {hasMultipleMethods && (
+                    <>
+                        <span className="text-gray-400">via</span>
+                        <select
+                            value={selectedMethod || ''}
+                            onChange={(e) => setSelectedMethod(e.target.value)}
+                            className="flex-1 min-w-[80px] bg-gray-800 text-gray-200 rounded px-2 py-1 border border-gray-600 focus:border-orange-500 focus:outline-none"
+                            disabled={!connection.available || loading}
+                        >
+                            {connection.available_methods.map((method) => (
+                                <option key={method} value={method}>
+                                    {toTitleCase(method)}
+                                </option>
+                            ))}
+                        </select>
+                    </>
+                )}
+
+                <button
+                    onClick={handleTravel}
+                    disabled={!connection.available || loading}
+                    className="ml-auto bg-orange-600 hover:bg-orange-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white text-xs px-3 py-1 rounded transition-colors"
+                >
+                    Go
+                </button>
+            </div>
+        </div>
+    );
+};
+
 export const ChoicePanel = ({ choices }: Props) => {
-    const { sendAction, performMovement, loading, deterministicActionsEnabled } = useGameStore();
+    const { sendAction, performMovement, performZoneTravel, loading, deterministicActionsEnabled } = useGameStore();
     const location = useLocation();
     const [inputMode, setInputMode] = useState<'say' | 'do'>('do');
     const [inputText, setInputText] = useState('');
     const inputRef = useRef<HTMLInputElement>(null);
 
-    // Get exits from location
+    // Get exits and zone connections from location
     const exits = location?.exits ?? [];
+    const zoneConnections = location?.zone_connections ?? [];
 
     // Group choices by type
-    // Zone transport only (filter out local movement which is handled by compass)
-    const zoneTransportChoices = choices.filter(c => c.type === 'movement' && c.id.startsWith('travel_') && !c.disabled);
     const nodeChoices = choices.filter(c => c.type === 'node_choice' && !c.disabled);
 
     // Keyboard shortcuts
@@ -271,18 +352,18 @@ export const ChoicePanel = ({ choices }: Props) => {
                                             </div>
                                         </div>
 
-                                        {/* Zone Transport (trains, buses, flights) */}
-                                        {zoneTransportChoices.length > 0 && (
+                                        {/* Zone Travel - New Widget System */}
+                                        {zoneConnections.length > 0 && (
                                             <div className="space-y-2 pt-2 border-t border-gray-700/50">
-                                                {zoneTransportChoices.map((choice) => (
-                                                    <button
-                                                        key={choice.id}
-                                                        onClick={() => handleQuickAction(choice)}
-                                                        disabled={loading}
-                                                        className="w-full bg-orange-600/20 hover:bg-orange-600/30 rounded-md px-3 py-2 text-left text-sm border border-orange-600/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                                    >
-                                                        {choice.text}
-                                                    </button>
+                                                {zoneConnections.map((connection) => (
+                                                    <ZoneTravelWidget
+                                                        key={connection.zone_id}
+                                                        connection={connection}
+                                                        onTravel={(zoneId, method, entryLocationId) => {
+                                                            void performZoneTravel(zoneId, method, entryLocationId);
+                                                        }}
+                                                        loading={loading}
+                                                    />
                                                 ))}
                                             </div>
                                         )}

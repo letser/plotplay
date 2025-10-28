@@ -28,7 +28,7 @@ class NarrativeReconciler:
             return ai_narrative
 
         state = self.engine.state_manager.state
-        evaluator = ConditionEvaluator(state, rng_seed=self.engine._get_turn_seed())
+        evaluator = ConditionEvaluator(state, rng_seed=self.engine.get_turn_seed())
         target_char = self.engine.characters_map.get(target_char_id)
         if not target_char or not getattr(target_char, "behaviors", None):
             return ai_narrative

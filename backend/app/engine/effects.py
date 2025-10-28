@@ -53,7 +53,7 @@ class EffectResolver:
         from app.models.effects import parse_effect
 
         state = self.engine.state_manager.state
-        evaluator = ConditionEvaluator(state, rng_seed=self.engine._get_turn_seed())
+        evaluator = ConditionEvaluator(state, rng_seed=self.engine.get_turn_seed())
 
         for effect in effects:
             # Handle both dict and parsed effect objects
@@ -219,7 +219,7 @@ class EffectResolver:
     # Internal helpers
     # ------------------------------------------------------------------ #
     def _apply_conditional_effect(self, effect: ConditionalEffect) -> None:
-        evaluator = ConditionEvaluator(self.engine.state_manager.state, rng_seed=self.engine._get_turn_seed())
+        evaluator = ConditionEvaluator(self.engine.state_manager.state, rng_seed=self.engine.get_turn_seed())
         if evaluator.evaluate(effect.when):
             self.apply_effects(effect.then)
         else:
@@ -230,7 +230,7 @@ class EffectResolver:
         if total_weight <= 0:
             return
 
-        roll = random.Random(self.engine._get_turn_seed()).uniform(0, total_weight)
+        roll = random.Random(self.engine.get_turn_seed()).uniform(0, total_weight)
         current_weight = 0
 
         for choice in effect.choices:
@@ -260,7 +260,7 @@ class EffectResolver:
 
         self.engine._update_npc_presence()
 
-        current_node = self.engine._get_current_node()
+        current_node = self.engine.get_current_node()
         current_node.characters_present.extend(chars_to_move)
 
         if current_node.characters_present:
@@ -276,7 +276,7 @@ class EffectResolver:
         if not economy or not economy.enabled:
             return
 
-        evaluator = ConditionEvaluator(state, rng_seed=self.engine._get_turn_seed())
+        evaluator = ConditionEvaluator(state, rng_seed=self.engine.get_turn_seed())
         shop = self._resolve_shop(effect.source)
         if shop:
             if not evaluator.evaluate(shop.when):
@@ -349,7 +349,7 @@ class EffectResolver:
         if not economy or not economy.enabled:
             return
 
-        evaluator = ConditionEvaluator(state, rng_seed=self.engine._get_turn_seed())
+        evaluator = ConditionEvaluator(state, rng_seed=self.engine.get_turn_seed())
         shop = self._resolve_shop(effect.target)
         if shop:
             if not evaluator.evaluate(shop.when):

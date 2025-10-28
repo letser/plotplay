@@ -18,7 +18,7 @@ class StateSummaryService:
 
     def build(self) -> dict:
         state = self.engine.state_manager.state
-        evaluator = ConditionEvaluator(state, rng_seed=self.engine._get_turn_seed())
+        evaluator = ConditionEvaluator(state, rng_seed=self.engine.get_turn_seed())
 
         summary_meters: dict[str, dict] = {}
         for char_id, meter_values in state.meters.items():
@@ -156,6 +156,64 @@ class StateSummaryService:
                         }
                     )
 
+            # Build zone connections list
+            zone_connections: list[dict] = []
+            current_zone = self.engine.zones_map.get(state.zone_current)
+            if current_zone and current_zone.connections:
+                discovered_zones = set(state.discovered_zones or [])
+                for connection in current_zone.connections:
+                    dest_zone_ids = connection.to if isinstance(connection.to, list) else [connection.to]
+
+                    for dest_zone_id in dest_zone_ids:
+                        if dest_zone_id == "all" or dest_zone_id not in discovered_zones:
+                            continue
+
+                        dest_zone = self.engine.zones_map.get(dest_zone_id)
+                        if not dest_zone:
+                            continue
+
+                        # Check access/locks
+                        access = dest_zone.access if hasattr(dest_zone, 'access') else None
+                        locked = access.locked if access else False
+                        unlocked_when = access.unlocked_when if access else None
+                        is_locked = locked and (not unlocked_when or not evaluator.evaluate(unlocked_when))
+
+                        # Get available travel methods
+                        available_methods = connection.methods if connection.methods else []
+                        if not available_methods and self.engine.game_def.movement and self.engine.game_def.movement.methods:
+                            # Use all game methods if connection doesn't specify
+                            available_methods = [m.name for m in self.engine.game_def.movement.methods]
+
+                        # Get entry locations based on use_entry_exit setting
+                        entry_locations: list[dict] = []
+                        if self.engine.game_def.movement and self.engine.game_def.movement.use_entry_exit:
+                            # Only show designated entrances
+                            if dest_zone.entrances:
+                                for entry_loc_id in dest_zone.entrances:
+                                    entry_loc = self.engine.get_location(entry_loc_id)
+                                    if entry_loc:
+                                        entry_locations.append({
+                                            "id": entry_loc_id,
+                                            "name": entry_loc.name
+                                        })
+                        else:
+                            # Show all locations in the zone when use_entry_exit is false
+                            for location in dest_zone.locations:
+                                entry_locations.append({
+                                    "id": location.id,
+                                    "name": location.name
+                                })
+
+                        zone_connections.append({
+                            "zone_id": dest_zone_id,
+                            "zone_name": dest_zone.name,
+                            "distance": connection.distance or 1.0,
+                            "available_methods": available_methods,
+                            "entry_locations": entry_locations,
+                            "locked": is_locked,
+                            "available": not is_locked,
+                        })
+
             location_detail = {
                 "id": current_location.id,
                 "name": current_location.name,
@@ -165,6 +223,7 @@ class StateSummaryService:
                 "description": getattr(current_location, "description", None),
                 "has_shop": bool(getattr(current_location, "shop", None)),
                 "exits": exits,
+                "zone_connections": zone_connections,
             }
         else:
             location_detail = {
@@ -176,6 +235,7 @@ class StateSummaryService:
                 "description": None,
                 "has_shop": False,
                 "exits": [],
+                "zone_connections": [],
             }
 
         player_snapshot = {

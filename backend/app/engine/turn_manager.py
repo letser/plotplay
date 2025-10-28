@@ -34,7 +34,7 @@ class TurnManager:
         engine.logger.info("--- Turn Start ---")
         engine.turn_meter_deltas = {}
         state = engine.state_manager.state
-        current_node = engine._get_current_node()
+        current_node = engine.get_current_node()
 
         if current_node.type == NodeType.ENDING:
             engine.logger.warning("Attempted to process action in an ENDING node. Halting turn.")
@@ -61,7 +61,7 @@ class TurnManager:
         if action_type == "do" and action_text and movement.is_movement_action(action_text):
             return await movement.handle_freeform(action_text)
 
-        turn_seed = engine._get_turn_seed()
+        turn_seed = engine.get_turn_seed()
 
         event_result = engine.events.process_events(turn_seed)
         event_choices = list(event_result.choices)
@@ -70,7 +70,7 @@ class TurnManager:
         if action_type == "choice" and choice_id:
             await engine._handle_predefined_choice(choice_id, event_choices)
             # Recapture current node after choice effects (which may include goto)
-            current_node = engine._get_current_node()
+            current_node = engine.get_current_node()
             # Update present_chars from the new node if it specifies characters
             if current_node.characters_present:
                 state.present_chars = [
@@ -93,7 +93,7 @@ class TurnManager:
                 player_action_str,
                 current_node,
                 state.narrative_history,
-                rng_seed=engine._get_turn_seed(),
+                rng_seed=engine.get_turn_seed(),
             )
 
             engine.logger.info("🎨 WRITER: Generating narrative...")
@@ -188,7 +188,7 @@ class TurnManager:
         action_summary: str | None = None
 
         engine._check_and_apply_node_transitions()
-        engine.modifiers.update_modifiers_for_turn(state, rng_seed=engine._get_turn_seed())
+        engine.modifiers.update_modifiers_for_turn(state, rng_seed=engine.get_turn_seed())
         engine._update_discoveries()
 
         time_info = engine.time.advance()
@@ -196,7 +196,7 @@ class TurnManager:
         engine.time.apply_meter_dynamics(time_info)
         engine.events.decrement_cooldowns()
 
-        final_node = engine._get_current_node()
+        final_node = engine.get_current_node()
         choices = engine._generate_choices(final_node, event_choices)
         action_summary = engine.state_summary.build_action_summary(player_action_str)
 
@@ -229,7 +229,7 @@ class TurnManager:
         engine.logger.info("--- Turn Start (Streaming) ---")
         engine.turn_meter_deltas = {}
         state = engine.state_manager.state
-        current_node = engine._get_current_node()
+        current_node = engine.get_current_node()
 
         if current_node.type == NodeType.ENDING:
             engine.logger.warning("Attempted to process action in an ENDING node. Halting turn.")
@@ -283,7 +283,7 @@ class TurnManager:
             }
             return
 
-        turn_seed = engine._get_turn_seed()
+        turn_seed = engine.get_turn_seed()
 
         event_result = engine.events.process_events(turn_seed)
         event_choices = list(event_result.choices)
@@ -292,7 +292,7 @@ class TurnManager:
         if action_type == "choice" and choice_id:
             await engine._handle_predefined_choice(choice_id, event_choices)
             # Recapture current node after choice effects (which may include goto)
-            current_node = engine._get_current_node()
+            current_node = engine.get_current_node()
             # Update present_chars from the new node if it specifies characters
             if current_node.characters_present:
                 state.present_chars = [
@@ -317,7 +317,7 @@ class TurnManager:
                 player_action_str,
                 current_node,
                 state.narrative_history,
-                rng_seed=engine._get_turn_seed(),
+                rng_seed=engine.get_turn_seed(),
             )
 
             engine.logger.info("🎨 WRITER: Generating narrative...")
@@ -487,7 +487,7 @@ class TurnManager:
             engine.apply_effects(item_effects)
 
         engine._check_and_apply_node_transitions()
-        engine.modifiers.update_modifiers_for_turn(state, rng_seed=engine._get_turn_seed())
+        engine.modifiers.update_modifiers_for_turn(state, rng_seed=engine.get_turn_seed())
         engine._update_discoveries()
 
         time_info = engine.time.advance()
@@ -495,7 +495,7 @@ class TurnManager:
         engine.time.apply_meter_dynamics(time_info)
         engine.events.decrement_cooldowns()
 
-        final_node = engine._get_current_node()
+        final_node = engine.get_current_node()
         choices = engine._generate_choices(final_node, event_choices)
 
         base_narrative = reconciled_narrative or action_summary

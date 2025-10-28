@@ -23,7 +23,7 @@ from app.engine import (
     ClothingService,
     ModifierService,
 )
-from app.core.conditions import ConditionEvaluator
+
 from app.models.actions import GameAction
 from app.models.characters import Character
 from app.models.effects import (
@@ -147,7 +147,7 @@ class GameEngine:
         Uses start node beats if available for author control.
         """
         state = self.state_manager.state
-        start_node = self._get_current_node()
+        start_node = self.get_current_node()
 
         # Initialize present characters from start node
         if start_node.characters_present:
@@ -817,7 +817,7 @@ Remember: This is just scene-setting. No need to describe player actions yet."""
     def _get_state_summary(self) -> dict[str, Any]:
         return self.state_summary.build()
 
-    def _get_current_node(self) -> Node:
+    def get_current_node(self) -> Node:
         node = self.nodes_map.get(self.state_manager.state.current_node)
         if not node: raise ValueError(f"FATAL: Current node '{self.state_manager.state.current_node}' not found.")
         return node
@@ -825,7 +825,7 @@ Remember: This is just scene-setting. No need to describe player actions yet."""
     def _get_character(self, char_id: str) -> Character | None:
         return self.characters_map.get(char_id)
 
-    def _get_location(self, location_id: str) -> Location | None:
+    def get_location(self, location_id: str) -> Location | None:
         return self.locations_map.get(location_id)
 
     def _process_meter_dynamics(self, time_advanced_info: dict[str, bool]):
@@ -867,7 +867,7 @@ Remember: This is just scene-setting. No need to describe player actions yet."""
         )
         return meter_def.model_copy(update=patch)
 
-    def _get_turn_seed(self) -> int:
+    def get_turn_seed(self) -> int:
         """Generate a deterministic seed for the current turn."""
         return self.runtime.turn_seed()
 

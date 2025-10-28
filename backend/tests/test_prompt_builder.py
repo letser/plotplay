@@ -9,7 +9,7 @@ def test_writer_prompt_includes_new_sections(engine_fixture):
     engine = engine_fixture
     state = engine.state_manager.state
     state.present_chars = ["player"]
-    node = engine._get_current_node()
+    node = engine.get_current_node()
 
     prompt = engine.prompt_builder.build_writer_prompt(
         state,

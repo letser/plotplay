@@ -54,6 +54,7 @@ interface GameStore {
     ) => Promise<void>;
     retryLastAction: () => Promise<void>;
     performMovement: (choiceId: string) => Promise<void>;
+    performZoneTravel: (zoneId: string, method: string | null, entryLocationId: string | null) => Promise<void>;
     purchaseItem: (itemId: string, count?: number, price?: number, sellerId?: string) => Promise<void>;
     sellItem: (itemId: string, count?: number, price?: number, buyerId?: string) => Promise<void>;
     takeItem: (itemId: string, count?: number, ownerId?: string) => Promise<void>;
@@ -410,6 +411,56 @@ export const useGameStore = create<GameStore>((set, get) => ({
         } catch (error) {
             console.error(error);
             const errorMsg = 'Failed to move';
+            useToast.getState().error(errorMsg);
+            // Revert optimistic update on error
+            set(state => ({
+                turnLog: state.turnLog.slice(0, -1),
+                error: errorMsg,
+                loading: false,
+            }));
+        }
+    },
+
+    performZoneTravel: async (zoneId: string, method: string | null, entryLocationId: string | null) => {
+        const sessionId = get().sessionId;
+        if (!sessionId) return;
+
+        const payload: MovementRequest = {
+            zone_id: zoneId,
+            method: method,
+            entry_location_id: entryLocationId,
+        };
+
+        // Optimistic update: Add loading turn entry immediately
+        const nextTurn = get().turnCounter + 1;
+        const optimisticEntry = buildTurnEntry(nextTurn, 'deterministic', 'Traveling...', `Traveling to ${zoneId}...`);
+
+        set(state => ({
+            turnLog: [...state.turnLog, optimisticEntry],
+            loading: true,
+            error: null,
+        }));
+
+        try {
+            const response = await gameApi.move(sessionId, payload);
+
+            set(state => {
+                const turnEntry = buildTurnEntry(nextTurn, 'deterministic', response.action_summary, response.message);
+                const updatedChoices = extractChoicesFromDetails(response.details) ?? state.choices;
+
+                return {
+                    turnLog: [...state.turnLog.slice(0, -1), turnEntry], // Replace optimistic entry
+                    choices: updatedChoices,
+                    gameState: response.state_summary,
+                    loading: false,
+                    turnCounter: nextTurn,
+                };
+            });
+
+            useToast.getState().success('Travel successful!');
+        } catch (error) {
+            console.error(error);
+            const errorMsg = 'Failed to travel';
             useToast.getState().error(errorMsg);
             // Revert optimistic update on error
             set(state => ({

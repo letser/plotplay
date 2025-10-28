@@ -1,7 +1,6 @@
 """Generates contextual status messages while streaming Checker response."""
 
 import random
-import re
 
 
 class CheckerStatusGenerator:
@@ -103,7 +102,7 @@ class CheckerStatusGenerator:
         self.used_contexts = set()
         self.message_count = 0
 
-    def detect_context(self, partial_text: str) -> str | None:
+    def detect_context(self, partial_text: str) -> str | tuple | None:
         """Detect what context we're in based on partial streaming text."""
         text_lower = partial_text.lower()
 
@@ -117,7 +116,7 @@ class CheckerStatusGenerator:
         for name in self.character_names:
             if name.lower() in text_lower and "character" not in self.used_contexts:
                 self.used_contexts.add("character")
-                return ("character", name)
+                return "character", name
 
         if any(key in text_lower for key in ["location_change", "move", "travel", "destination"]):
             if "location" not in self.used_contexts:
@@ -150,7 +149,7 @@ class CheckerStatusGenerator:
         """Generate a status message based on context."""
         self.message_count += 1
 
-        # First message is always a "start" message
+        # The first message is always a "start" message
         if self.message_count == 1:
             return random.choice(self.MESSAGES["start"])
 
@@ -166,8 +165,9 @@ class CheckerStatusGenerator:
         # Generic fallback
         return random.choice(self.MESSAGES["generic"])
 
-    def get_completion_message(self) -> str:
-        """Get final completion message."""
+    @staticmethod
+    def get_completion_message() -> str:
+        """Get the final completion message."""
         return random.choice([
             "All set!",
             "Got it!",

@@ -20,7 +20,7 @@ def test_formatter_returns_item_use_text(formatter):
 
 def test_formatter_choice_lookup(formatter):
     engine = formatter.engine
-    node = engine._get_current_node()
+    node = engine.get_current_node()
     node.choices.append(Choice(id="wave", prompt="Wave hello"))
 
     result = formatter.format("choice", None, None, "wave", None)

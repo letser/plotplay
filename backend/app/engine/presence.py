@@ -21,7 +21,7 @@ class PresenceService:
     def refresh(self) -> None:
         state = self.engine.state_manager.state
         current_loc = state.location_current
-        evaluator = ConditionEvaluator(state, rng_seed=self.engine._get_turn_seed())
+        evaluator = ConditionEvaluator(state, rng_seed=self.engine.get_turn_seed())
 
         for char in self.engine.game_def.characters:
             if char.id == "player" or not char.schedule:

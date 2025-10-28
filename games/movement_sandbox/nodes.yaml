@@ -1,0 +1,26 @@
+nodes:
+  - id: "intro"
+    type: "scene"
+    title: "Movement Sandbox"
+    description: "Introduction to the movement sandbox."
+    auto_progress: false
+    narrative: |
+      Welcome to the Movement Testing Sandbox!
+
+      This game is designed to test zone travel with entry/exit points and multiple travel methods.
+
+      **Key Features to Test:**
+      - Three zones: Downtown (starting), Suburbs, Industrial
+      - Multiple entry points per zone (check the Movement panel)
+      - Multiple travel methods: Walk (5 min/unit), Bike (3 min/unit), Car (1 min/unit)
+      - Local movement within zones
+      - Different travel method restrictions per zone connection
+
+      **Try These Tests:**
+      1. Travel between zones using different methods and entry points
+      2. Move around within each zone
+      3. Note which methods are available for each zone connection
+      4. Observe travel time differences between methods
+
+      Use the Movement panel to explore!
+    choices: []

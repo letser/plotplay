@@ -55,6 +55,8 @@ class MovementRequest(BaseModel):
     destination_id: str | None = None
     zone_id: str | None = None
     direction: str | None = None
+    method: str | None = None  # Travel method for zone travel
+    entry_location_id: str | None = None  # Specific entry location for zone travel
     companions: list[str] = Field(default_factory=list)
 
 
@@ -167,7 +169,7 @@ async def start_game_stream(request: StartGameRequest):
             # Send initial state snapshot immediately (before narrative)
             # This populates all the panels right away
             initial_state = engine._get_state_summary()
-            initial_choices = engine._generate_choices(engine._get_current_node(), [])
+            initial_choices = engine._generate_choices(engine.get_current_node(), [])
 
             initial_state_event = {
                 "type": "initial_state",
@@ -334,11 +336,21 @@ async def deterministic_move(session_id: str, request: MovementRequest) -> Deter
         success = engine.state_manager.state.location_current != before_location
         details = {"choices": result.get("choices", [])}
     elif request.zone_id:
-        result = await engine.movement.handle_choice(f"travel_{request.zone_id}")
-        summary = result.get("current_state", engine._get_state_summary())
-        message = result.get("narrative", "").strip()
-        success = engine.state_manager.state.zone_current != before_zone
-        details = {"choices": result.get("choices", [])}
+        # Use direct zone travel method with parameters
+        success = engine.movement.travel_to_zone(
+            zone_id=request.zone_id,
+            method=request.method,
+            entry_location_id=request.entry_location_id,
+            with_characters=request.companions or []
+        )
+        summary = engine._get_state_summary()
+        if success:
+            zone = engine.zones_map.get(request.zone_id)
+            zone_name = zone.name if zone else request.zone_id
+            message = f"You travel to {zone_name}."
+        else:
+            message = "You cannot travel there right now."
+        details = {"zone_id": request.zone_id, "method": request.method, "entry_location_id": request.entry_location_id}
     else:
         success = engine.movement.move_by_direction(request.direction, request.companions or [])
         summary = engine._get_state_summary()

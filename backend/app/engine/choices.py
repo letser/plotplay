@@ -20,7 +20,7 @@ class ChoiceService:
 
     def build(self, node: Node, event_choices: Iterable[NodeChoice]) -> list[dict]:
         state = self.engine.state_manager.state
-        evaluator = ConditionEvaluator(state, rng_seed=self.engine._get_turn_seed())
+        evaluator = ConditionEvaluator(state, rng_seed=self.engine.get_turn_seed())
 
         available: list[dict] = []
 
@@ -82,14 +82,14 @@ class ChoiceService:
 
     def _append_movement_choices(self, bucket: list[dict], evaluator: ConditionEvaluator) -> None:
         state = self.engine.state_manager.state
-        current_location = self.engine._get_location(state.location_current)
+        current_location = self.engine.get_location(state.location_current)
         if current_location and current_location.connections:
             for connection in current_location.connections:
                 targets = [connection.to] if isinstance(connection.to, str) else (connection.to or [])
                 for target_id in targets:
                     if target_id not in state.discovered_locations:
                         continue
-                    dest_location = self.engine._get_location(target_id)
+                    dest_location = self.engine.get_location(target_id)
                     if not dest_location:
                         continue
 
@@ -106,35 +106,32 @@ class ChoiceService:
 
                     bucket.append(choice)
 
-        current_zone = self.engine.zones_map.get(state.zone_current)
-        if current_zone and current_zone.connections:
-            discovered_zones = set(state.discovered_zones or [])
-            for connection in current_zone.connections:
-                # connection.to is a list of zone IDs
-                dest_zone_ids = connection.to if isinstance(connection.to, list) else [connection.to]
-
-                for dest_zone_id in dest_zone_ids:
-                    if dest_zone_id == "all" or dest_zone_id not in discovered_zones:
-                        continue
-
-                    dest_zone = self.engine.zones_map.get(dest_zone_id)
-                    if not dest_zone:
-                        continue
-
-                    methods = connection.methods if connection.methods else ["travel"]
-                    method = methods[0] if methods else "travel"
-
-                    access = dest_zone.access if hasattr(dest_zone, 'access') else None
-                    locked = access.locked if access else False
-                    unlocked_when = access.unlocked_when if access else None
-
-                    disabled = locked and (not unlocked_when or not evaluator.evaluate(unlocked_when))
-
-                    bucket.append(
-                        {
-                            "id": f"travel_{dest_zone.id}",
-                            "text": f"Take the {method} to {dest_zone.name}",
-                            "type": "movement",
-                            "disabled": disabled,
-                        }
-                    )
+        # NOTE: Zone travel choices have been moved to MovementControls component
+        # via the zone_connections system in the snapshot. The new UI provides
+        # dropdowns for method and entry location selection.
+        # Keeping this code commented for reference:
+        #
+        # current_zone = self.engine.zones_map.get(state.zone_current)
+        # if current_zone and current_zone.connections:
+        #     discovered_zones = set(state.discovered_zones or [])
+        #     for connection in current_zone.connections:
+        #         dest_zone_ids = connection.to if isinstance(connection.to, list) else [connection.to]
+        #         for dest_zone_id in dest_zone_ids:
+        #             if dest_zone_id == "all" or dest_zone_id not in discovered_zones:
+        #                 continue
+        #             dest_zone = self.engine.zones_map.get(dest_zone_id)
+        #             if not dest_zone:
+        #                 continue
+        #             methods = connection.methods if connection.methods else ["travel"]
+        #             method = methods[0] if methods else "travel"
+        #             access = dest_zone.access if hasattr(dest_zone, 'access') else None
+        #             locked = access.locked if access else False
+        #             unlocked_when = access.unlocked_when if access else None
+        #             disabled = locked and (not unlocked_when or not evaluator.evaluate(unlocked_when))
+        #             bucket.append({
+        #                 "id": f"travel_{dest_zone.id}",
+        #                 "text": f"Take the {method} to {dest_zone.name}",
+        #                 "type": "movement",
+        #                 "disabled": disabled,
+        #             })
+        pass

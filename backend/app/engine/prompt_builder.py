@@ -190,7 +190,7 @@ class PromptBuilder:
     # Checker prompt
     # ------------------------------------------------------------------ #
     def build_checker_prompt(self, narrative: str, player_action: str, state: GameState) -> str:
-        evaluator = ConditionEvaluator(state, rng_seed=self.engine._get_turn_seed())
+        evaluator = ConditionEvaluator(state, rng_seed=self.engine.get_turn_seed())
         prompt_payload = {
             "player_action": player_action,
             "narrative": narrative,

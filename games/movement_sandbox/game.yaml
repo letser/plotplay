@@ -1,0 +1,66 @@
+meta:
+  id: "movement_sandbox"
+  title: "Movement Testing Sandbox"
+  version: "1.0.0"
+  authors: ["PlotPlay Team"]
+  description: "A sandbox game for testing zone travel with entry/exit locations and multiple travel methods."
+  content_warnings: []
+  nsfw_allowed: false
+  license: "CC-BY-NC-4.0"
+
+narration:
+  pov: "second"
+  tense: "present"
+  paragraphs: "1-2"
+
+start:
+  location: "downtown_plaza"
+  node: "intro"
+  day: 1
+  slot: "morning"
+  time: "09:00"
+
+meters:
+  player:
+    energy:
+      min: 0
+      max: 100
+      default: 100
+      visible: true
+      icon: "⚡"
+
+time:
+  mode: "hybrid"
+  slots: ["morning", "afternoon", "evening", "night"]
+  actions_per_slot: 10
+  minutes_per_action: 15
+  slot_windows:
+    morning: { start: "06:00", end: "11:59" }
+    afternoon: { start: "12:00", end: "17:59" }
+    evening: { start: "18:00", end: "21:59" }
+    night: { start: "22:00", end: "05:59" }
+
+economy:
+  enabled: true
+  starting_money: 100
+  max_money: 1000
+  currency_name: "dollars"
+  currency_symbol: "$"
+
+movement:
+  base_time: 2
+  use_entry_exit: true
+  methods:
+    - walk: 5
+    - bike: 3
+    - car: 1
+
+includes:
+  - "characters.yaml"
+  - "locations.yaml"
+  - "items.yaml"
+  - "nodes.yaml"
+  - "events.yaml"
+  - "arcs.yaml"
+  - "actions.yaml"
+  - "modifiers.yaml"

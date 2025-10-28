@@ -1,0 +1,272 @@
+zones:
+  # Downtown zone - starting area with pedestrian focus
+  - id: "downtown"
+    name: "Downtown District"
+    summary: "Bustling city center with shops, offices, and pedestrian walkways."
+    privacy: "low"
+    access:
+      discovered: true
+    connections:
+      - to: ["suburbs"]
+        methods: ["walk", "bike", "car"]
+        distance: 3.0
+        description: "Travel north to the residential suburbs."
+      - to: ["industrial"]
+        methods: ["bike", "car"]  # No walking to industrial (too far)
+        distance: 5.0
+        description: "Travel east to the industrial district."
+    entrances:
+      - "downtown_plaza"
+      - "downtown_station"
+    exits:
+      - "downtown_highway_ramp"
+    locations:
+      # Main entry point - pedestrian friendly
+      - id: "downtown_plaza"
+        name: "Central Plaza"
+        summary: "The heart of downtown with fountains and street performers."
+        description: "You stand in the bustling Central Plaza. Pedestrians stream past on their way to shops and offices. A large fountain dominates the center, and you can see the train station to the north."
+        privacy: "low"
+        access:
+          discovered: true
+        connections:
+          - to: "downtown_station"
+            description: "Walk north to the train station."
+            direction: "n"
+          - to: "downtown_shops"
+            description: "Head west into the shopping district."
+            direction: "w"
+
+      # Transit hub entry point
+      - id: "downtown_station"
+        name: "Transit Station"
+        summary: "A busy train and bus station connecting the city."
+        description: "The transit station bustles with commuters. Digital boards display departure times. You can catch buses or trains here, or walk south back to the plaza."
+        privacy: "low"
+        connections:
+          - to: "downtown_plaza"
+            description: "Walk south to the plaza."
+            direction: "s"
+          - to: "downtown_highway_ramp"
+            description: "Walk east to the highway on-ramp."
+            direction: "e"
+
+      # Vehicle exit point
+      - id: "downtown_highway_ramp"
+        name: "Highway On-Ramp"
+        summary: "A concrete ramp leading to the elevated highway."
+        description: "Cars stream onto the highway here. The noise is constant. This is the main vehicle exit from downtown."
+        privacy: "low"
+        connections:
+          - to: "downtown_station"
+            description: "Walk west back to the station."
+            direction: "w"
+          - to: "downtown_shops"
+            description: "Walk south to the shops."
+            direction: "s"
+
+      # Additional location
+      - id: "downtown_shops"
+        name: "Shopping District"
+        summary: "Colorful storefronts and outdoor cafes."
+        description: "Small boutiques and cafes line the street. The smell of coffee and fresh bread fills the air."
+        privacy: "medium"
+        connections:
+          - to: "downtown_plaza"
+            description: "Walk east to the plaza."
+            direction: "e"
+          - to: "downtown_highway_ramp"
+            description: "Walk north to the highway ramp."
+            direction: "n"
+
+  # Suburbs zone - residential area
+  - id: "suburbs"
+    name: "Suburban Neighborhood"
+    summary: "Quiet residential streets with parks and family homes."
+    privacy: "medium"
+    access:
+      discovered: true
+      hidden_until_discovered: false
+    connections:
+      - to: ["downtown"]
+        methods: ["walk", "bike", "car"]
+        distance: 3.0
+        description: "Travel south back to downtown."
+      - to: ["industrial"]
+        methods: ["car"]  # Only car connection between suburbs and industrial
+        distance: 6.0
+        description: "Drive across town to the industrial district."
+    entrances:
+      - "suburbs_park_entrance"
+      - "suburbs_main_street"
+    exits:
+      - "suburbs_highway_exit"
+    locations:
+      # Pedestrian entry point
+      - id: "suburbs_park_entrance"
+        name: "Park Entrance"
+        summary: "A tree-lined entrance to the suburban neighborhood."
+        description: "You arrive at the edge of a peaceful park. Children play on swings while joggers circle the path. Residential streets stretch out beyond the park."
+        privacy: "low"
+        connections:
+          - to: "suburbs_park"
+            description: "Enter the park."
+            direction: "n"
+          - to: "suburbs_main_street"
+            description: "Walk east to the main street."
+            direction: "e"
+
+      # Central hub
+      - id: "suburbs_park"
+        name: "Community Park"
+        summary: "A green space with playgrounds and walking paths."
+        description: "The park is well-maintained with mature trees providing shade. A playground sits to one side, and benches line the walking path."
+        privacy: "low"
+        connections:
+          - to: "suburbs_park_entrance"
+            description: "Exit the park to the south."
+            direction: "s"
+          - to: "suburbs_main_street"
+            description: "Walk east to the main street."
+            direction: "e"
+          - to: "suburbs_cul_de_sac"
+            description: "Walk north to the residential cul-de-sac."
+            direction: "n"
+
+      # Commercial entry point
+      - id: "suburbs_main_street"
+        name: "Main Street"
+        summary: "A small commercial strip with local businesses."
+        description: "Local shops and a small grocery store line this quiet street. Everything moves at a slower pace here compared to downtown."
+        privacy: "low"
+        connections:
+          - to: "suburbs_park"
+            description: "Walk west to the park."
+            direction: "w"
+          - to: "suburbs_park_entrance"
+            description: "Walk west then south to the park entrance."
+            direction: "w"
+          - to: "suburbs_highway_exit"
+            description: "Walk south to the highway exit."
+            direction: "s"
+          - to: "suburbs_cul_de_sac"
+            description: "Walk north to the residential area."
+            direction: "n"
+
+      # Vehicle exit point
+      - id: "suburbs_highway_exit"
+        name: "Highway Exit"
+        summary: "Where the highway meets the suburban roads."
+        description: "A concrete off-ramp connects the highway to the suburban streets. Traffic light controls the intersection."
+        privacy: "low"
+        connections:
+          - to: "suburbs_main_street"
+            description: "Walk north to the main street."
+            direction: "n"
+
+      # Additional residential location
+      - id: "suburbs_cul_de_sac"
+        name: "Quiet Cul-de-Sac"
+        summary: "A dead-end street with well-kept homes."
+        description: "Identical houses with manicured lawns form a peaceful circle. A few cars are parked in driveways."
+        privacy: "high"
+        connections:
+          - to: "suburbs_park"
+            description: "Walk south to the park."
+            direction: "s"
+          - to: "suburbs_main_street"
+            description: "Walk south to the main street."
+            direction: "s"
+
+  # Industrial zone - vehicle-oriented area
+  - id: "industrial"
+    name: "Industrial District"
+    summary: "Warehouses, factories, and loading docks."
+    privacy: "low"
+    access:
+      discovered: true
+      hidden_until_discovered: false
+    connections:
+      - to: ["downtown"]
+        methods: ["bike", "car"]
+        distance: 5.0
+        description: "Travel west back to downtown."
+      - to: ["suburbs"]
+        methods: ["car"]
+        distance: 6.0
+        description: "Drive across town to the suburbs."
+    entrances:
+      - "industrial_gate_north"
+      - "industrial_gate_south"
+    exits:
+      - "industrial_highway_junction"
+    locations:
+      # North entry point
+      - id: "industrial_gate_north"
+        name: "North Gate"
+        summary: "A security gate with a guardhouse."
+        description: "A chain-link fence stretches in both directions. A security guard checks IDs at the gate. Large trucks rumble past on their way to the loading docks."
+        privacy: "low"
+        connections:
+          - to: "industrial_yard"
+            description: "Enter through the gate to the yard."
+            direction: "s"
+
+      # South entry point
+      - id: "industrial_gate_south"
+        name: "South Gate"
+        summary: "A secondary entrance for employee parking."
+        description: "A smaller gate opens to an employee parking lot. Cars and motorcycles fill the spaces. The sound of machinery echoes from nearby warehouses."
+        privacy: "low"
+        connections:
+          - to: "industrial_yard"
+            description: "Walk north into the yard."
+            direction: "n"
+          - to: "industrial_warehouse"
+            description: "Walk west to the warehouse."
+            direction: "w"
+
+      # Central hub
+      - id: "industrial_yard"
+        name: "Central Yard"
+        summary: "A large open area between warehouse buildings."
+        description: "Forklifts move pallets of goods across the concrete expanse. Yellow lines mark traffic lanes. The smell of diesel fuel hangs in the air."
+        privacy: "low"
+        connections:
+          - to: "industrial_gate_north"
+            description: "Walk north to the north gate."
+            direction: "n"
+          - to: "industrial_gate_south"
+            description: "Walk south to the south gate."
+            direction: "s"
+          - to: "industrial_warehouse"
+            description: "Walk west to the warehouse."
+            direction: "w"
+          - to: "industrial_highway_junction"
+            description: "Walk east to the highway junction."
+            direction: "e"
+
+      # Main facility
+      - id: "industrial_warehouse"
+        name: "Main Warehouse"
+        summary: "A massive building with tall metal doors."
+        description: "The warehouse interior is dim and cavernous. Stacks of shipping containers reach toward the ceiling. The temperature is several degrees cooler inside."
+        privacy: "medium"
+        connections:
+          - to: "industrial_yard"
+            description: "Exit to the yard."
+            direction: "e"
+          - to: "industrial_gate_south"
+            description: "Walk east then south to the south gate."
+            direction: "e"
+
+      # Vehicle exit point
+      - id: "industrial_highway_junction"
+        name: "Highway Junction"
+        summary: "Where multiple highway lanes merge."
+        description: "A complex interchange with concrete pillars supporting elevated roadways. Signs point to various destinations across the city."
+        privacy: "low"
+        connections:
+          - to: "industrial_yard"
+            description: "Walk west back to the yard."
+            direction: "w"

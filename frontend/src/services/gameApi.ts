@@ -72,6 +72,21 @@ export interface SnapshotExit {
     description: string | null;
 }
 
+export interface ZoneConnectionEntryLocation {
+    id: string;
+    name: string;
+}
+
+export interface ZoneConnection {
+    zone_id: string;
+    zone_name: string;
+    distance: number;
+    available_methods: string[];
+    entry_locations: ZoneConnectionEntryLocation[];
+    locked: boolean;
+    available: boolean;
+}
+
 export interface SnapshotLocation {
     id: string | null;
     name: string;
@@ -81,6 +96,7 @@ export interface SnapshotLocation {
     description?: string | null;
     has_shop: boolean;
     exits: SnapshotExit[];
+    zone_connections: ZoneConnection[];
 }
 
 export interface SnapshotTime {
@@ -160,6 +176,8 @@ export interface MovementRequest {
     destination_id?: string | null;
     zone_id?: string | null;
     direction?: string | null;
+    method?: string | null;  // Travel method for zone travel
+    entry_location_id?: string | null;  // Specific entry location for zone travel
     companions?: string[];
 }
 
