@@ -1,7 +1,7 @@
 """Tests for ClothingService (migrated from ClothingManager)."""
 
 import pytest
-from tests_v2.conftest_services import engine_fixture
+from tests.conftest_services import engine_fixture
 from app.engine.clothing import ClothingService
 # Legacy ClothingChangeEffect removed - using spec-compliant methods instead
 

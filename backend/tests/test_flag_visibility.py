@@ -1,7 +1,7 @@
 """Tests for flag visibility filtering in state summary."""
 import pytest
 
-from tests_v2.conftest_services import engine_fixture  # noqa: F401
+from tests.conftest_services import engine_fixture  # noqa: F401
 from app.models.flags import BoolFlag
 
 

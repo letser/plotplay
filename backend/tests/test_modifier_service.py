@@ -1,7 +1,7 @@
 """Tests for ModifierService (migrated from ModifierManager)."""
 
 import pytest
-from tests_v2.conftest_services import engine_fixture, engine_with_modifiers
+from tests.conftest_services import engine_fixture, engine_with_modifiers
 from app.engine.modifiers import ModifierService
 from app.models.effects import ApplyModifierEffect, RemoveModifierEffect
 

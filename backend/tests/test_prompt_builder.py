@@ -2,7 +2,7 @@
 
 import json
 
-from tests_v2.conftest_services import engine_fixture  # noqa: F401
+from tests.conftest_services import engine_fixture  # noqa: F401
 
 
 def test_writer_prompt_includes_new_sections(engine_fixture):

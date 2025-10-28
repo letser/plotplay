@@ -1,7 +1,7 @@
 """Tests for InventoryService (migrated from InventoryManager)."""
 
 import pytest
-from tests_v2.conftest_services import engine_fixture
+from tests.conftest_services import engine_fixture
 from app.engine.inventory import InventoryService
 from app.models.effects import InventoryChangeEffect
 

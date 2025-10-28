@@ -1,7 +1,7 @@
 import pytest
 
 from app.engine.presence import PresenceService
-from tests_v2.conftest_services import engine_fixture
+from tests.conftest_services import engine_fixture
 
 
 @pytest.fixture

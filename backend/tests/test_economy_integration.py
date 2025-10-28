@@ -284,7 +284,7 @@ class TestEconomyItemValues:
         assert sword.value == 150.0
 
     @pytest.mark.asyncio
-    async def test_item_value_validation(self):
+    async def test_item_value_validation(self, mock_ai_service):
         """Test that item values must be non-negative."""
         # Valid item with positive value
         valid_item = Item(
@@ -310,7 +310,7 @@ class TestEconomyItemValues:
 class TestShopModel:
     """Test Shop model configuration."""
 
-    def test_shop_creation_minimal(self):
+    def test_shop_creation_minimal(self, mock_ai_service):
         """Test creating a shop with minimal configuration."""
         shop = Shop(
             name="General Store",
@@ -322,7 +322,7 @@ class TestShopModel:
         assert shop.when is None
         assert shop.can_buy is None
 
-    def test_shop_creation_with_conditions(self):
+    def test_shop_creation_with_conditions(self, mock_ai_service):
         """Test creating a shop with conditions."""
         shop = Shop(
             name="Night Market",
@@ -335,7 +335,7 @@ class TestShopModel:
         assert shop.when == "time_slot == 'evening'"
         assert shop.can_buy == "player_money >= 10"
 
-    def test_shop_with_inventory(self):
+    def test_shop_with_inventory(self, mock_ai_service):
         """Test creating a shop with inventory items."""
         from app.models.inventory import InventoryItem
 
@@ -358,7 +358,7 @@ class TestEconomyEdgeCases:
     """Test edge cases and boundary conditions."""
 
     @pytest.mark.asyncio
-    async def test_economy_with_zero_starting_money(self):
+    async def test_economy_with_zero_starting_money(self, mock_ai_service):
         """Test economy configuration with zero starting money."""
         game = GameDefinition(
             meta=MetaConfig(
@@ -397,7 +397,7 @@ class TestEconomyEdgeCases:
         assert engine is not None
 
     @pytest.mark.asyncio
-    async def test_economy_with_high_max_money(self):
+    async def test_economy_with_high_max_money(self, mock_ai_service):
         """Test economy configuration with very high max money."""
         game = GameDefinition(
             meta=MetaConfig(
@@ -436,7 +436,7 @@ class TestEconomyEdgeCases:
         assert engine.game_def.economy.max_money == 999999.0
 
     @pytest.mark.asyncio
-    async def test_economy_with_custom_currency(self):
+    async def test_economy_with_custom_currency(self, mock_ai_service):
         """Test economy with custom currency names."""
         game = GameDefinition(
             meta=MetaConfig(

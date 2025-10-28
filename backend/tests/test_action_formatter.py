@@ -3,7 +3,7 @@ import pytest
 from app.engine.actions import ActionFormatter
 from app.models.actions import Action
 from app.models.nodes import Choice
-from tests_v2.conftest_services import engine_fixture
+from tests.conftest_services import engine_fixture
 
 
 @pytest.fixture

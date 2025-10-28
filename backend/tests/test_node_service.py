@@ -8,7 +8,7 @@ from app.models.nodes import Choice, Node, NodeType
 from tests.conftest import minimal_game
 
 
-def build_engine(tmp_path, monkeypatch) -> GameEngine:
+def build_engine(tmp_path, monkeypatch, mock_ai_service) -> GameEngine:
     def fake_logger(session_id: str) -> logging.Logger:
         logger = logging.getLogger(f"node-test-{session_id}")
         logger.handlers.clear()
@@ -26,7 +26,7 @@ def build_engine(tmp_path, monkeypatch) -> GameEngine:
 
 
 def test_node_service_applies_transitions(tmp_path, monkeypatch, mock_ai_service):
-    engine = build_engine(tmp_path, monkeypatch)
+    engine = build_engine(tmp_path, monkeypatch, mock_ai_service)
     current_node = engine._get_current_node()
 
     next_node = Node(id="next", type=NodeType.SCENE, title="Next")
@@ -41,7 +41,7 @@ def test_node_service_applies_transitions(tmp_path, monkeypatch, mock_ai_service
 
 
 def test_node_service_handles_predefined_choice(tmp_path, monkeypatch, mock_ai_service):
-    engine = build_engine(tmp_path, monkeypatch)
+    engine = build_engine(tmp_path, monkeypatch, mock_ai_service)
     state = engine.state_manager.state
     current_node = engine._get_current_node()
 

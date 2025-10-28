@@ -1,7 +1,7 @@
 """Tests for EventPipeline (consolidated from EventManager and ArcManager)."""
 
 import pytest
-from tests_v2.conftest_services import engine_fixture
+from tests.conftest_services import engine_fixture
 from app.engine.events import EventPipeline, EventResult
 from app.models.nodes import Event
 from app.models.arcs import Arc, Stage

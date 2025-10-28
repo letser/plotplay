@@ -6,7 +6,7 @@ from app.models.effects import MeterChangeEffect, ConditionalEffect, FlagSetEffe
 from tests.conftest import minimal_game
 
 
-def make_engine(tmp_path, monkeypatch) -> GameEngine:
+def make_engine(tmp_path, monkeypatch, mock_ai_service) -> GameEngine:
     def fake_logger(session_id: str) -> logging.Logger:
         logger = logging.getLogger(f"test-{session_id}")
         logger.handlers.clear()
@@ -24,7 +24,7 @@ def make_engine(tmp_path, monkeypatch) -> GameEngine:
 
 
 def test_meter_change_respects_delta_cap(tmp_path, monkeypatch, mock_ai_service):
-    engine = make_engine(tmp_path, monkeypatch)
+    engine = make_engine(tmp_path, monkeypatch, mock_ai_service)
     state = engine.state_manager.state
     state.meters.setdefault("player", {})["energy"] = 50
     engine.game_def.meters.player["energy"].delta_cap_per_turn = 10
@@ -39,7 +39,7 @@ def test_meter_change_respects_delta_cap(tmp_path, monkeypatch, mock_ai_service)
 
 
 def test_conditional_effect_branches(tmp_path, monkeypatch, mock_ai_service):
-    engine = make_engine(tmp_path, monkeypatch)
+    engine = make_engine(tmp_path, monkeypatch, mock_ai_service)
     state = engine.state_manager.state
     state.flags["met_friend"] = False
     state.meters.setdefault("player", {})["energy"] = 40

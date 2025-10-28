@@ -1,6 +1,6 @@
 """Tests for applying checker deltas using the new schema."""
 
-from tests_v2.conftest_services import engine_fixture  # noqa: F401
+from tests.conftest_services import engine_fixture  # noqa: F401
 
 
 def test_apply_ai_state_changes_new_schema(engine_fixture):

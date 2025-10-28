@@ -2,7 +2,7 @@
 
 import pytest
 
-from tests_v2.conftest_services import engine_fixture  # noqa: F401
+from tests.conftest_services import engine_fixture  # noqa: F401
 
 
 def test_purchase_item_success(engine_fixture):

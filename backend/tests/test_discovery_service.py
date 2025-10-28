@@ -3,7 +3,7 @@ import pytest
 from types import SimpleNamespace
 
 from app.engine.discovery import DiscoveryService
-from tests_v2.conftest_services import engine_fixture
+from tests.conftest_services import engine_fixture
 
 
 @pytest.fixture
