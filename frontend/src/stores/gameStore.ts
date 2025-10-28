@@ -128,7 +128,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
             let sessionId = '';
             let actionSummary = '';
             let accumulatedNarrative = '';
-            let finalResponse: any = null;
 
             // Process streaming chunks
             const stream = gameApi.startGameStream(gameId);
@@ -211,7 +210,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
                 } else if (chunk.type === 'checker_status') {
                     set({ checkerStatus: chunk.message });
                 } else if (chunk.type === 'complete') {
-                    finalResponse = chunk;
                     set(state => {
                         const updatedLog = [...state.turnLog];
                         updatedLog[0] = {

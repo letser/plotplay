@@ -51,10 +51,14 @@ characters:
       outfit: "emma_study_chic"
     schedule:
       - when: "time.slot == 'morning'"
-        location: "campus_dorm_room"
-      - when: "time.slot == 'afternoon'"
+        location: "campus_quad"
+      - when_all:
+          - "time.slot == 'afternoon'"
+          - "flags.met_emma == true"
         location: "campus_library"
-      - when: "time.slot == 'evening'"
+      - when_all:
+          - "time.slot == 'evening'"
+          - "flags.met_emma == true"
         location: "campus_cafe"
     inventory:
       items:
@@ -98,11 +102,17 @@ characters:
     clothing:
       outfit: "zoe_stage_wear"
     schedule:
+      - when: "time.slot == 'morning'"
+        location: "campus_cafe"
       - when: "time.slot == 'afternoon'"
         location: "campus_cafe"
-      - when: "time.slot == 'evening'"
+      - when_all:
+          - "time.slot == 'evening'"
+          - "flags.met_zoe == true"
         location: "downtown_music_venue"
-      - when: "time.slot == 'night'"
+      - when_all:
+          - "time.slot == 'night'"
+          - "flags.met_zoe == true"
         location: "downtown_city_rooftop"
     inventory:
       items:

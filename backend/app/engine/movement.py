@@ -203,22 +203,27 @@ class MovementService:
         engine._update_npc_presence()
 
         new_location = engine._get_location(destination_id)
-        loc_desc = (
-            new_location.description
-            if new_location and isinstance(new_location.description, str)
-            else "You arrive."
-        )
 
-        npc_names = [
-            engine.characters_map[cid].name for cid in state.present_chars if cid in engine.characters_map
-        ]
-        presence_desc = f"{', '.join(npc_names)} are here." if npc_names else ""
+        # Build concise narrative
+        parts = []
+        if new_location:
+            parts.append(f"You move to the {new_location.name}.")
 
-        final_narrative = (
-            f"You move to the {new_location.name}.\n\n{loc_desc}\n\n{presence_desc}".strip()
-            if new_location
-            else "You move."
-        )
+            # Only add description if it's a real description (not empty/None)
+            if new_location.description and isinstance(new_location.description, str) and new_location.description.strip():
+                parts.append(new_location.description)
+
+            # Add NPC presence if any (exclude player)
+            npc_names = [
+                engine.characters_map[cid].name for cid in state.present_chars
+                if cid in engine.characters_map and cid != "player"
+            ]
+            if npc_names:
+                parts.append(f"{', '.join(npc_names)} {'is' if len(npc_names) == 1 else 'are'} here.")
+        else:
+            parts.append("You move.")
+
+        final_narrative = "\n\n".join(parts)
 
         self.logger.info(
             "Movement from '%s' to '%s' completed. Time cost: %sm.",

@@ -28,10 +28,10 @@ class PresenceService:
                 continue
 
             for rule in char.schedule:
-                if rule.get("location") != current_loc:
+                if rule.location != current_loc:
                     continue
 
-                if evaluator.evaluate(rule.get("when")):
+                if evaluator.evaluate(rule.when):
                     if char.id not in state.present_chars:
                         state.present_chars.append(char.id)
                         self.logger.info(

@@ -66,6 +66,7 @@ export interface SnapshotExit {
     direction: string | null;
     to: string | null;
     name: string;
+    discovered: boolean;
     available: boolean;
     locked: boolean;
     description: string | null;

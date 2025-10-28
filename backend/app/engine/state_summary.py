@@ -143,12 +143,14 @@ class StateSummaryService:
 
                 for target_id in targets:
                     target_location = self.engine.locations_map.get(target_id)
+                    is_discovered = target_id in state.discovered_locations
                     exits.append(
                         {
                             "direction": getattr(connection.direction, "value", connection.direction),
                             "to": target_id,
                             "name": target_location.name if target_location else target_id,
-                            "available": target_id in state.discovered_locations and not is_locked,
+                            "discovered": is_discovered,
+                            "available": is_discovered and not is_locked,
                             "locked": is_locked,
                             "description": getattr(connection, "description", None),
                         }

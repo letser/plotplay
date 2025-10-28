@@ -10,11 +10,15 @@ nodes:
       - id: "head_to_quad"
         prompt: "Grab your backpack and cross the quad before class."
         on_select:
+          - type: "move_to"
+            location: "campus_quad"
           - type: "goto"
             node: "quad_catchup"
       - id: "swing_by_cafe"
         prompt: "Detour to the student cafe for caffeine and gossip."
         on_select:
+          - type: "move_to"
+            location: "campus_cafe"
           - type: "goto"
             node: "cafe_first_meet"
       - id: "stay_in_room"

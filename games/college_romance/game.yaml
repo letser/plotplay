@@ -78,11 +78,11 @@ flags:
   met_emma:
     type: "bool"
     default: false
-    visible: false
+    visible: true
   met_zoe:
     type: "bool"
     default: false
-    visible: false
+    visible: true
   emma_study_session:
     type: "bool"
     default: false

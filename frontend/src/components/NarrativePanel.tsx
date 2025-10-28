@@ -81,9 +81,25 @@ export const NarrativePanel = ({ entries }: Props) => {
                                     </p>
                                     <div className="flex items-center gap-2 text-xs flex-shrink-0">
                                         {isDeterministic ? (
-                                            <CheckCircle className="w-4 h-4 text-green-400" title="Deterministic action" />
+                                            <span title="Deterministic action">
+                                                <CheckCircle className="w-4 h-4 text-green-400" />
+                                            </span>
                                         ) : (
-                                            <Sparkles className="w-4 h-4 text-blue-400" title="AI-generated" />
+                                            <>
+                                                <span title="AI-generated">
+                                                    <Sparkles className="w-4 h-4 text-blue-400" />
+                                                </span>
+                                                {isLastEntry && (
+                                                    <button
+                                                        onClick={() => handleRetry(entry.id)}
+                                                        disabled={retrying === entry.id}
+                                                        className="flex items-center text-blue-400 hover:text-blue-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        title={retrying === entry.id ? 'Regenerating...' : 'Retry this response'}
+                                                    >
+                                                        <RotateCcw className={clsx('w-4 h-4', retrying === entry.id && 'animate-spin')} />
+                                                    </button>
+                                                )}
+                                            </>
                                         )}
                                         <span className="text-gray-400 font-mono">{formattedTime}</span>
                                     </div>
@@ -100,17 +116,6 @@ export const NarrativePanel = ({ entries }: Props) => {
                                             </p>
                                         ))}
                                     </div>
-                                    {!isDeterministic && isLastEntry && (
-                                        <button
-                                            onClick={() => handleRetry(entry.id)}
-                                            disabled={retrying === entry.id}
-                                            className="mt-3 flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                            title="Regenerate this response"
-                                        >
-                                            <RotateCcw className={clsx('w-3.5 h-3.5', retrying === entry.id && 'animate-spin')} />
-                                            {retrying === entry.id ? 'Regenerating...' : 'Retry'}
-                                        </button>
-                                    )}
                                 </div>
                             )}
                             {!showNarrative && (

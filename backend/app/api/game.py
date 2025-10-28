@@ -264,9 +264,13 @@ async def process_action_stream(session_id: str, action: GameAction):
             yield "data: [DONE]\n\n"
 
         except Exception as e:
+            import traceback
+            error_details = traceback.format_exc()
+            print(f"ERROR in process_action_stream: {error_details}")
+            engine.logger.error(f"Stream error: {error_details}")
             error_event = {
                 "type": "error",
-                "message": str(e)
+                "message": f"{str(e)}\n{error_details}"
             }
             yield f"data: {json.dumps(error_event)}\n\n"
 

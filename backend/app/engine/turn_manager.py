@@ -69,6 +69,16 @@ class TurnManager:
 
         if action_type == "choice" and choice_id:
             await engine._handle_predefined_choice(choice_id, event_choices)
+            # Recapture current node after choice effects (which may include goto)
+            current_node = engine._get_current_node()
+            # Update present_chars from the new node if it specifies characters
+            if current_node.characters_present:
+                state.present_chars = [
+                    char for char in current_node.characters_present if char in engine.characters_map
+                ]
+                engine.logger.info(
+                    f"Updated present characters after choice to node '{current_node.id}': {state.present_chars}"
+                )
 
         engine.events.process_arcs(turn_seed)
 
@@ -281,6 +291,16 @@ class TurnManager:
 
         if action_type == "choice" and choice_id:
             await engine._handle_predefined_choice(choice_id, event_choices)
+            # Recapture current node after choice effects (which may include goto)
+            current_node = engine._get_current_node()
+            # Update present_chars from the new node if it specifies characters
+            if current_node.characters_present:
+                state.present_chars = [
+                    char for char in current_node.characters_present if char in engine.characters_map
+                ]
+                engine.logger.info(
+                    f"Updated present characters after choice to node '{current_node.id}': {state.present_chars}"
+                )
 
         engine.events.process_arcs(turn_seed)
 

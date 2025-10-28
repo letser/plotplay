@@ -8,7 +8,6 @@ import { CharacterPanel } from './CharacterPanel';
 import { FlagsPanel } from './FlagsPanel';
 import { ChoicePanel } from './ChoicePanel';
 import { InventoryPanel } from './InventoryPanel';
-import { MovementControls } from './MovementControls';
 import { DeterministicControls } from './DeterministicControls';
 import { DebugPanel } from './DebugPanel';
 import { MapPin, Clock, Calendar, Layers, Shield, Coins } from 'lucide-react';
@@ -31,6 +30,7 @@ export const GameInterface = () => {
 
     const locationName = location.name;
     const timeClock = timeInfo.time_hhmm;
+    const timeSlot = timeInfo.slot;
     const timeMode = timeInfo.mode ?? 'slots';
     const dayNumber = timeInfo.day;
     const zoneName = location.zone ?? 'unknown zone';
@@ -72,7 +72,15 @@ export const GameInterface = () => {
                         <span>Day {dayNumber}</span>
                     </div>
 
-                    {/* Time (only show in clock/hybrid mode) */}
+                    {/* Time Slot (show in slots/hybrid mode) */}
+                    {timeSlot && (timeMode === 'slots' || timeMode === 'hybrid') && (
+                        <div className="flex items-center gap-2">
+                            <Clock className="w-4 h-4" />
+                            <span className="capitalize">{timeSlot}</span>
+                        </div>
+                    )}
+
+                    {/* Time Clock (only show in clock/hybrid mode) */}
                     {timeClock && (timeMode === 'clock' || timeMode === 'hybrid') && (
                         <div className="flex items-center gap-2">
                             <Clock className="w-4 h-4" />
@@ -118,10 +126,6 @@ export const GameInterface = () => {
 
                     <ErrorBoundary fallbackTitle="Error loading controls">
                         <DeterministicControls />
-                    </ErrorBoundary>
-
-                    <ErrorBoundary fallbackTitle="Error loading movement">
-                        <MovementControls />
                     </ErrorBoundary>
                 </div>
 

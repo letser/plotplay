@@ -107,31 +107,34 @@ class ChoiceService:
                     bucket.append(choice)
 
         current_zone = self.engine.zones_map.get(state.zone_current)
-        if current_zone and getattr(current_zone, "transport_connections", None):
+        if current_zone and current_zone.connections:
             discovered_zones = set(state.discovered_zones or [])
-            for connection in current_zone.transport_connections:
-                dest_zone_id = connection.get("to")
-                if not dest_zone_id or dest_zone_id not in discovered_zones:
-                    continue
+            for connection in current_zone.connections:
+                # connection.to is a list of zone IDs
+                dest_zone_ids = connection.to if isinstance(connection.to, list) else [connection.to]
 
-                dest_zone = self.engine.zones_map.get(dest_zone_id)
-                if not dest_zone:
-                    continue
+                for dest_zone_id in dest_zone_ids:
+                    if dest_zone_id == "all" or dest_zone_id not in discovered_zones:
+                        continue
 
-                methods = connection.get("methods") or ["travel"]
-                method = methods[0]
+                    dest_zone = self.engine.zones_map.get(dest_zone_id)
+                    if not dest_zone:
+                        continue
 
-                access = getattr(dest_zone, "access", None)
-                locked = bool(getattr(access, "locked", False))
-                unlocked_when = getattr(access, "unlocked_when", None)
+                    methods = connection.methods if connection.methods else ["travel"]
+                    method = methods[0] if methods else "travel"
 
-                disabled = locked and not evaluator.evaluate(unlocked_when)
+                    access = dest_zone.access if hasattr(dest_zone, 'access') else None
+                    locked = access.locked if access else False
+                    unlocked_when = access.unlocked_when if access else None
 
-                bucket.append(
-                    {
-                        "id": f"travel_{dest_zone.id}",
-                        "text": f"Take the {method} to {dest_zone.name}",
-                        "type": "movement",
-                        "disabled": disabled,
-                    }
-                )
+                    disabled = locked and (not unlocked_when or not evaluator.evaluate(unlocked_when))
+
+                    bucket.append(
+                        {
+                            "id": f"travel_{dest_zone.id}",
+                            "text": f"Take the {method} to {dest_zone.name}",
+                            "type": "movement",
+                            "disabled": disabled,
+                        }
+                    )
