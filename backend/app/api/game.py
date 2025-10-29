@@ -629,34 +629,95 @@ async def get_character_full(session_id: str, character_id: str):
     summary_meters = summary.get("meters", {})
     summary_modifiers = summary.get("modifiers", {})
 
-    # Get inventory
+    # Get inventory and separate clothing from regular items
     # state.inventory is dict[str, dict[str, int]] where first key is owner_id
-    inventory = state.inventory.get(character_id, {})
+    full_inventory = state.inventory.get(character_id, {})
 
-    # Get wardrobe (unlocked outfits for this character)
-    # Return outfit IDs as dict with count=1 (for compatibility with frontend)
-    unlocked_outfit_ids = state.unlocked_outfits.get(character_id, [])
-    wardrobe_items = {outfit_id: 1 for outfit_id in unlocked_outfit_ids}
+    # Build set of clothing item IDs for filtering
+    # Include items from both global wardrobe AND character's personal wardrobe
+    clothing_item_ids = set()
 
-    # Build item details (inventory items + outfit items)
+    # Add global wardrobe items
+    if engine.game_def.wardrobe and engine.game_def.wardrobe.items:
+        clothing_item_ids.update(item.id for item in engine.game_def.wardrobe.items)
+
+    # Add character's personal wardrobe items
+    if char_def.wardrobe and char_def.wardrobe.items:
+        clothing_item_ids.update(item.id for item in char_def.wardrobe.items)
+
+    # Split inventory into regular items vs clothing items
+    inventory = {}
+    wardrobe_items = {}
+    for item_id, count in full_inventory.items():
+        if item_id in clothing_item_ids:
+            wardrobe_items[item_id] = count
+        else:
+            inventory[item_id] = count
+
+    # Build item details (inventory items + clothing items)
     item_details = {}
 
-    # Add inventory item details
+    # Add regular inventory item details
     for item_id in inventory.keys():
         if item_def := engine.inventory.item_defs.get(item_id):
             item_details[item_id] = item_def.model_dump()
 
-    # Add outfit details
+    # Add ALL clothing item details (not just owned ones)
+    # This allows UI to show missing items in outfits
+    # Check both global and character-level wardrobes
+    if engine.game_def.wardrobe and engine.game_def.wardrobe.items:
+        for clothing_item in engine.game_def.wardrobe.items:
+            item_details[clothing_item.id] = {
+                "id": clothing_item.id,
+                "name": clothing_item.name,
+                "description": clothing_item.description if hasattr(clothing_item, 'description') else None,
+                "icon": "👕",  # Default icon for clothing
+                "stackable": False,
+                "value": clothing_item.value if hasattr(clothing_item, 'value') else 0,
+            }
+
+    if char_def.wardrobe and char_def.wardrobe.items:
+        for clothing_item in char_def.wardrobe.items:
+            item_details[clothing_item.id] = {
+                "id": clothing_item.id,
+                "name": clothing_item.name,
+                "description": clothing_item.description if hasattr(clothing_item, 'description') else None,
+                "icon": "👕",  # Default icon for clothing
+                "stackable": False,
+                "value": clothing_item.value if hasattr(clothing_item, 'value') else 0,
+            }
+
+    # Build outfit details with ownership status
+    unlocked_outfit_ids = state.unlocked_outfits.get(character_id, [])
+    outfits_data = []
+
+    # Check both global and character-level outfits
+    outfits_to_check = []
     if engine.game_def.wardrobe and engine.game_def.wardrobe.outfits:
-        for outfit in engine.game_def.wardrobe.outfits:
-            if outfit.id in unlocked_outfit_ids:
-                item_details[outfit.id] = {
-                    "id": outfit.id,
-                    "name": outfit.name,
-                    "description": outfit.description if hasattr(outfit, 'description') else None,
-                    "icon": outfit.icon if hasattr(outfit, 'icon') else "👔",
-                    "stackable": False,
-                }
+        outfits_to_check.extend(engine.game_def.wardrobe.outfits)
+    if char_def.wardrobe and char_def.wardrobe.outfits:
+        outfits_to_check.extend(char_def.wardrobe.outfits)
+
+    for outfit in outfits_to_check:
+        if outfit.id in unlocked_outfit_ids:
+            # Determine which items character owns vs missing
+            owned_items = []
+            missing_items = []
+            for item_id in outfit.items:
+                if item_id in wardrobe_items:
+                    owned_items.append(item_id)
+                else:
+                    missing_items.append(item_id)
+
+            outfits_data.append({
+                "id": outfit.id,
+                "name": outfit.name,
+                "description": outfit.description if hasattr(outfit, 'description') else None,
+                "items": outfit.items,  # All items in outfit
+                "owned_items": owned_items,  # Items character has
+                "missing_items": missing_items,  # Items character doesn't have
+                "grant_items": outfit.grant_items if hasattr(outfit, 'grant_items') else True,
+            })
 
     # Build response
     response = {
@@ -676,7 +737,8 @@ async def get_character_full(session_id: str, character_id: str):
         "attire": engine.clothing.get_character_appearance(character_id),
         "wardrobe_state": state.clothing_states.get(character_id),
         "inventory": inventory,
-        "wardrobe": wardrobe_items,
+        "wardrobe": wardrobe_items,  # Individual clothing items owned
+        "outfits": outfits_data,  # Unlocked outfits with ownership status
         "item_details": item_details,  # Item definitions for both inventory and wardrobe
         "present": character_id in state.present_chars,
         "location": state.location_current if character_id in state.present_chars else None,

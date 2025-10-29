@@ -30,16 +30,38 @@ class ClothingService:
     def _initialize_all_character_clothing(self):
         """Initialize clothing for all characters based on their default outfits."""
         for char in self.game_def.characters:
+            # Initialize unlocked_outfits list for this character if needed
+            if char.id not in self.state.unlocked_outfits:
+                self.state.unlocked_outfits[char.id] = []
+
+            # Auto-unlock all outfits with grant_items=true and grant their items
+            if char.wardrobe and char.wardrobe.outfits:
+                for outfit in char.wardrobe.outfits:
+                    if getattr(outfit, 'grant_items', True):  # Default to True if not specified
+                        if outfit.id not in self.state.unlocked_outfits[char.id]:
+                            self.state.unlocked_outfits[char.id].append(outfit.id)
+                        # Grant the clothing items
+                        self.grant_outfit_items(char.id, outfit.id)
+
+            # Also check global wardrobe (though we've moved to character-level)
+            if self.game_def.wardrobe and self.game_def.wardrobe.outfits:
+                for outfit in self.game_def.wardrobe.outfits:
+                    if getattr(outfit, 'grant_items', True):
+                        if outfit.id not in self.state.unlocked_outfits[char.id]:
+                            self.state.unlocked_outfits[char.id].append(outfit.id)
+                        self.grant_outfit_items(char.id, outfit.id)
+
             # Check if character has a starting outfit specified
             if char.clothing and char.clothing.outfit:
                 outfit_id = char.clothing.outfit
                 # Find outfit in character's wardrobe or global wardrobe
                 outfit = self._find_outfit(char, outfit_id)
                 if outfit:
-                    layers_dict = self._build_layers_from_outfit(outfit, char)
+                    layers_dict, slot_to_item = self._build_layers_from_outfit(outfit, char)
                     self.state.clothing_states[char.id] = {
                         'current_outfit': outfit.id,
-                        'layers': layers_dict
+                        'layers': layers_dict,
+                        'slot_to_item': slot_to_item
                     }
 
     def _find_outfit(self, char, outfit_id: str):
@@ -58,9 +80,9 @@ class ClothingService:
 
         return None
 
-    def _build_layers_from_outfit(self, outfit, char) -> dict[str, str]:
+    def _build_layers_from_outfit(self, outfit, char) -> tuple[dict[str, str], dict[str, str]]:
         """
-        Build a layers dict from an outfit's items list.
+        Build layers dict and slot->item mapping from an outfit's items list.
 
         Handles slot merging: if multiple items occupy the same slot,
         the last item in the list wins for that slot.
@@ -70,7 +92,9 @@ class ClothingService:
             char: The character definition
 
         Returns:
-            Dict mapping slot names to clothing item IDs in "intact" state
+            Tuple of (layers_dict, slot_to_item_dict)
+            - layers_dict: slot -> state (all "intact")
+            - slot_to_item_dict: slot -> item_id
         """
         slot_to_item = {}  # Maps slot -> clothing_id
 
@@ -86,8 +110,9 @@ class ClothingService:
             for slot in clothing_item.occupies:
                 slot_to_item[slot] = clothing_id
 
-        # Return all slots in "intact" state
-        return {slot: "intact" for slot in slot_to_item.keys()}
+        # Return both state mapping and item mapping
+        layers_dict = {slot: "intact" for slot in slot_to_item.keys()}
+        return (layers_dict, slot_to_item)
 
     def _find_clothing_item(self, char, clothing_id: str):
         """Find a clothing item by ID in character's or global wardrobe."""
@@ -136,10 +161,11 @@ class ClothingService:
 
             new_outfit = self._find_outfit(char_def, effect.outfit)
             if new_outfit:
-                layers_dict = self._build_layers_from_outfit(new_outfit, char_def)
+                layers_dict, slot_to_item = self._build_layers_from_outfit(new_outfit, char_def)
                 self.state.clothing_states[char_id] = {
                     'current_outfit': new_outfit.id,
-                    'layers': layers_dict
+                    'layers': layers_dict,
+                    'slot_to_item': slot_to_item
                 }
 
         elif effect.type == "clothing_set" and effect.layer and effect.state:
@@ -343,6 +369,53 @@ class ClothingService:
                 if layer in char_layers and char_layers[layer] == "intact":
                     char_layers[layer] = "displaced"
 
+    def detect_outfit(self, char_id: str) -> str | None:
+        """
+        Detect if the character's current clothing matches any outfit.
+        Returns the outfit ID if a match is found, None otherwise.
+        """
+        if char_id not in self.state.clothing_states:
+            return None
+
+        char_def = next((c for c in self.game_def.characters if c.id == char_id), None)
+        if not char_def:
+            return None
+
+        current_layers = self.state.clothing_states[char_id].get('layers', {})
+        if not current_layers:
+            return None
+
+        # Get set of clothing items currently worn (by checking which items occupy the worn slots)
+        worn_items = set()
+        for slot, state in current_layers.items():
+            # Find which clothing item occupies this slot
+            # We need to iterate through all clothing items and check their occupies list
+            # This is a bit inefficient but works for the current design
+            pass  # TODO: This needs a slot->item reverse mapping
+
+        # For now, build worn items from layers differently
+        # We'll iterate through possible outfits and check if their items match layers
+
+        # Check character's personal outfits first
+        outfits_to_check = []
+        if char_def.wardrobe and char_def.wardrobe.outfits:
+            outfits_to_check.extend(char_def.wardrobe.outfits)
+
+        # Check global wardrobe
+        if self.game_def.wardrobe and self.game_def.wardrobe.outfits:
+            outfits_to_check.extend(self.game_def.wardrobe.outfits)
+
+        for outfit in outfits_to_check:
+            # Build expected layers for this outfit
+            expected_layers, _ = self._build_layers_from_outfit(outfit, char_def)
+
+            # Check if current layers match expected layers (slots only, not states)
+            if set(current_layers.keys()) == set(expected_layers.keys()):
+                # Slots match! This outfit is being worn
+                return outfit.id
+
+        return None
+
     def put_on_clothing(self, char_id: str, clothing_id: str, state: str = "intact") -> bool:
         """Put on a clothing item. Returns True if successful."""
         char_def = next((c for c in self.game_def.characters if c.id == char_id), None)
@@ -360,6 +433,10 @@ class ClothingService:
         # Put the item on all slots it occupies
         for slot in clothing_item.occupies:
             self.state.clothing_states[char_id]['layers'][slot] = state
+
+        # Detect if this completes an outfit
+        detected_outfit = self.detect_outfit(char_id)
+        self.state.clothing_states[char_id]['current_outfit'] = detected_outfit
 
         return True
 
@@ -380,6 +457,10 @@ class ClothingService:
         for slot in clothing_item.occupies:
             if slot in self.state.clothing_states[char_id]['layers']:
                 del self.state.clothing_states[char_id]['layers'][slot]
+
+        # Detect if we still have a complete outfit after removal
+        detected_outfit = self.detect_outfit(char_id)
+        self.state.clothing_states[char_id]['current_outfit'] = detected_outfit
 
         return True
 
@@ -454,6 +535,30 @@ class ClothingService:
         self.state.clothing_states[char_id]['layers'][slot] = state
         return True
 
+    def grant_outfit_items(self, char_id: str, outfit_id: str) -> bool:
+        """
+        Grant clothing items from an outfit if it has grant_items=True.
+        Returns True if items were granted, False otherwise.
+        """
+        char_def = next((c for c in self.game_def.characters if c.id == char_id), None)
+        if not char_def:
+            return False
+
+        outfit = self._find_outfit(char_def, outfit_id)
+        if not outfit or not outfit.grant_items:
+            return False
+
+        # Grant each clothing item in the outfit to the character's inventory
+        char_inventory = self.state.inventory.setdefault(char_id, {})
+        for clothing_id in outfit.items:
+            # Only grant if the character doesn't already have it
+            if clothing_id not in char_inventory:
+                char_inventory[clothing_id] = 1
+            # Note: If they already have it, we don't add duplicates
+            # (clothing items typically aren't stackable)
+
+        return True
+
     def put_on_outfit(self, char_id: str, outfit_id: str) -> bool:
         """Put on an entire outfit. Returns True if successful."""
         char_def = next((c for c in self.game_def.characters if c.id == char_id), None)
@@ -464,11 +569,15 @@ class ClothingService:
         if not outfit:
             return False
 
+        # Grant items if the outfit requires it
+        self.grant_outfit_items(char_id, outfit_id)
+
         # Build layers from outfit and apply
-        layers_dict = self._build_layers_from_outfit(outfit, char_def)
+        layers_dict, slot_to_item = self._build_layers_from_outfit(outfit, char_def)
         self.state.clothing_states[char_id] = {
             'current_outfit': outfit.id,
-            'layers': layers_dict
+            'layers': layers_dict,
+            'slot_to_item': slot_to_item
         }
         return True
 

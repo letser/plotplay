@@ -209,6 +209,7 @@ The Expression DSL (app/core/conditions.py) evaluates conditions against game st
 - ✅ Responsive UI with Tailwind CSS
 - ✅ Turn log with AI vs deterministic badges
 - ✅ All panels functional (Player, Character, Inventory, Economy, Flags)
+- ✅ **Redesigned character profile UI** with compact layout, personality icons, inline stats/wardrobe
 
 **Component Structure** (17 components):
 - `GameInterface` - Main container (snapshot-driven)
@@ -216,12 +217,13 @@ The Expression DSL (app/core/conditions.py) evaluates conditions against game st
 - `ChoicePanel` - Say/Do actions + quick actions
 - `PlayerPanel` - Player stats and clothing (from snapshot.player)
 - `CharacterPanel` - NPCs present (from snapshot.characters)
+- `CharacterProfile` - Redesigned character detail view with reorganized layout, personality icons, compact stats/wardrobe
 - `InventoryPanel` - Player inventory with use/drop/give actions
 - `MovementControls` - Visual exit navigation (from snapshot.location.exits)
 - `DeterministicControls` - Quick utilities for testing
 - `EconomyPanel` - Currency and balance (from snapshot + economy config)
 - `FlagsPanel` - Story flags display
-- Plus 7 more utility components (ErrorBoundary, Toast, Loading, etc.)
+- Plus 6 more utility components (ErrorBoundary, Toast, Loading, etc.)
 
 **What This Means**:
 - ✅ All major features implemented and working
@@ -230,21 +232,57 @@ The Expression DSL (app/core/conditions.py) evaluates conditions against game st
 
 ---
 
-## 🎮 Current Phase: Character System Enhancement (Updated 2025-10-29)
+## 🎮 Current Phase: Character System Enhancement (Updated 2025-10-30)
 
-**Status**: Backend Complete ✅ | Frontend Implementation In Progress ⏳
+**Status**: Character Card UI Complete ✅ | Character Notebook In Progress ⏳
 
-### 🚀 Active Work: Character-Tagged Memory System & UI Redesign
+### ✅ Completed: Character Card Reorganization
 
-We are implementing a major enhancement to the character system:
+The character profile UI has been completely redesigned for better information hierarchy and visual clarity:
+
+**Header Layout**:
+- Name/Age/Gender/Pronouns on left
+- For Player: Current location + zone on right
+- For NPCs: Presence indicator (with dot) + location on right
+
+**About Section**:
+- Appearance paragraph (no label)
+- Current attire description (no label)
+- Personality traits with color-coded icons:
+  - ✨ Traits (purple)
+  - ⚡ Quirks (yellow)
+  - ❤️ Values (red)
+  - ⚠️ Fears (orange)
+
+**Stats Section**:
+- Money displayed as first meter for player (special yellow styling, no progress bar)
+- Other meters in compact cards with progress bars
+- All meters in a row, wraps responsively
+
+**Wardrobe Section**:
+- Attire description preserved at top
+- "Currently Wearing" row with state icons (✓ intact, ↓ displaced, ✗ removed, ◯ opened)
+- Outfits displayed as collapsible cards in a row
+- Individual clothing items as horizontal tags
+
+**Inventory**:
+- Always shown (displays "Empty" when no items)
+- Use/Drop/Give actions preserved
+
+**Removed** (player-focused design):
+- Dialogue Style (AI-only metadata)
+- Relationship Gates (engine/debug feature)
+
+**Key Files**: `frontend/src/components/CharacterProfile.tsx` (540 lines)
+
+### 🚀 Next: Character-Tagged Memory System
 
 1. **Character-Tagged Memories** (Backend ✅ COMPLETE)
    - AI Checker now tags memories with character IDs
    - Per-character memory filtering
    - Backward compatible with existing saves
 
-2. **Improved Character UI** (Frontend ⏳ IN PROGRESS)
-   - Compact character cards (60% space reduction)
+2. **Character Notebook** (Frontend ⏳ NEXT)
    - Character Notebook modal with full profiles
    - Memory timeline per character
    - Story Events page for general memories

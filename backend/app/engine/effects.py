@@ -533,6 +533,8 @@ class EffectResolver:
         for outfit_id in outfits:
             if outfit_id not in unlocked:
                 unlocked.append(outfit_id)
+                # Grant clothing items if the outfit has grant_items=True
+                self.engine.clothing.grant_outfit_items(target_char, outfit_id)
 
     def _apply_unlock_ending(self, effect: UnlockEffect) -> None:
         state = self.engine.state_manager.state

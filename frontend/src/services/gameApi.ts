@@ -217,6 +217,22 @@ export interface CharacterPersonality {
     fears?: string;
 }
 
+export interface OutfitData {
+    id: string;
+    name: string;
+    description?: string | null;
+    items: string[];  // All item IDs in outfit
+    owned_items: string[];  // Items character has
+    missing_items: string[];  // Items character doesn't have
+    grant_items: boolean;
+}
+
+export interface WardrobeState {
+    current_outfit: string | null;
+    layers: Record<string, string>;  // slot -> state (intact, displaced, removed, opened)
+    slot_to_item: Record<string, string>;  // slot -> item_id
+}
+
 export interface CharacterFull {
     id: string;
     name: string;
@@ -231,10 +247,11 @@ export interface CharacterFull {
     meters: Record<string, Meter>;
     modifiers: Modifier[];
     attire: string;
-    wardrobe_state?: Record<string, string> | null;
+    wardrobe_state?: WardrobeState | null;
     inventory: Record<string, number>;
-    wardrobe: Record<string, number>;
-    item_details: Record<string, ItemDetails>;
+    wardrobe: Record<string, number>;  // Individual clothing items
+    outfits: OutfitData[];  // Unlocked outfits with ownership status
+    item_details: Record<string, Item>;
     present: boolean;
     location?: string | null;
 }
