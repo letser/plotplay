@@ -196,6 +196,68 @@ export interface LogResponse {
     size: number;
 }
 
+export interface CharacterMemory {
+    text: string;
+    characters: string[];
+    day: number;
+}
+
+export interface CharacterGate {
+    id: string;
+    allow: boolean;
+    condition: string | null;
+    acceptance?: string | null;
+    refusal?: string | null;
+}
+
+export interface CharacterPersonality {
+    core_traits?: string;
+    quirks?: string;
+    values?: string;
+    fears?: string;
+}
+
+export interface CharacterFull {
+    id: string;
+    name: string;
+    age: number;
+    gender: string;
+    pronouns: string[] | null;
+    personality?: CharacterPersonality | null;
+    appearance?: string | null;
+    dialogue_style?: string | null;
+    gates: CharacterGate[];
+    memories: CharacterMemory[];
+    meters: Record<string, Meter>;
+    modifiers: Modifier[];
+    attire: string;
+    wardrobe_state?: Record<string, string> | null;
+    inventory: Record<string, number>;
+    wardrobe: Record<string, number>;
+    item_details: Record<string, ItemDetails>;
+    present: boolean;
+    location?: string | null;
+}
+
+export interface CharacterListItem {
+    id: string;
+    name: string;
+    present: boolean;
+    location?: string | null;
+}
+
+export interface CharactersListResponse {
+    player: {
+        id: string;
+        name: string;
+    };
+    characters: CharacterListItem[];
+}
+
+export interface StoryEventsResponse {
+    memories: CharacterMemory[];
+}
+
 export interface DebugStateResponse {
     state: Record<string, any>;
     history: string[];
@@ -412,6 +474,22 @@ class GameAPI {
 
     async getLogs(sessionId: string, since: number): Promise<LogResponse> {
         const response = await axios.get(`${API_BASE}/debug/logs/${sessionId}?since=${since}`);
+        return response.data;
+    }
+
+    // Character API methods
+    async getCharactersList(sessionId: string): Promise<CharactersListResponse> {
+        const response = await axios.get(`${API_BASE}/game/session/${sessionId}/characters`);
+        return response.data;
+    }
+
+    async getCharacter(sessionId: string, characterId: string): Promise<CharacterFull> {
+        const response = await axios.get(`${API_BASE}/game/session/${sessionId}/character/${characterId}`);
+        return response.data;
+    }
+
+    async getStoryEvents(sessionId: string): Promise<StoryEventsResponse> {
+        const response = await axios.get(`${API_BASE}/game/session/${sessionId}/story-events`);
         return response.data;
     }
 }

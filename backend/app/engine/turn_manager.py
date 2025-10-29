@@ -136,16 +136,46 @@ class TurnManager:
                     memories = state_deltas.get("memory", [])
                     if isinstance(memories, list):
                         valid_memories = []
-                        for memory in memories[:2]:
-                            if memory and isinstance(memory, str):
+                        for memory in memories[:2]:  # Limit to 2 memories per turn
+                            # Handle both old string format and new dict format
+                            if isinstance(memory, str):
+                                # Legacy string format - convert to structured format
                                 cleaned = memory.strip()
                                 if 10 < len(cleaned) < 200:
-                                    valid_memories.append(cleaned)
+                                    valid_memories.append({
+                                        "text": cleaned,
+                                        "characters": [],  # No character info in legacy format
+                                        "day": state.day,
+                                    })
                                 else:
-                                    engine.logger.warning(f"Skipped invalid memory: {cleaned[:50]}...")
+                                    engine.logger.warning(f"Skipped invalid memory text length: {cleaned[:50]}...")
+                            elif isinstance(memory, dict) and "text" in memory:
+                                # New structured format with character tags
+                                cleaned_text = memory["text"].strip()
+                                if 10 < len(cleaned_text) < 200:
+                                    characters = memory.get("characters", [])
+                                    # Validate character IDs exist in the game
+                                    valid_chars = [
+                                        char_id for char_id in characters
+                                        if char_id == "player" or char_id in engine.characters_map
+                                    ]
+                                    if len(characters) > 0 and len(valid_chars) == 0:
+                                        engine.logger.warning(
+                                            f"Memory has invalid character IDs: {characters}. "
+                                            f"Accepting with empty character list."
+                                        )
+                                    valid_memories.append({
+                                        "text": cleaned_text,
+                                        "characters": valid_chars,
+                                        "day": state.day,
+                                    })
+                                else:
+                                    engine.logger.warning(f"Skipped invalid memory text length: {cleaned_text[:50]}...")
+                            else:
+                                engine.logger.warning(f"Skipped invalid memory format: {memory}")
 
                         state.memory_log.extend(valid_memories)
-                        state.memory_log = state.memory_log[-20:]
+                        state.memory_log = state.memory_log[-20:]  # Keep last 20 memories
 
                         if valid_memories:
                             engine.logger.info(f"Extracted memories: {valid_memories}")
@@ -437,16 +467,46 @@ class TurnManager:
                     memories = state_deltas.get("memory", [])
                     if isinstance(memories, list):
                         valid_memories = []
-                        for memory in memories[:2]:
-                            if memory and isinstance(memory, str):
+                        for memory in memories[:2]:  # Limit to 2 memories per turn
+                            # Handle both old string format and new dict format
+                            if isinstance(memory, str):
+                                # Legacy string format - convert to structured format
                                 cleaned = memory.strip()
                                 if 10 < len(cleaned) < 200:
-                                    valid_memories.append(cleaned)
+                                    valid_memories.append({
+                                        "text": cleaned,
+                                        "characters": [],  # No character info in legacy format
+                                        "day": state.day,
+                                    })
                                 else:
-                                    engine.logger.warning(f"Skipped invalid memory: {cleaned[:50]}...")
+                                    engine.logger.warning(f"Skipped invalid memory text length: {cleaned[:50]}...")
+                            elif isinstance(memory, dict) and "text" in memory:
+                                # New structured format with character tags
+                                cleaned_text = memory["text"].strip()
+                                if 10 < len(cleaned_text) < 200:
+                                    characters = memory.get("characters", [])
+                                    # Validate character IDs exist in the game
+                                    valid_chars = [
+                                        char_id for char_id in characters
+                                        if char_id == "player" or char_id in engine.characters_map
+                                    ]
+                                    if len(characters) > 0 and len(valid_chars) == 0:
+                                        engine.logger.warning(
+                                            f"Memory has invalid character IDs: {characters}. "
+                                            f"Accepting with empty character list."
+                                        )
+                                    valid_memories.append({
+                                        "text": cleaned_text,
+                                        "characters": valid_chars,
+                                        "day": state.day,
+                                    })
+                                else:
+                                    engine.logger.warning(f"Skipped invalid memory text length: {cleaned_text[:50]}...")
+                            else:
+                                engine.logger.warning(f"Skipped invalid memory format: {memory}")
 
                         state.memory_log.extend(valid_memories)
-                        state.memory_log = state.memory_log[-20:]
+                        state.memory_log = state.memory_log[-20:]  # Keep last 20 memories
 
                         if valid_memories:
                             engine.logger.info(f"Extracted memories: {valid_memories}")

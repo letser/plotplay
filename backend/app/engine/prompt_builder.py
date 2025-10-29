@@ -103,10 +103,18 @@ class PromptBuilder:
                 older_memories = state.memory_log[:memory_cutoff]
                 if older_memories:
                     relevant_memories = older_memories[-self.MAX_MEMORY_ENTRIES:]
-                    memory_bullets = "\n".join(f"- {m}" for m in relevant_memories)
+                    # Format memories (handle both old string format and new dict format)
+                    memory_bullets = []
+                    for m in relevant_memories:
+                        if isinstance(m, str):
+                            # Legacy string format
+                            memory_bullets.append(f"- {m}")
+                        elif isinstance(m, dict) and "text" in m:
+                            # New structured format - just use the text
+                            memory_bullets.append(f"- {m['text']}")
                     memory_context = f"""
         **Key Events:**
-        {memory_bullets}
+        {chr(10).join(memory_bullets)}
         """
 
         if recent_history:
@@ -594,7 +602,12 @@ class PromptBuilder:
                 "flags": [
                     {"key": "<flag_id>", "value": True, "reason": "<brief justification>"}
                 ],
-                "memory": ["<short factual memory>"],
+                "memory": [
+                    {
+                        "text": "<short factual memory (10-150 chars)>",
+                        "characters": ["<character_id>"]
+                    }
+                ],
             },
             "notes": [
                 "Return every top-level key even if empty (use empty objects or lists).",
@@ -602,6 +615,11 @@ class PromptBuilder:
                 "Inventory ops must respect availability (e.g., only purchase if a shop is open).",
                 "Clothing changes must reference visible slots/items and respect concealment rules.",
                 "Movement entries should only exist if the narrative explicitly moves characters.",
+                "Memory 'characters' array: include ALL character IDs involved or mentioned in the memory.",
+                "Use 'player' for player character, NPC IDs for NPCs (e.g., 'alex', 'emma').",
+                "Tag characters even if only mentioned/referenced (e.g., 'You told Sarah about Alex' → tag both).",
+                "General scene/atmosphere memories (no specific characters): use empty array [].",
+                "Limit to 1-2 memories per turn; focus on character moments and key story beats.",
             ],
         }
 

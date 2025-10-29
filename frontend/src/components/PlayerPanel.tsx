@@ -1,9 +1,11 @@
-import { User, Shirt } from 'lucide-react';
+import { User, Shirt, Book } from 'lucide-react';
 import { usePlayer } from '../hooks';
+import { useGameStore } from '../stores/gameStore';
 import { getMeterColor, renderMeterIcon, formatMeterId, formatAttire } from '../utils';
 
 export const PlayerPanel = () => {
     const player = usePlayer();
+    const openNotebook = useGameStore(state => state.openNotebook);
 
     if (!player) {
         return null;
@@ -13,18 +15,27 @@ export const PlayerPanel = () => {
 
     return (
         <div className="bg-gray-800/50 backdrop-blur border border-gray-700 rounded-lg p-4">
-            <h3 className="text-lg font-semibold mb-4 text-gray-100 flex items-center gap-2">
-                <User className="w-5 h-5" />
-                Your Stats
-            </h3>
-
-            {/* Player Clothing Description */}
-            {formattedAttire && (
-                <div className="text-sm text-gray-300 mb-4 flex items-start gap-2">
-                    <Shirt className="w-4 h-4 mt-0.5 text-gray-500 flex-shrink-0" />
-                    <span>{formattedAttire}</span>
+            <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                    <h3 className="text-lg font-semibold text-gray-100 flex items-center gap-2">
+                        <User className="w-5 h-5" />
+                        Your Stats
+                    </h3>
+                    {/* Player Clothing Icon with hover tooltip */}
+                    {formattedAttire && (
+                        <div title={formattedAttire} className="flex-shrink-0">
+                            <Shirt className="w-4 h-4 text-gray-400" />
+                        </div>
+                    )}
                 </div>
-            )}
+                <button
+                    onClick={() => openNotebook('player')}
+                    className="p-2 rounded-lg hover:bg-gray-700 transition-colors"
+                    title="View Full Profile"
+                >
+                    <Book className="w-4 h-4 text-gray-400" />
+                </button>
+            </div>
 
             {/* Player Meters (excluding money) */}
             <div className="space-y-2 text-sm">

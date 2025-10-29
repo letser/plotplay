@@ -10,6 +10,7 @@ import { ChoicePanel } from './ChoicePanel';
 import { InventoryPanel } from './InventoryPanel';
 import { DeterministicControls } from './DeterministicControls';
 import { DebugPanel } from './DebugPanel';
+import { CharacterNotebook } from './CharacterNotebook';
 import { MapPin, Clock, Calendar, Layers, Shield, Coins } from 'lucide-react';
 
 export const GameInterface = () => {
@@ -145,6 +146,9 @@ export const GameInterface = () => {
             <ErrorBoundary fallbackTitle="Error loading debug panel">
                 <DebugPanel />
             </ErrorBoundary>
+
+            {/* Character Notebook Modal */}
+            <CharacterNotebook />
         </div>
     );
 };

@@ -230,13 +230,30 @@ The Expression DSL (app/core/conditions.py) evaluates conditions against game st
 
 ---
 
-## 🎮 Current Phase: Playtesting & Refinement (Updated 2025-10-27)
+## 🎮 Current Phase: Character System Enhancement (Updated 2025-10-29)
 
-**Status**: Active playtesting with user feedback integration
+**Status**: Backend Complete ✅ | Frontend Implementation In Progress ⏳
 
-### Focus Areas
+### 🚀 Active Work: Character-Tagged Memory System & UI Redesign
 
-We are currently in the **playtesting and refinement phase** with two primary goals:
+We are implementing a major enhancement to the character system:
+
+1. **Character-Tagged Memories** (Backend ✅ COMPLETE)
+   - AI Checker now tags memories with character IDs
+   - Per-character memory filtering
+   - Backward compatible with existing saves
+
+2. **Improved Character UI** (Frontend ⏳ IN PROGRESS)
+   - Compact character cards (60% space reduction)
+   - Character Notebook modal with full profiles
+   - Memory timeline per character
+   - Story Events page for general memories
+
+**📋 See `CHARACTER_SYSTEM_HANDOFF.md` for complete implementation details and frontend guide.**
+
+### Previous Focus: Playtesting & Refinement
+
+We continue the **playtesting and refinement phase** alongside new feature development with two primary goals:
 
 #### 1. Fix Engine Gaps
 As users play the game, we identify and fix any engine issues:
@@ -274,6 +291,26 @@ When reporting bugs or suggesting improvements:
 2. Describe the desired improvement
 3. Provide screenshots if applicable
 4. Note any browser/device-specific issues
+
+### Key Files for Current Work
+
+**Character System (Backend - COMPLETE ✅)**:
+- `app/core/state_manager.py:90` - Memory log structure (supports character tags)
+- `app/engine/prompt_builder.py:597-615` - Checker prompt contract (requests character tags)
+- `app/engine/turn_manager.py:135-181, 466-512` - Memory processing with validation
+- `app/api/game.py:524-676` - Character API endpoints (list, detail, story-events)
+
+**Character System (Frontend - IN PROGRESS ⏳)**:
+- `src/services/gameApi.ts:199-256, 478-491` - TypeScript interfaces + API methods ✅
+- `src/stores/gameStore.ts` - Needs notebook state additions
+- `src/components/CharacterCard.tsx` - TO BE CREATED (compact card)
+- `src/components/CharacterNotebook.tsx` - TO BE CREATED (modal)
+- `src/components/NotebookSidebar.tsx` - TO BE CREATED (character list)
+- `src/components/CharacterProfile.tsx` - TO BE CREATED (full profile + memories)
+- `src/components/StoryEventsPage.tsx` - TO BE CREATED (general memories)
+- `src/components/CharacterPanel.tsx` - TO BE UPDATED (use CharacterCard)
+
+**📋 See `CHARACTER_SYSTEM_HANDOFF.md` for complete implementation guide.**
 
 ### Key Files for Bug Fixes
 

@@ -11,6 +11,7 @@ import asyncio
 
 from app.core.game_loader import GameLoader
 from app.core.game_engine import GameEngine
+from app.core.conditions import ConditionEvaluator
 
 router = APIRouter()
 
@@ -517,4 +518,191 @@ async def get_state(session_id: str):
     return {
         "state": engine.state_manager.state.to_dict(),
         "history": engine.state_manager.state.narrative_history[-5:]
+    }
+
+
+@router.get("/session/{session_id}/characters")
+async def get_characters_list(session_id: str):
+    """
+    Get list of all characters for the notebook sidebar.
+    Returns player info and all NPCs with their presence status.
+    """
+    engine = _get_engine(session_id)
+    state = engine.state_manager.state
+
+    # Get player info
+    player_char = engine.characters_map.get("player")
+    player_info = {
+        "id": "player",
+        "name": player_char.name if player_char else "You",
+    }
+
+    # Get all NPCs with presence status
+    characters_list = []
+    for char_def in engine.game_def.characters:
+        if char_def.id == "player":
+            continue
+        characters_list.append({
+            "id": char_def.id,
+            "name": char_def.name,
+            "present": char_def.id in state.present_chars,
+            "location": state.location_current if char_def.id in state.present_chars else None,
+        })
+
+    return {
+        "player": player_info,
+        "characters": characters_list,
+    }
+
+
+@router.get("/session/{session_id}/character/{character_id}")
+async def get_character_full(session_id: str, character_id: str):
+    """
+    Get full character data including personality, gates, current state, and filtered memories.
+    For player: returns all memories.
+    For NPCs: returns only memories tagged with that character (last 5).
+    """
+    engine = _get_engine(session_id)
+    state = engine.state_manager.state
+
+    # Get character definition
+    char_def = engine.characters_map.get(character_id)
+    if not char_def:
+        raise HTTPException(status_code=404, detail=f"Character '{character_id}' not found")
+
+    # Evaluate gates if they exist
+    evaluator = ConditionEvaluator(state, rng_seed=engine.get_turn_seed())
+    evaluated_gates = []
+    if hasattr(char_def, 'gates') and char_def.gates:
+        for gate in char_def.gates:
+            # Evaluate the gate condition
+            allow = False
+            condition_str = None
+            if gate.when_all:
+                allow = evaluator.evaluate_all(gate.when_all)
+                condition_str = " and ".join(gate.when_all)
+            elif gate.when_any:
+                allow = evaluator.evaluate_any(gate.when_any)
+                condition_str = " or ".join(gate.when_any)
+            elif gate.when:
+                allow = evaluator.evaluate(gate.when)
+                condition_str = gate.when
+            else:
+                # No condition means always allow
+                allow = True
+                condition_str = "always"
+
+            evaluated_gates.append({
+                "id": gate.id,
+                "allow": allow,
+                "condition": condition_str,
+                "acceptance": gate.acceptance,
+                "refusal": gate.refusal,
+            })
+
+    # Filter memories for this character
+    character_memories = []
+    if character_id == "player":
+        # Player gets ALL memories
+        for memory in state.memory_log:
+            if isinstance(memory, dict):
+                character_memories.append(memory)
+            elif isinstance(memory, str):
+                # Legacy format - convert
+                character_memories.append({
+                    "text": memory,
+                    "characters": [],
+                    "day": state.day,
+                })
+    else:
+        # NPCs get only memories they're tagged in
+        for memory in state.memory_log:
+            if isinstance(memory, dict) and character_id in memory.get("characters", []):
+                character_memories.append(memory)
+            # Skip legacy string format for NPCs (no character info)
+
+    # Keep last 5 memories
+    character_memories = character_memories[-5:]
+
+    # Get current state from summary
+    summary = engine._get_state_summary()
+    summary_meters = summary.get("meters", {})
+    summary_modifiers = summary.get("modifiers", {})
+
+    # Get inventory
+    # state.inventory is dict[str, dict[str, int]] where first key is owner_id
+    inventory = state.inventory.get(character_id, {})
+
+    # Get wardrobe (unlocked outfits for this character)
+    # Return outfit IDs as dict with count=1 (for compatibility with frontend)
+    unlocked_outfit_ids = state.unlocked_outfits.get(character_id, [])
+    wardrobe_items = {outfit_id: 1 for outfit_id in unlocked_outfit_ids}
+
+    # Build item details (inventory items + outfit items)
+    item_details = {}
+
+    # Add inventory item details
+    for item_id in inventory.keys():
+        if item_def := engine.inventory.item_defs.get(item_id):
+            item_details[item_id] = item_def.model_dump()
+
+    # Add outfit details
+    if engine.game_def.wardrobe and engine.game_def.wardrobe.outfits:
+        for outfit in engine.game_def.wardrobe.outfits:
+            if outfit.id in unlocked_outfit_ids:
+                item_details[outfit.id] = {
+                    "id": outfit.id,
+                    "name": outfit.name,
+                    "description": outfit.description if hasattr(outfit, 'description') else None,
+                    "icon": outfit.icon if hasattr(outfit, 'icon') else "👔",
+                    "stackable": False,
+                }
+
+    # Build response
+    response = {
+        "id": char_def.id,
+        "name": char_def.name,
+        "age": char_def.age,
+        "gender": char_def.gender,
+        "pronouns": char_def.pronouns,
+        "personality": char_def.personality if hasattr(char_def, 'personality') else None,
+        "appearance": char_def.appearance if hasattr(char_def, 'appearance') else None,
+        "dialogue_style": char_def.dialogue_style if hasattr(char_def, 'dialogue_style') else None,
+        "gates": evaluated_gates,
+        "memories": character_memories,
+        # Current state
+        "meters": summary_meters.get(character_id, {}),
+        "modifiers": summary_modifiers.get(character_id, []),
+        "attire": engine.clothing.get_character_appearance(character_id),
+        "wardrobe_state": state.clothing_states.get(character_id),
+        "inventory": inventory,
+        "wardrobe": wardrobe_items,
+        "item_details": item_details,  # Item definitions for both inventory and wardrobe
+        "present": character_id in state.present_chars,
+        "location": state.location_current if character_id in state.present_chars else None,
+    }
+
+    return response
+
+
+@router.get("/session/{session_id}/story-events")
+async def get_story_events(session_id: str):
+    """
+    Get general story events (memories with no character tags).
+    These are atmosphere, world events, etc. that aren't tied to specific characters.
+    """
+    engine = _get_engine(session_id)
+    state = engine.state_manager.state
+
+    # Filter for memories with empty character tags
+    general_memories = []
+    for memory in state.memory_log:
+        if isinstance(memory, dict):
+            characters = memory.get("characters", [])
+            if len(characters) == 0:
+                general_memories.append(memory)
+        # Skip legacy string format (no way to know if it's general or character-specific)
+
+    return {
+        "memories": general_memories,
     }

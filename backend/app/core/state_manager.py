@@ -87,7 +87,7 @@ class GameState:
     current_node: str | None = None
 
     narrative_history: list[str] = field(default_factory=list)
-    memory_log: list[str] = field(default_factory=list)
+    memory_log: list[str | dict] = field(default_factory=list)  # Supports both legacy strings and structured dicts
     turn_count: int = 0
 
     created_at: datetime | None = None

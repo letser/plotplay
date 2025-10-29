@@ -9,6 +9,7 @@ import {
 } from '../services/gameApi';
 import { saveSession, clearSession, loadSession, hasStoredSession } from '../utils/storage';
 import { useToast } from '../hooks/useToast';
+import { queryClient } from '../lib/queryClient';
 
 const DEFAULT_SUMMARY = 'Action resolved.';
 
@@ -42,6 +43,11 @@ interface GameStore {
         options?: { skipAi?: boolean };
     } | null;
 
+    // Character notebook state
+    notebookOpen: boolean;
+    selectedNotebookView: 'character' | 'story-events';
+    selectedCharacterId: string | null;
+
     loadGames: () => Promise<void>;
     startGame: (gameId: string) => Promise<void>;
     sendAction: (
@@ -66,6 +72,12 @@ interface GameStore {
     resetGame: () => void;
     hasStoredSession: () => boolean;
     restoreSession: () => Promise<void>;
+
+    // Character notebook actions
+    openNotebook: (characterId?: string) => void;
+    closeNotebook: () => void;
+    selectCharacter: (characterId: string) => void;
+    selectStoryEvents: () => void;
 }
 
 const buildTurnEntry = (
@@ -107,6 +119,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
     deterministicActionsEnabled: true,
     lastAction: null,
     checkerStatus: null,
+    notebookOpen: false,
+    selectedNotebookView: 'character',
+    selectedCharacterId: null,
 
     loadGames: async () => {
         set({ loading: true, error: null });
@@ -232,6 +247,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
                 }
             }
 
+            // Invalidate character queries for fresh data
+            queryClient.invalidateQueries({ queryKey: ['characters-list'] });
+            queryClient.invalidateQueries({ queryKey: ['character'] });
+            queryClient.invalidateQueries({ queryKey: ['story-events'] });
+
             useToast.getState().success('Game started successfully!');
         } catch (error) {
             console.error(error);
@@ -350,6 +370,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
                     };
                 });
             }
+
+            // Invalidate character queries (memories may have changed)
+            queryClient.invalidateQueries({ queryKey: ['characters-list'] });
+            queryClient.invalidateQueries({ queryKey: ['character'] });
+            queryClient.invalidateQueries({ queryKey: ['story-events'] });
 
         } catch (error) {
             console.error(error);
@@ -688,6 +713,32 @@ export const useGameStore = create<GameStore>((set, get) => ({
             clearSession();
             set({ error: 'Failed to restore session', loading: false });
         }
+    },
+
+    openNotebook: (characterId = 'player') => {
+        set({
+            notebookOpen: true,
+            selectedNotebookView: 'character',
+            selectedCharacterId: characterId,
+        });
+    },
+
+    closeNotebook: () => {
+        set({ notebookOpen: false });
+    },
+
+    selectCharacter: (characterId: string) => {
+        set({
+            selectedNotebookView: 'character',
+            selectedCharacterId: characterId,
+        });
+    },
+
+    selectStoryEvents: () => {
+        set({
+            selectedNotebookView: 'story-events',
+            selectedCharacterId: null,
+        });
     },
 }));
 
