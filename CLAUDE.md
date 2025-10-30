@@ -51,6 +51,7 @@ The backend follows a **service-oriented architecture** with clear separation of
 
 - **`games/`** - Game content folders (each contains `game.yaml` manifest + split YAML files for nodes, characters, locations, etc.)
 - **`shared/`** - Shared specifications (`plotplay_specification.md` - comprehensive engine spec)
+- **`games/sandbox/`** - Engine Systems Sandbox covering movement, events, node types, and shops. Follow its README checklist for manual regression.
 
 ### Test Suite
 
@@ -220,7 +221,6 @@ The Expression DSL (app/core/conditions.py) evaluates conditions against game st
 - `CharacterProfile` - Redesigned character detail view with reorganized layout, personality icons, compact stats/wardrobe
 - `InventoryPanel` - Player inventory with use/drop/give actions
 - `MovementControls` - Visual exit navigation (from snapshot.location.exits)
-- `DeterministicControls` - Quick utilities for testing
 - `EconomyPanel` - Currency and balance (from snapshot + economy config)
 - `FlagsPanel` - Story flags display
 - Plus 6 more utility components (ErrorBoundary, Toast, Loading, etc.)

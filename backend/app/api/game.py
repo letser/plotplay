@@ -12,6 +12,7 @@ import asyncio
 from app.core.game_loader import GameLoader
 from app.core.game_engine import GameEngine
 from app.core.conditions import ConditionEvaluator
+from app.models.wardrobe import ClothingState
 
 router = APIRouter()
 
@@ -96,11 +97,58 @@ class InventoryGiveRequest(BaseModel):
     count: int = 1
 
 
+class ClothingPutOnRequest(BaseModel):
+    character_id: str = "player"
+    clothing_id: str
+    state: ClothingState | None = None
+
+
+class ClothingTakeOffRequest(BaseModel):
+    character_id: str = "player"
+    clothing_id: str
+
+
+class ClothingStateRequest(BaseModel):
+    character_id: str = "player"
+    clothing_id: str
+    state: ClothingState
+
+
+class OutfitPutOnRequest(BaseModel):
+    character_id: str = "player"
+    outfit_id: str
+
+
+class OutfitTakeOffRequest(BaseModel):
+    character_id: str = "player"
+    outfit_id: str
+
+
 def _get_engine(session_id: str) -> GameEngine:
     engine = game_sessions.get(session_id)
     if not engine:
         raise HTTPException(status_code=404, detail="Session not found")
     return engine
+
+
+def _describe_character(engine: GameEngine, char_id: str) -> str:
+    if char_id == "player":
+        return "You"
+    character = engine.characters_map.get(char_id)
+    if character and getattr(character, "name", None):
+        return character.name
+    return char_id
+
+
+def _describe_item(engine: GameEngine, item_id: str) -> str:
+    item_def = (
+        engine.inventory.item_defs.get(item_id)
+        or engine.inventory.clothing_defs.get(item_id)
+        or engine.inventory.outfit_defs.get(item_id)
+    )
+    if item_def and getattr(item_def, "name", None):
+        return item_def.name
+    return item_id.replace("_", " ")
 
 
 @router.get("/list")
@@ -506,6 +554,136 @@ async def deterministic_give(session_id: str, request: InventoryGiveRequest) -> 
             "target": request.target_id,
             "item": request.item_id,
             "count": request.count,
+        },
+        action_summary=engine.state_summary.build_action_summary(message),
+    )
+
+
+@router.post("/clothing/{session_id}/put-on")
+async def deterministic_clothing_put_on(session_id: str, request: ClothingPutOnRequest) -> DeterministicActionResponse:
+    engine = _get_engine(session_id)
+    state_value = request.state.value if isinstance(request.state, ClothingState) else request.state
+    apply_state = state_value or ClothingState.INTACT.value
+    success = engine.clothing.put_on_clothing(request.character_id, request.clothing_id, apply_state)
+    clothing_name = _describe_item(engine, request.clothing_id)
+    character_label = _describe_character(engine, request.character_id)
+    is_player = request.character_id == "player"
+    if success:
+        message = f"{'You' if is_player else character_label} put{'s' if not is_player else ''} on {clothing_name}."
+    else:
+        message = f"Could not put on {clothing_name}."
+    summary = engine._get_state_summary()
+    return DeterministicActionResponse(
+        session_id=session_id,
+        success=success,
+        message=message,
+        state_summary=summary,
+        details={
+            "character": request.character_id,
+            "clothing": request.clothing_id,
+            "state": apply_state,
+        },
+        action_summary=engine.state_summary.build_action_summary(message),
+    )
+
+
+@router.post("/clothing/{session_id}/take-off")
+async def deterministic_clothing_take_off(session_id: str, request: ClothingTakeOffRequest) -> DeterministicActionResponse:
+    engine = _get_engine(session_id)
+    success = engine.clothing.take_off_clothing(request.character_id, request.clothing_id)
+    clothing_name = _describe_item(engine, request.clothing_id)
+    character_label = _describe_character(engine, request.character_id)
+    is_player = request.character_id == "player"
+    if success:
+        message = f"{'You' if is_player else character_label} take{'s' if not is_player else ''} off {clothing_name}."
+    else:
+        message = f"Could not remove {clothing_name}."
+    summary = engine._get_state_summary()
+    return DeterministicActionResponse(
+        session_id=session_id,
+        success=success,
+        message=message,
+        state_summary=summary,
+        details={
+            "character": request.character_id,
+            "clothing": request.clothing_id,
+        },
+        action_summary=engine.state_summary.build_action_summary(message),
+    )
+
+
+@router.post("/clothing/{session_id}/state")
+async def deterministic_clothing_state(session_id: str, request: ClothingStateRequest) -> DeterministicActionResponse:
+    engine = _get_engine(session_id)
+    state_value = request.state.value if isinstance(request.state, ClothingState) else str(request.state)
+    success = engine.clothing.set_clothing_state(request.character_id, request.clothing_id, state_value)
+    clothing_name = _describe_item(engine, request.clothing_id)
+    character_label = _describe_character(engine, request.character_id)
+    is_player = request.character_id == "player"
+    if success:
+        message = f"{'You' if is_player else character_label} adjust{'s' if not is_player else ''} {clothing_name} to {state_value}."
+    else:
+        message = f"Could not adjust {clothing_name}."
+    summary = engine._get_state_summary()
+    return DeterministicActionResponse(
+        session_id=session_id,
+        success=success,
+        message=message,
+        state_summary=summary,
+        details={
+            "character": request.character_id,
+            "clothing": request.clothing_id,
+            "state": state_value,
+        },
+        action_summary=engine.state_summary.build_action_summary(message),
+    )
+
+
+@router.post("/outfits/{session_id}/put-on")
+async def deterministic_outfit_put_on(session_id: str, request: OutfitPutOnRequest) -> DeterministicActionResponse:
+    engine = _get_engine(session_id)
+    success = engine.clothing.put_on_outfit(request.character_id, request.outfit_id)
+    outfit_name = _describe_item(engine, request.outfit_id)
+    character_label = _describe_character(engine, request.character_id)
+    is_player = request.character_id == "player"
+    if success:
+        message = f"{'You' if is_player else character_label} change{'s' if not is_player else ''} into {outfit_name}."
+    else:
+        message = f"Could not change into {outfit_name}."
+    summary = engine._get_state_summary()
+    return DeterministicActionResponse(
+        session_id=session_id,
+        success=success,
+        message=message,
+        state_summary=summary,
+        details={
+            "character": request.character_id,
+            "outfit": request.outfit_id,
+        },
+        action_summary=engine.state_summary.build_action_summary(message),
+    )
+
+
+@router.post("/outfits/{session_id}/take-off")
+async def deterministic_outfit_take_off(session_id: str, request: OutfitTakeOffRequest) -> DeterministicActionResponse:
+    engine = _get_engine(session_id)
+    success = engine.clothing.take_off_outfit(request.character_id, request.outfit_id)
+    outfit_name = _describe_item(engine, request.outfit_id)
+    character_label = _describe_character(engine, request.character_id)
+    is_player = request.character_id == "player"
+    if success:
+        message = f"{'You' if is_player else character_label} remove{'s' if not is_player else ''} {outfit_name}."
+    else:
+        message = f"Could not remove {outfit_name}."
+    summary = engine._get_state_summary()
+    return DeterministicActionResponse(
+        session_id=session_id,
+        success=success,
+        message=message,
+        state_summary=summary,
+        details={
+            "character": request.character_id,
+            "outfit": request.outfit_id,
         },
         action_summary=engine.state_summary.build_action_summary(message),
     )

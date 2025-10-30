@@ -20,6 +20,49 @@ class StateSummaryService:
         state = self.engine.state_manager.state
         evaluator = ConditionEvaluator(state, rng_seed=self.engine.get_turn_seed())
 
+        def build_item_detail(item_id: str) -> dict | None:
+            item_type = self.engine.inventory.get_item_type(item_id)
+            if not item_type:
+                return None
+
+            if item_type == "item":
+                item_def = self.engine.inventory.item_defs.get(item_id)
+                if not item_def:
+                    return None
+                detail = item_def.model_dump()
+                detail.setdefault("icon", "📦")
+                detail["stackable"] = bool(getattr(item_def, "stackable", False))
+                detail["type"] = "item"
+                return detail
+
+            if item_type == "clothing":
+                clothing_def = self.engine.inventory.clothing_defs.get(item_id)
+                if not clothing_def:
+                    return None
+                return {
+                    "id": clothing_def.id,
+                    "name": clothing_def.name,
+                    "description": getattr(clothing_def, "description", None),
+                    "icon": "🧥",
+                    "stackable": False,
+                    "type": "clothing",
+                }
+
+            if item_type == "outfit":
+                outfit_def = self.engine.inventory.outfit_defs.get(item_id)
+                if not outfit_def:
+                    return None
+                return {
+                    "id": outfit_def.id,
+                    "name": outfit_def.name,
+                    "description": getattr(outfit_def, "description", None),
+                    "icon": "👗",
+                    "stackable": False,
+                    "type": "outfit",
+                }
+
+            return None
+
         summary_meters: dict[str, dict] = {}
         for char_id, meter_values in state.meters.items():
             summary_meters[char_id] = {}
@@ -95,11 +138,63 @@ class StateSummaryService:
             "wearing": self.engine.clothing.get_character_appearance("player"),
         }
 
-        player_inventory_details: dict[str, dict] = {}
-        if player_inv := state.inventory.get("player"):
-            for item_id, count in player_inv.items():
-                if count > 0 and (item_def := self.engine.inventory.item_defs.get(item_id)):
-                    player_inventory_details[item_id] = item_def.model_dump()
+        inventory_details: dict[str, dict] = {}
+        player_inventory_raw = state.inventory.get("player", {}) or {}
+        player_inventory = {
+            item_id: count for item_id, count in player_inventory_raw.items() if count > 0
+        }
+
+        for item_id in player_inventory:
+            if item_id in inventory_details:
+                continue
+            if detail := build_item_detail(item_id):
+                inventory_details[item_id] = detail
+
+        current_location = state.location_current
+        location_inventory_raw = (
+            state.location_inventory.get(current_location, {}) if current_location else {}
+        ) or {}
+        location_inventory = {
+            item_id: count for item_id, count in location_inventory_raw.items() if count > 0
+        }
+
+        for item_id in location_inventory:
+            if item_id in inventory_details:
+                continue
+            if detail := build_item_detail(item_id):
+                inventory_details[item_id] = detail
+
+        player_outfits = state.unlocked_outfits.get("player", []) if state.unlocked_outfits else []
+        for outfit_id in player_outfits:
+            if outfit_id in inventory_details:
+                continue
+            if detail := build_item_detail(outfit_id):
+                inventory_details[outfit_id] = detail
+
+        clothing_state = state.clothing_states.get("player") if state.clothing_states else None
+        equipped_clothing: list[str] = []
+        if isinstance(clothing_state, dict):
+            slot_to_item = clothing_state.get("slot_to_item")
+            if isinstance(slot_to_item, dict):
+                equipped_clothing = sorted({
+                    item_id for item_id in slot_to_item.values() if isinstance(item_id, str)
+                })
+
+        player_inventory_details = {
+            item_id: inventory_details[item_id]
+            for item_id in player_inventory
+            if item_id in inventory_details
+        }
+
+        for outfit_id in player_outfits:
+            if outfit_id in inventory_details:
+                player_inventory_details[outfit_id] = inventory_details[outfit_id]
+
+        location_inventory_details = {
+            item_id: inventory_details[item_id]
+            for item_id in location_inventory
+            if item_id in inventory_details
+        }
 
         summary = {
             "day": state.day,
@@ -115,8 +210,15 @@ class StateSummaryService:
             "present_characters": list(state.present_chars),
             "character_details": character_details,
             "player_details": player_details,
-            "inventory": state.inventory.get("player", {}),
+            "inventory": player_inventory,
             "inventory_details": player_inventory_details,
+            "location_inventory": location_inventory,
+            "location_inventory_details": location_inventory_details,
+            "player_outfits": list(player_outfits),
+            "player_current_outfit": (
+                clothing_state.get("current_outfit") if isinstance(clothing_state, dict) else None
+            ),
+            "player_equipped_clothing": equipped_clothing,
             "turn_count": state.turn_count,
         }
 

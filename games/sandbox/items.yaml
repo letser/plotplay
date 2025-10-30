@@ -1,0 +1,53 @@
+items:
+  - id: "phone"
+    name: "Smartphone"
+    description: "Your phone with maps, notes, and the sandbox checklist."
+    stackable: false
+    droppable: false
+    consumable: false
+    icon: "📱"
+
+  - id: "coffee_token"
+    name: "Coffee Token"
+    description: "Redeemable for a hot drink at the downtown kiosk."
+    stackable: true
+    droppable: true
+    consumable: false
+    icon: "☕"
+    value: 4
+
+  - id: "energy_snack"
+    name: "Energy Snack Pack"
+    description: "A quick boost for long testing sessions."
+    stackable: true
+    consumable: true
+    droppable: true
+    icon: "🍫"
+    value: 6
+
+  - id: "city_map"
+    name: "City Map Brochure"
+    description: "Highlights test routes, zone entrances, and vendors."
+    stackable: false
+    droppable: true
+    consumable: false
+    icon: "🗺️"
+    value: 10
+
+  - id: "hi_vis_vest"
+    name: "High-Visibility Vest"
+    description: "Required safety gear for the industrial yard walkthrough."
+    stackable: false
+    droppable: true
+    consumable: false
+    icon: "🦺"
+    value: 25
+
+  - id: "warehouse_pass"
+    name: "Warehouse Access Pass"
+    description: "Access badge for the final safety inspection."
+    stackable: false
+    droppable: false
+    consumable: false
+    icon: "🎫"
+    value: 0

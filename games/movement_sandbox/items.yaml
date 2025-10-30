@@ -1,7 +1,0 @@
-items:
-  - id: "phone"
-    name: "Smartphone"
-    description: "Your phone with maps and navigation apps."
-    stackable: false
-    droppable: false
-    consumable: false

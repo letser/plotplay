@@ -31,6 +31,7 @@
 - Legacy suites live under `backend/tests/`; we are building a new spec-aligned suite in `backend/tests_v2/`. Add fresh tests there using the shared fixtures in `tests_v2/conftest.py`.
 - `pytest backend/tests_v2/test_conditions.py backend/tests_v2/test_game_loader.py` exercises the DSL and loader smoke tests. Extend with additional modules as the refactor continues.
 - Once the refactor is complete we will migrate CI to the `tests_v2/` suite; avoid adding to the legacy suite unless strictly necessary.
+- `games/sandbox/` now acts as the manual regression world. Follow its README checklist whenever you touch movement, events, or shop flows.
 
 ## Active Refactor Notes
 - Expression DSL implementation lives in `backend/app/core/conditions.py`; use the new helper methods (`evaluate_all`, `evaluate_any`, `evaluate_conditions`) instead of building boolean strings.

@@ -108,7 +108,7 @@ const ZoneTravelWidget = ({ connection, onTravel, loading }: { connection: ZoneC
 };
 
 export const ChoicePanel = ({ choices }: Props) => {
-    const { sendAction, performMovement, performZoneTravel, loading, deterministicActionsEnabled } = useGameStore();
+    const { sendAction, performMovement, performZoneTravel, loading } = useGameStore();
     const location = useLocation();
     const [inputMode, setInputMode] = useState<'say' | 'do'>('do');
     const [inputText, setInputText] = useState('');
@@ -182,10 +182,10 @@ export const ChoicePanel = ({ choices }: Props) => {
     };
 
     const handleQuickAction = (choice: Choice) => {
-        if (deterministicActionsEnabled && choice.type === 'movement') {
+        if (choice.type === 'movement') {
             void performMovement(choice.id);
         } else {
-            const shouldSkip = deterministicActionsEnabled && (choice.skip_ai ?? false);
+            const shouldSkip = choice.skip_ai ?? false;
             sendAction('choice', choice.text, null, choice.id, undefined, { skipAi: shouldSkip });
         }
     };

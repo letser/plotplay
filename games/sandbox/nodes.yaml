@@ -1,0 +1,160 @@
+nodes:
+  - id: "intro"
+    type: "scene"
+    title: "Welcome to the Sandbox"
+    characters_present: ["player"]
+    beats:
+      - "Clipboards, cones, and calibration stickers mark out a tidy control room above the downtown plaza."
+      - "A dashboard blinks with task lists: movement, events, shops, and safety drills."
+    choices:
+      - id: "open_checklist"
+        prompt: "Review the systems checklist."
+        on_select:
+          - type: "goto"
+            node: "downtown_hub"
+
+  - id: "downtown_hub"
+    type: "hub"
+    title: "Systems Checklist"
+    characters_present: ["player"]
+    beats:
+      - "A collapsible map of the city glows on the kiosk. Tabs outline the components to verify."
+    choices:
+      - id: "hub_movement"
+        prompt: "Review movement & travel objectives."
+        on_select:
+          - type: "goto"
+            node: "movement_briefing"
+      - id: "hub_market"
+        prompt: "Head to the downtown marketplace notes."
+        on_select:
+          - type: "goto"
+            node: "market_briefing"
+      - id: "hub_vendor"
+        prompt: "Meet the suburban vendor checklist."
+        on_select:
+          - type: "goto"
+            node: "vendor_briefing"
+      - id: "hub_industrial"
+        prompt: "Prepare the industrial safety walkthrough."
+        on_select:
+          - type: "goto"
+            node: "industrial_briefing"
+    dynamic_choices:
+      - id: "hub_evening_event"
+        prompt: "Observe the evening plaza busker (event check)."
+        when: "flags.evening_busker_unlocked == true"
+        on_select:
+          - type: "goto"
+            node: "evening_busker_scene"
+      - id: "hub_final_checks"
+        prompt: "Trigger the warehouse sign-off."
+        when: "flags.safety_clearance_ready == true"
+        on_select:
+          - type: "goto"
+            node: "industrial_ending"
+
+  - id: "movement_briefing"
+    type: "scene"
+    title: "Movement Checklist"
+    characters_present: ["player"]
+    beats:
+      - "Movement goals flash up: verify base-time local moves, entry-point selection, and method restrictions."
+      - "Remember to try walking, biking, and driving between all three zones."
+    choices:
+      - id: "movement_back"
+        prompt: "Return to the checklist."
+        on_select:
+          - type: "goto"
+            node: "downtown_hub"
+
+  - id: "market_briefing"
+    type: "scene"
+    title: "Marketplace Overview"
+    characters_present: ["player"]
+    beats:
+      - "The kiosk prints a receipt template: downtown location-based shop should sell snacks and drink tokens."
+      - "Confirm purchases update money and inventory, then try selling items back."
+    on_entry:
+      - type: "flag_set"
+        key: "market_briefing_viewed"
+        value: true
+    choices:
+      - id: "market_back"
+        prompt: "Return to the checklist."
+        on_select:
+          - type: "goto"
+            node: "downtown_hub"
+
+  - id: "vendor_briefing"
+    type: "scene"
+    title: "Vendor Briefing"
+    characters_present: ["player"]
+    beats:
+      - "Mara's mobile cart stocks safety gear and maps in the suburbs. She's only around during daylight slots."
+      - "Purchase the high-visibility vest to unlock the industrial walkthrough."
+    on_entry:
+      - type: "flag_set"
+        key: "vendor_briefing_viewed"
+        value: true
+    choices:
+      - id: "vendor_back"
+        prompt: "Return to the checklist."
+        on_select:
+          - type: "goto"
+            node: "downtown_hub"
+
+  - id: "industrial_briefing"
+    type: "scene"
+    title: "Industrial Checklist"
+    characters_present: ["player"]
+    beats:
+      - "Final test: equip safety gear, secure a warehouse pass, then complete the industrial sign-off."
+      - "Once clearance is complete, the ending node will unlock."
+    choices:
+      - id: "industrial_back"
+        prompt: "Return to the checklist."
+        on_select:
+          - type: "goto"
+            node: "downtown_hub"
+
+  - id: "park_encounter"
+    type: "encounter"
+    title: "Park Volunteer Call"
+    once_per_game: true
+    characters_present: ["player"]
+    beats:
+      - "A parks volunteer waves you over, asking if you'll help log playground maintenance requests."
+      - "Logging the issue reminds you to verify encounter nodes hand control back cleanly."
+    choices:
+      - id: "park_acknowledge"
+        prompt: "Log the encounter and resume testing."
+        on_select:
+          - type: "flag_set"
+            key: "park_encounter_logged"
+            value: true
+          - type: "goto"
+            node: "downtown_hub"
+
+  - id: "evening_busker_scene"
+    type: "scene"
+    title: "Evening Plaza Check"
+    characters_present: ["player"]
+    beats:
+      - "A street musician loops mellow chords while testers note the lighting transition."
+      - "This verifies scheduled events that only fire after a time condition."
+    choices:
+      - id: "busker_back"
+        prompt: "Return to the checklist."
+        on_select:
+          - type: "goto"
+            node: "downtown_hub"
+
+  - id: "industrial_ending"
+    type: "ending"
+    title: "Warehouse Sign-Off Complete"
+    ending_id: "sandbox_signoff"
+    characters_present: ["player"]
+    beats:
+      - "With vest donned and access badge approved, you complete the safety walkthrough."
+      - "Movement, events, and shops all sign green on the console. Sandbox scenario accomplished."

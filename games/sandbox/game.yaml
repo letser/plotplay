@@ -1,9 +1,9 @@
 meta:
-  id: "movement_sandbox"
-  title: "Movement Testing Sandbox"
-  version: "1.0.0"
+  id: "sandbox"
+  title: "Engine Systems Sandbox"
+  version: "1.1.0"
   authors: ["PlotPlay Team"]
-  description: "A sandbox game for testing zone travel with entry/exit locations and multiple travel methods."
+  description: "A compact city designed to exercise movement, node types, events, and shop flows."
   content_warnings: []
   nsfw_allowed: false
   license: "CC-BY-NC-4.0"
@@ -54,6 +54,33 @@ movement:
     - walk: 5
     - bike: 3
     - car: 1
+
+flags:
+  market_briefing_viewed:
+    type: "bool"
+    label: "Market briefing reviewed"
+    default: false
+    visible: false
+  vendor_briefing_viewed:
+    type: "bool"
+    label: "Vendor briefing reviewed"
+    default: false
+    visible: false
+  park_encounter_logged:
+    type: "bool"
+    label: "Park encounter logged"
+    default: false
+    visible: false
+  evening_busker_unlocked:
+    type: "bool"
+    label: "Evening busker available"
+    default: false
+    visible: false
+  safety_clearance_ready:
+    type: "bool"
+    label: "Industrial clearance ready"
+    default: false
+    visible: false
 
 includes:
   - "characters.yaml"

@@ -427,16 +427,21 @@ class ClothingService:
             return False
 
         # Initialize clothing state if needed
-        if char_id not in self.state.clothing_states:
-            self.state.clothing_states[char_id] = {'current_outfit': None, 'layers': {}}
+        clothing_state = self.state.clothing_states.setdefault(
+            char_id,
+            {'current_outfit': None, 'layers': {}, 'slot_to_item': {}}
+        )
+        layers = clothing_state.setdefault('layers', {})
+        slot_to_item = clothing_state.setdefault('slot_to_item', {})
 
         # Put the item on all slots it occupies
         for slot in clothing_item.occupies:
-            self.state.clothing_states[char_id]['layers'][slot] = state
+            layers[slot] = state
+            slot_to_item[slot] = clothing_id
 
         # Detect if this completes an outfit
         detected_outfit = self.detect_outfit(char_id)
-        self.state.clothing_states[char_id]['current_outfit'] = detected_outfit
+        clothing_state['current_outfit'] = detected_outfit
 
         return True
 
@@ -450,17 +455,23 @@ class ClothingService:
         if not clothing_item:
             return False
 
-        if char_id not in self.state.clothing_states:
+        clothing_state = self.state.clothing_states.get(char_id)
+        if not clothing_state:
             return False
+
+        layers = clothing_state.get('layers', {})
+        slot_to_item = clothing_state.setdefault('slot_to_item', {})
 
         # Remove from all slots it occupies
         for slot in clothing_item.occupies:
-            if slot in self.state.clothing_states[char_id]['layers']:
-                del self.state.clothing_states[char_id]['layers'][slot]
+            if slot in layers:
+                del layers[slot]
+            if slot in slot_to_item and slot_to_item[slot] == clothing_id:
+                del slot_to_item[slot]
 
         # Detect if we still have a complete outfit after removal
         detected_outfit = self.detect_outfit(char_id)
-        self.state.clothing_states[char_id]['current_outfit'] = detected_outfit
+        clothing_state['current_outfit'] = detected_outfit
 
         return True
 
@@ -593,6 +604,7 @@ class ClothingService:
         # Remove all layers
         self.state.clothing_states[char_id] = {
             'current_outfit': None,
-            'layers': {}
+            'layers': {},
+            'slot_to_item': {}
         }
         return True

@@ -48,7 +48,10 @@ export interface Item {
     consumable?: boolean;
     on_use?: unknown[] | null;
     effects_on_use?: unknown[] | null;
+    type?: 'item' | 'clothing' | 'outfit' | 'unknown';
 }
+
+export type ClothingStateValue = 'intact' | 'opened' | 'displaced' | 'removed';
 
 export interface CharacterDetails {
     name: string;
@@ -145,7 +148,12 @@ export interface GameState {
     player_details: PlayerDetails;
     meters: Record<string, Record<string, Meter>>;
     inventory: Record<string, number>;
+    location_inventory?: Record<string, number>;
     inventory_details: Record<string, Item>;
+    player_outfits?: string[];
+    player_current_outfit?: string | null;
+    player_equipped_clothing?: string[];
+    location_inventory_details?: Record<string, Item>;
     flags: Record<string, Flag>;
     modifiers: Record<string, Modifier[]>;
     turn_count?: number;
@@ -480,6 +488,48 @@ class GameAPI {
             target_id: targetId,
             item_id: itemId,
             count,
+        });
+        return response.data;
+    }
+
+    async putOnClothing(sessionId: string, clothingId: string, characterId = 'player', state?: ClothingStateValue): Promise<DeterministicActionResponse> {
+        const response = await axios.post(`${API_BASE}/game/clothing/${sessionId}/put-on`, {
+            character_id: characterId,
+            clothing_id: clothingId,
+            state
+        });
+        return response.data;
+    }
+
+    async takeOffClothing(sessionId: string, clothingId: string, characterId = 'player'): Promise<DeterministicActionResponse> {
+        const response = await axios.post(`${API_BASE}/game/clothing/${sessionId}/take-off`, {
+            character_id: characterId,
+            clothing_id: clothingId
+        });
+        return response.data;
+    }
+
+    async setClothingState(sessionId: string, clothingId: string, state: ClothingStateValue, characterId = 'player'): Promise<DeterministicActionResponse> {
+        const response = await axios.post(`${API_BASE}/game/clothing/${sessionId}/state`, {
+            character_id: characterId,
+            clothing_id: clothingId,
+            state
+        });
+        return response.data;
+    }
+
+    async putOnOutfit(sessionId: string, outfitId: string, characterId = 'player'): Promise<DeterministicActionResponse> {
+        const response = await axios.post(`${API_BASE}/game/outfits/${sessionId}/put-on`, {
+            character_id: characterId,
+            outfit_id: outfitId
+        });
+        return response.data;
+    }
+
+    async takeOffOutfit(sessionId: string, outfitId: string, characterId = 'player'): Promise<DeterministicActionResponse> {
+        const response = await axios.post(`${API_BASE}/game/outfits/${sessionId}/take-off`, {
+            character_id: characterId,
+            outfit_id: outfitId
         });
         return response.data;
     }

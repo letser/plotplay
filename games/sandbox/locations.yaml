@@ -78,6 +78,14 @@ zones:
           - to: "downtown_highway_ramp"
             description: "Walk north to the highway ramp."
             direction: "n"
+        shop:
+          name: "Downtown Marketplace Kiosk"
+          inventory:
+            items:
+              - id: "coffee_token"
+                count: 6
+              - id: "energy_snack"
+                count: 8
 
   # Suburbs zone - residential area
   - id: "suburbs"

@@ -163,7 +163,6 @@ export const resetGameStore = () => {
         loading: false,
         error: null,
         turnCounter: 0,
-        deterministicActionsEnabled: true,
     });
 };
 

@@ -6,6 +6,7 @@ import {
     GameState,
     DeterministicActionResponse,
     MovementRequest,
+    ClothingStateValue,
 } from '../services/gameApi';
 import { saveSession, clearSession, loadSession, hasStoredSession } from '../utils/storage';
 import { useToast } from '../hooks/useToast';
@@ -66,8 +67,11 @@ interface GameStore {
     takeItem: (itemId: string, count?: number, ownerId?: string) => Promise<void>;
     dropItem: (itemId: string, count?: number, ownerId?: string) => Promise<void>;
     giveItem: (itemId: string, targetId: string, count?: number, sourceId?: string) => Promise<void>;
-    deterministicActionsEnabled: boolean;
-    setDeterministicActionsEnabled: (value: boolean) => void;
+    putOnClothing: (clothingId: string, characterId?: string, state?: ClothingStateValue) => Promise<void>;
+    takeOffClothing: (clothingId: string, characterId?: string) => Promise<void>;
+    setClothingState: (clothingId: string, state: ClothingStateValue, characterId?: string) => Promise<void>;
+    putOnOutfit: (outfitId: string, characterId?: string) => Promise<void>;
+    takeOffOutfit: (outfitId: string, characterId?: string) => Promise<void>;
     clearTurnLog: () => void;
     resetGame: () => void;
     hasStoredSession: () => boolean;
@@ -116,7 +120,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
     loading: false,
     error: null,
     turnCounter: 0,
-    deterministicActionsEnabled: true,
     lastAction: null,
     checkerStatus: null,
     notebookOpen: false,
@@ -401,7 +404,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         if (!payload.destination_id && !payload.zone_id && !payload.direction) {
             const choice = get().choices.find(c => c.id === choiceId);
             const text = choice?.text ?? '';
-            await get().sendAction('choice', text, null, choiceId, undefined, { skipAi: get().deterministicActionsEnabled });
+            await get().sendAction('choice', text, null, choiceId, undefined, { skipAi: true });
             return;
         }
 
@@ -588,10 +591,76 @@ export const useGameStore = create<GameStore>((set, get) => ({
         }
     },
 
+    putOnClothing: async (clothingId, characterId = 'player', state) => {
+        const sessionId = get().sessionId;
+        if (!sessionId) return;
 
-    setDeterministicActionsEnabled: (value: boolean) => {
-        set({ deterministicActionsEnabled: value });
+        set({ loading: true, error: null });
+        try {
+            const response = await gameApi.putOnClothing(sessionId, clothingId, characterId, state);
+            set((stateStore: GameStore) => createDeterministicUpdate(stateStore, response));
+        } catch (error) {
+            console.error(error);
+            set({ error: 'Failed to put on clothing', loading: false });
+        }
     },
+
+    takeOffClothing: async (clothingId, characterId = 'player') => {
+        const sessionId = get().sessionId;
+        if (!sessionId) return;
+
+        set({ loading: true, error: null });
+        try {
+            const response = await gameApi.takeOffClothing(sessionId, clothingId, characterId);
+            set((stateStore: GameStore) => createDeterministicUpdate(stateStore, response));
+        } catch (error) {
+            console.error(error);
+            set({ error: 'Failed to take off clothing', loading: false });
+        }
+    },
+
+    setClothingState: async (clothingId, stateValue: ClothingStateValue, characterId = 'player') => {
+        const sessionId = get().sessionId;
+        if (!sessionId) return;
+
+        set({ loading: true, error: null });
+        try {
+            const response = await gameApi.setClothingState(sessionId, clothingId, stateValue, characterId);
+            set((stateStore: GameStore) => createDeterministicUpdate(stateStore, response));
+        } catch (error) {
+            console.error(error);
+            set({ error: 'Failed to adjust clothing', loading: false });
+        }
+    },
+
+    putOnOutfit: async (outfitId, characterId = 'player') => {
+        const sessionId = get().sessionId;
+        if (!sessionId) return;
+
+        set({ loading: true, error: null });
+        try {
+            const response = await gameApi.putOnOutfit(sessionId, outfitId, characterId);
+            set((stateStore: GameStore) => createDeterministicUpdate(stateStore, response));
+        } catch (error) {
+            console.error(error);
+            set({ error: 'Failed to change outfit', loading: false });
+        }
+    },
+
+    takeOffOutfit: async (outfitId, characterId = 'player') => {
+        const sessionId = get().sessionId;
+        if (!sessionId) return;
+
+        set({ loading: true, error: null });
+        try {
+            const response = await gameApi.takeOffOutfit(sessionId, outfitId, characterId);
+            set((stateStore: GameStore) => createDeterministicUpdate(stateStore, response));
+        } catch (error) {
+            console.error(error);
+            set({ error: 'Failed to remove outfit', loading: false });
+        }
+    },
+
 
     retryLastAction: async () => {
         const { lastAction, sessionId } = get();

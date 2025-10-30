@@ -22,6 +22,33 @@ class MovementService:
         self.engine = engine
         self.logger = engine.logger
 
+    def _sync_presence_after_move(self, companions: list[str] | None = None) -> None:
+        """Align present characters with the active node and optional companions."""
+        engine = self.engine
+        state = engine.state_manager.state
+        current_node = engine.get_current_node()
+
+        present: list[str]
+        if current_node.characters_present:
+            present = [
+                char_id
+                for char_id in current_node.characters_present
+                if char_id == "player" or char_id in engine.characters_map
+            ]
+        else:
+            present = []
+
+        if "player" not in present:
+            present.insert(0, "player")
+
+        if companions:
+            for companion in companions:
+                if companion and companion not in present:
+                    present.append(companion)
+
+        state.present_chars = present
+        engine._update_npc_presence()
+
     async def handle_choice(self, choice_id: str) -> dict[str, Any]:
         """Process movement selections coming from predefined choices."""
         engine = self.engine
@@ -130,9 +157,9 @@ class MovementService:
         state.location_current = destination_location_id
         state.location_privacy = engine._get_location_privacy(destination_location_id)
 
-        state.present_chars = ["player"]
         engine._advance_time(minutes=time_cost_minutes)
-        engine._update_npc_presence()
+        engine._check_and_apply_node_transitions()
+        self._sync_presence_after_move()
 
         new_location = engine.get_location(destination_location_id)
         loc_desc = (
@@ -208,9 +235,9 @@ class MovementService:
         state.location_current = destination_id
         state.location_privacy = engine._get_location_privacy(destination_id)
 
-        state.present_chars = ["player"] + moving_companions
         engine._advance_time(minutes=time_cost_minutes)
-        engine._update_npc_presence()
+        engine._check_and_apply_node_transitions()
+        self._sync_presence_after_move(moving_companions)
 
         new_location = engine.get_location(destination_id)
 
@@ -276,19 +303,14 @@ class MovementService:
                     state.location_current = destination_id
                     state.location_privacy = engine._get_location_privacy(destination_id)
 
-                    # Handle companions
-                    if with_characters:
-                        state.present_chars = ["player"] + with_characters
-                    else:
-                        state.present_chars = ["player"]
-
                     # Advance time
                     move_rules = engine.game_def.movement
                     time_cost = move_rules.base_time if move_rules and move_rules.base_time else 0
                     if time_cost > 0:
                         engine._advance_time(minutes=time_cost)
 
-                    engine._update_npc_presence()
+                    engine._check_and_apply_node_transitions()
+                    self._sync_presence_after_move(with_characters)
                     return True
 
         return False
@@ -337,11 +359,8 @@ class MovementService:
                 state.location_previous = state.location_current
                 state.location_current = entry_location_id
                 state.location_privacy = engine._get_location_privacy(entry_location_id)
-                if with_characters:
-                    state.present_chars = ["player"] + with_characters
-                else:
-                    state.present_chars = ["player"]
-                engine._update_npc_presence()
+                engine._check_and_apply_node_transitions()
+                self._sync_presence_after_move(with_characters)
                 return True
             return False
 
@@ -408,13 +427,9 @@ class MovementService:
         state.location_current = destination_location_id
         state.location_privacy = engine._get_location_privacy(destination_location_id)
 
-        if with_characters:
-            state.present_chars = ["player"] + with_characters
-        else:
-            state.present_chars = ["player"]
-
         engine._advance_time(minutes=time_cost_minutes)
-        engine._update_npc_presence()
+        engine._check_and_apply_node_transitions()
+        self._sync_presence_after_move(with_characters)
 
         self.logger.info(
             "Zone travel from '%s' to '%s' (entry: %s) via '%s'. Time cost: %sm.",

@@ -1,0 +1,40 @@
+events:
+  - id: "park_volunteer_event"
+    type: "event"
+    title: "Park Volunteer Check-In"
+    when_all:
+      - "state.location.id == 'suburbs_park'"
+      - "flags.park_encounter_logged != true"
+    once_per_game: true
+    effects:
+      - type: "goto"
+        node: "park_encounter"
+
+  - id: "evening_busker_event"
+    type: "event"
+    title: "Evening Plaza Busker"
+    when_all:
+      - "state.location.id == 'downtown_plaza'"
+      - "time.slot == 'evening'"
+      - "flags.evening_busker_unlocked != true"
+    effects:
+      - type: "flag_set"
+        key: "evening_busker_unlocked"
+        value: true
+
+  - id: "industrial_clearance_event"
+    type: "event"
+    title: "Safety Clearance Protocol"
+    when_all:
+      - "state.location.id == 'industrial_yard'"
+      - "inventory.player.hi_vis_vest >= 1"
+      - "flags.safety_clearance_ready != true"
+    once_per_game: true
+    effects:
+      - type: "inventory_add"
+        owner: "player"
+        item: "warehouse_pass"
+        count: 1
+      - type: "flag_set"
+        key: "safety_clearance_ready"
+        value: true

@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { CharacterFull } from '../services/gameApi';
-import { User, Package, Hand, Trash2, ArrowRightLeft, ChevronDown, ChevronRight, Sparkles, Zap, Heart, AlertTriangle } from 'lucide-react';
+import { CharacterFull, ClothingStateValue } from '../services/gameApi';
+import { User, Package, Hand, Trash2, ArrowRightLeft, ChevronDown, ChevronRight, Sparkles, Zap, Heart, AlertTriangle, Shirt, Undo2, Settings2 } from 'lucide-react';
 import { getMeterColor, renderMeterIcon, formatMeterId } from '../utils';
 import { useGameStore } from '../stores/gameStore';
 import { usePresentCharacters } from '../hooks';
@@ -9,11 +9,33 @@ interface CharacterProfileProps {
     character: CharacterFull;
 }
 
+type InventoryCategory = 'item' | 'clothing' | 'outfit' | 'unknown';
+
+const CLOTHING_STATE_COLORS: Record<ClothingStateValue, string> = {
+    intact: 'text-emerald-300',
+    opened: 'text-amber-300',
+    displaced: 'text-purple-300',
+    removed: 'text-gray-500',
+};
+const CLOTHING_STATES: ClothingStateValue[] = ['intact', 'opened', 'displaced', 'removed'];
+
 export function CharacterProfile({ character }: CharacterProfileProps) {
     const isPlayer = character.id === 'player';
-    const { gameState, sendAction, dropItem, giveItem, loading } = useGameStore();
+    const {
+        gameState,
+        sendAction,
+        dropItem,
+        giveItem,
+        loading,
+        putOnClothing,
+        takeOffClothing,
+        setClothingState,
+        putOnOutfit,
+        takeOffOutfit,
+    } = useGameStore();
     const presentCharacters = usePresentCharacters();
     const [openGiveMenu, setOpenGiveMenu] = useState<string | null>(null);
+    const [openStateMenu, setOpenStateMenu] = useState<string | null>(null);
 
     const inventoryDetails = gameState?.inventory_details || {};
     const hasInventory = Object.keys(character.inventory).length > 0;
@@ -50,12 +72,58 @@ export function CharacterProfile({ character }: CharacterProfileProps) {
     };
 
     const handleDropItem = (itemId: string, ownerId: string) => {
+        setOpenGiveMenu(null);
+        setOpenStateMenu(null);
         void dropItem(itemId, 1, ownerId);
     };
 
     const handleGiveItem = (itemId: string, targetId: string, sourceId: string) => {
         void giveItem(itemId, targetId, 1, sourceId);
         setOpenGiveMenu(null);
+        setOpenStateMenu(null);
+    };
+
+    const getClothingState = (clothingId: string): ClothingStateValue | null => {
+        const slotToItem = character.wardrobe_state?.slot_to_item ?? {};
+        const layers = character.wardrobe_state?.layers ?? {};
+        for (const [slot, item] of Object.entries(slotToItem)) {
+            if (item === clothingId) {
+                const rawState = layers?.[slot];
+                if (rawState && (['intact', 'opened', 'displaced', 'removed'] as string[]).includes(rawState)) {
+                    return rawState as ClothingStateValue;
+                }
+            }
+        }
+        return null;
+    };
+
+    const handleWearClothing = (clothingId: string, state?: ClothingStateValue) => {
+        setOpenGiveMenu(null);
+        setOpenStateMenu(null);
+        void putOnClothing(clothingId, character.id, state);
+    };
+
+    const handleTakeOffClothingDirect = (clothingId: string) => {
+        setOpenGiveMenu(null);
+        setOpenStateMenu(null);
+        void takeOffClothing(clothingId, character.id);
+    };
+
+    const handleClothingStateChange = (clothingId: string, state: ClothingStateValue) => {
+        setOpenStateMenu(null);
+        void setClothingState(clothingId, state, character.id);
+    };
+
+    const handleWearOutfit = (outfitId: string) => {
+        setOpenGiveMenu(null);
+        setOpenStateMenu(null);
+        void putOnOutfit(outfitId, character.id);
+    };
+
+    const handleTakeOffOutfitDirect = (outfitId: string) => {
+        setOpenGiveMenu(null);
+        setOpenStateMenu(null);
+        void takeOffOutfit(outfitId, character.id);
     };
 
     return (
@@ -267,29 +335,122 @@ export function CharacterProfile({ character }: CharacterProfileProps) {
                                 : [];
                             const isUsable = isPlayer && usableEffects.length > 0;
                             const canInteract = character.present || isPlayer;
+                            const type = (itemDetails.type as InventoryCategory | undefined) ?? 'item';
+                            const isClothing = type === 'clothing';
+                            const isOutfit = type === 'outfit';
+                            const clothingState = isClothing ? getClothingState(itemId) : null;
+                            const isEquippedClothing = Boolean(clothingState);
+                            const clothingIconColor = clothingState ? (CLOTHING_STATE_COLORS[clothingState] ?? 'text-sky-300') : 'text-slate-500';
+                            const clothingIconClass = isEquippedClothing ? clothingIconColor : 'text-slate-500';
+                            const isCurrentOutfit = isOutfit && character.wardrobe_state?.current_outfit === itemId;
+                            const outfitIconClass = isCurrentOutfit ? 'text-indigo-300' : 'text-slate-500';
+                            const canDrop = canInteract && type !== 'outfit' && !isEquippedClothing;
+                            const canGive = canInteract && type !== 'outfit' && !isEquippedClothing && presentCharacters.length > 0;
 
                             return (
-                                <div key={itemId} className="flex justify-between items-center group">
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-lg">{itemDetails.icon || '📦'}</span>
-                                        <div>
-                                            <span className="capitalize text-gray-200">{itemDetails.name.replace('_', ' ')}</span>
-                                            {itemDetails.description && (
-                                                <p className="text-xs text-gray-400">{itemDetails.description}</p>
-                                            )}
-                                        </div>
+                                <div key={itemId} className="flex items-center justify-between group">
+                                    <div
+                                        className="flex items-center gap-2"
+                                        title={itemDetails.description ?? undefined}
+                                    >
+                                        {(isClothing || isOutfit) && (
+                                            <span className="text-lg">
+                                                {isClothing ? (
+                                                    <Shirt className={`w-4 h-4 ${clothingIconClass}`} />
+                                                ) : (
+                                                    <Sparkles className={`w-4 h-4 ${outfitIconClass}`} />
+                                                )}
+                                            </span>
+                                        )}
+                                        <span className="capitalize text-gray-200">{itemDetails.name.replace('_', ' ')}</span>
+                                        {isOutfit && isCurrentOutfit && (
+                                            <span className="text-xs px-2 py-0.5 rounded bg-indigo-900/30 text-indigo-300">Equipped</span>
+                                        )}
                                     </div>
 
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-1">
                                         {itemDetails.stackable && count > 1 && <span className="text-gray-400">x{count}</span>}
 
                                         {canInteract && (
                                             <>
+                                                {isPlayer && isClothing && (
+                                                    isEquippedClothing ? (
+                                                        <>
+                                                            <button
+                                                                onClick={() => handleTakeOffClothingDirect(itemId)}
+                                                                disabled={loading}
+                                                                className="p-1.5 rounded transition-colors disabled:opacity-50 hover:bg-gray-700 opacity-0 group-hover:opacity-100"
+                                                                title="Take off"
+                                                            >
+                                                                <Undo2 className="w-4 h-4 text-amber-300" />
+                                                            </button>
+                                                            <div className="relative">
+                                                                <button
+                                                                    onClick={() => setOpenStateMenu(prev => (prev === itemId ? null : itemId))}
+                                                                    disabled={loading}
+                                                                    className="p-1.5 rounded transition-colors disabled:opacity-50 hover:bg-gray-700 opacity-0 group-hover:opacity-100"
+                                                                    title="Adjust"
+                                                                >
+                                                                    <Settings2 className="w-4 h-4 text-slate-300" />
+                                                                </button>
+                                                                {openStateMenu === itemId && (
+                                                                    <div className="absolute right-0 mt-2 bg-gray-900 border border-gray-700 rounded shadow-lg z-20 min-w-[120px]">
+                                                                        <ul className="py-1 text-xs">
+                                                                            {CLOTHING_STATES.map(stateOption => (
+                                                                                <li key={`${itemId}-${stateOption}`}>
+                                                                                    <button
+                                                                                        onClick={() => handleClothingStateChange(itemId, stateOption)}
+                                                                                        disabled={loading || clothingState === stateOption}
+                                                                                        className={`px-3 py-2 w-full text-left capitalize hover:bg-gray-800 ${clothingState === stateOption ? 'text-emerald-300' : ''}`}
+                                                                                    >
+                                                                                        {stateOption}
+                                                                                    </button>
+                                                                                </li>
+                                                                            ))}
+                                                                        </ul>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </>
+                                                    ) : (
+                                                        <button
+                                                            onClick={() => handleWearClothing(itemId)}
+                                                            disabled={loading}
+                                                            className="p-1.5 rounded transition-colors disabled:cursor-not-allowed disabled:opacity-0 hover:bg-gray-700 opacity-0 group-hover:opacity-100"
+                                                            title="Wear"
+                                                        >
+                                                            <Shirt className="w-4 h-4 text-sky-300" />
+                                                        </button>
+                                                    )
+                                                )}
+
+                                                {isPlayer && isOutfit && (
+                                                    isCurrentOutfit ? (
+                                                        <button
+                                                            onClick={() => handleTakeOffOutfitDirect(itemId)}
+                                                            disabled={loading}
+                                                            className="p-1.5 rounded transition-colors disabled:opacity-50 hover:bg-gray-700 opacity-0 group-hover:opacity-100"
+                                                            title="Remove outfit"
+                                                        >
+                                                            <Undo2 className="w-4 h-4 text-amber-300" />
+                                                        </button>
+                                                    ) : (
+                                                        <button
+                                                            onClick={() => handleWearOutfit(itemId)}
+                                                            disabled={loading}
+                                                            className="p-1.5 rounded transition-colors disabled:opacity-50 hover:bg-gray-700 opacity-0 group-hover:opacity-100"
+                                                            title="Wear outfit"
+                                                        >
+                                                            <Sparkles className="w-4 h-4 text-indigo-300" />
+                                                        </button>
+                                                    )
+                                                )}
+
                                                 {isUsable && (
                                                     <button
                                                         onClick={() => handleUseItem(itemId)}
                                                         disabled={loading}
-                                                        className="p-1.5 hover:bg-gray-700 rounded transition-colors disabled:opacity-50"
+                                                        className="p-1.5 rounded transition-colors disabled:opacity-50 hover:bg-gray-700 opacity-0 group-hover:opacity-100"
                                                         title="Use"
                                                     >
                                                         <Hand className="w-4 h-4 text-green-400" />
@@ -297,35 +458,38 @@ export function CharacterProfile({ character }: CharacterProfileProps) {
                                                 )}
                                                 <button
                                                     onClick={() => handleDropItem(itemId, character.id)}
-                                                    disabled={loading}
-                                                    className="p-1.5 hover:bg-gray-700 rounded transition-colors disabled:opacity-50"
-                                                    title="Drop"
+                                                    disabled={loading || !canDrop}
+                                                    className="p-1.5 rounded transition-colors disabled:cursor-not-allowed disabled:opacity-0 hover:bg-gray-700 opacity-0 group-hover:opacity-100"
+                                                    title={canDrop ? 'Drop' : 'Cannot drop while equipped'}
                                                 >
-                                                    <Trash2 className="w-4 h-4 text-red-400" />
+                                                    <Trash2 className={`w-4 h-4 ${canDrop ? 'text-red-400' : 'text-gray-600'}`} />
                                                 </button>
-                                                {presentCharacters.length > 0 && (
+                                                {canGive && (
                                                     <div className="relative">
                                                         <button
-                                                            onClick={() => setOpenGiveMenu(openGiveMenu === itemId ? null : itemId)}
+                                                            onClick={() => {
+                                                                setOpenStateMenu(null);
+                                                                setOpenGiveMenu(openGiveMenu === itemId ? null : itemId);
+                                                            }}
                                                             disabled={loading}
-                                                            className="p-1.5 hover:bg-gray-700 rounded transition-colors disabled:opacity-50"
+                                                            className="p-1.5 rounded transition-colors disabled:opacity-50 hover:bg-gray-700 opacity-0 group-hover:opacity-100"
                                                             title="Give"
                                                         >
-                                                            <ArrowRightLeft className="w-4 h-4 text-blue-400" />
+                                                            <ArrowRightLeft className="w-4 h-4 text-purple-300" />
                                                         </button>
                                                         {openGiveMenu === itemId && (
                                                             <div className="absolute right-0 mt-1 bg-gray-900 border border-gray-700 rounded-lg shadow-lg z-10 min-w-[120px]">
                                                                 {presentCharacters
                                                                     .filter(c => c.id !== character.id)
                                                                     .map(char => (
-                                                                    <button
-                                                                        key={char.id}
-                                                                        onClick={() => handleGiveItem(itemId, char.id, character.id)}
-                                                                        className="w-full px-3 py-2 text-left text-sm hover:bg-gray-800 first:rounded-t-lg last:rounded-b-lg"
-                                                                    >
-                                                                        {char.name}
-                                                                    </button>
-                                                                ))}
+                                                                        <button
+                                                                            key={char.id}
+                                                                            onClick={() => handleGiveItem(itemId, char.id, character.id)}
+                                                                            className="w-full px-3 py-2 text-left text-sm hover:bg-gray-800 first:rounded-t-lg last:rounded-b-lg"
+                                                                        >
+                                                                            {char.name}
+                                                                        </button>
+                                                                    ))}
                                                             </div>
                                                         )}
                                                     </div>
@@ -415,17 +579,17 @@ export function CharacterProfile({ character }: CharacterProfileProps) {
                                     const isComplete = outfit.missing_items.length === 0;
                                     const isWearing = character.wardrobe_state?.current_outfit === outfit.id;
                                     const isExpanded = expandedOutfits.has(outfit.id);
+                                    const canControlOutfit = isPlayer;
 
                                     return (
                                         <div key={outfit.id} className={`bg-gray-900 rounded border min-w-[200px] flex-1 ${
                                             isWearing ? 'border-blue-500' : 'border-gray-700'
                                         }`}>
-                                            {/* Outfit header - clickable */}
-                                            <button
-                                                onClick={() => toggleOutfit(outfit.id)}
-                                                className="w-full px-3 py-2 flex items-center justify-between hover:bg-gray-800/50 transition-colors"
-                                            >
-                                                <div className="flex items-center gap-2">
+                                            <div className="flex items-center justify-between px-3 py-2 hover:bg-gray-800/50 transition-colors">
+                                                <button
+                                                    onClick={() => toggleOutfit(outfit.id)}
+                                                    className="flex items-center gap-2"
+                                                >
                                                     {isExpanded ? (
                                                         <ChevronDown className="w-3 h-3 text-gray-400" />
                                                     ) : (
@@ -442,8 +606,31 @@ export function CharacterProfile({ character }: CharacterProfileProps) {
                                                             {outfit.missing_items.length} missing
                                                         </span>
                                                     )}
-                                                </div>
-                                            </button>
+                                                </button>
+                                                {canControlOutfit && (
+                                                    <div className="flex items-center gap-1">
+                                                        {isWearing ? (
+                                                            <button
+                                                                onClick={() => handleTakeOffOutfitDirect(outfit.id)}
+                                                                disabled={loading}
+                                                                className="p-1.5 rounded transition-colors disabled:opacity-50 hover:bg-gray-700"
+                                                                title="Remove outfit"
+                                                            >
+                                                                <Undo2 className="w-4 h-4 text-amber-300" />
+                                                            </button>
+                                                        ) : (
+                                                            <button
+                                                                onClick={() => handleWearOutfit(outfit.id)}
+                                                                disabled={loading}
+                                                                className="p-1.5 rounded transition-colors disabled:opacity-50 hover:bg-gray-700"
+                                                                title="Wear outfit"
+                                                            >
+                                                                <Sparkles className="w-4 h-4 text-indigo-300" />
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
 
                                             {/* Outfit items - collapsible */}
                                             {isExpanded && (
@@ -479,20 +666,78 @@ export function CharacterProfile({ character }: CharacterProfileProps) {
                     {Object.keys(character.wardrobe).length > 0 && (
                         <div>
                             <h4 className="text-xs font-semibold text-gray-500 mb-2">CLOTHING ITEMS</h4>
-                            <div className="flex flex-wrap gap-1">
+                            <div className="space-y-2 text-sm">
                                 {Object.entries(character.wardrobe).map(([itemId, count]) => {
                                     const itemDetails = character.item_details[itemId];
                                     if (!itemDetails || count <= 0) return null;
 
+                                    const clothingState = getClothingState(itemId);
+                                    const isEquipped = Boolean(clothingState);
+                                    const clothingIconClass = clothingState ? (CLOTHING_STATE_COLORS[clothingState] ?? 'text-sky-300') : 'text-slate-500';
+                                    const canControl = isPlayer;
+
                                     return (
-                                        <span
-                                            key={itemId}
-                                            className="text-xs px-2 py-1 rounded bg-gray-900 text-gray-300 flex items-center gap-1"
-                                        >
-                                            {itemDetails.icon || '👕'}
-                                            {itemDetails.name}
-                                            {count > 1 && <span className="text-gray-500">×{count}</span>}
-                                        </span>
+                                        <div key={itemId} className="flex items-center justify-between group">
+                                            <div className="flex items-center gap-2">
+                                                <Shirt className={`w-4 h-4 ${isEquipped ? clothingIconClass : 'text-slate-500'}`} />
+                                                <span className="text-gray-200">{itemDetails.name}</span>
+                                            </div>
+                                            <div className="flex items-center gap-1">
+                                                {count > 1 && <span className="text-gray-500">×{count}</span>}
+                                                {canControl && (
+                                                    <>
+                                                        {isEquipped ? (
+                                                            <>
+                                                                <button
+                                                                    onClick={() => handleTakeOffClothingDirect(itemId)}
+                                                                    disabled={loading}
+                                                                    className="p-1.5 rounded transition-colors disabled:opacity-50 hover:bg-gray-700 opacity-0 group-hover:opacity-100"
+                                                                    title="Take off"
+                                                                >
+                                                                    <Undo2 className="w-4 h-4 text-amber-300" />
+                                                                </button>
+                                                                <div className="relative">
+                                                                    <button
+                                                                        onClick={() => setOpenStateMenu(prev => (prev === itemId ? null : itemId))}
+                                                                        disabled={loading}
+                                                                        className="p-1.5 rounded transition-colors disabled:opacity-50 hover:bg-gray-700 opacity-0 group-hover:opacity-100"
+                                                                        title="Adjust"
+                                                                    >
+                                                                        <Settings2 className="w-4 h-4 text-slate-300" />
+                                                                    </button>
+                                                                    {openStateMenu === itemId && (
+                                                                        <div className="absolute right-0 mt-2 bg-gray-900 border border-gray-700 rounded shadow-lg z-20 min-w-[120px]">
+                                                                            <ul className="py-1 text-xs">
+                                                                                {CLOTHING_STATES.map(stateOption => (
+                                                                                    <li key={`${itemId}-${stateOption}`}>
+                                                                                        <button
+                                                                                            onClick={() => handleClothingStateChange(itemId, stateOption)}
+                                                                                            disabled={loading || clothingState === stateOption}
+                                                                                            className={`px-3 py-2 w-full text-left capitalize hover:bg-gray-800 ${clothingState === stateOption ? 'text-emerald-300' : ''}`}
+                                                                                        >
+                                                                                            {stateOption}
+                                                                                        </button>
+                                                                                    </li>
+                                                                                ))}
+                                                                            </ul>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            </>
+                                                        ) : (
+                                                            <button
+                                                                onClick={() => handleWearClothing(itemId)}
+                                                                disabled={loading}
+                                                                className="p-1.5 rounded transition-colors disabled:opacity-50 hover:bg-gray-700 opacity-0 group-hover:opacity-100"
+                                                                title="Wear"
+                                                            >
+                                                                <Shirt className="w-4 h-4 text-sky-300" />
+                                                            </button>
+                                                        )}
+                                                    </>
+                                                )}
+                                            </div>
+                                        </div>
                                     );
                                 })}
                             </div>
