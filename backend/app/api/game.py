@@ -217,7 +217,7 @@ async def start_game_stream(request: StartGameRequest):
 
             # Send initial state snapshot immediately (before narrative)
             # This populates all the panels right away
-            initial_state = engine._get_state_summary()
+            initial_state = engine.get_state_summary()
             initial_choices = engine._generate_choices(engine.get_current_node(), [])
 
             initial_state_event = {
@@ -327,42 +327,6 @@ async def process_action_stream(session_id: str, action: GameAction):
 
     return StreamingResponse(generate(), media_type="text/event-stream")
 
-
-@router.post("/action/{session_id}/original")
-async def process_action_original(session_id: str, action: GameAction) -> GameResponse:
-    """Original non-streaming endpoint (kept for backwards compatibility)."""
-    return await process_action(session_id, action)
-
-
-@router.post("/action_old/{session_id}")
-async def process_action_old(session_id: str, action: GameAction) -> GameResponse:
-    """Deprecated: Use /action/{session_id} instead."""
-    engine = _get_engine(session_id)
-
-    try:
-        result = await engine.process_action(
-            action_type=action.action_type,
-            action_text=action.action_text,
-            target=action.target,
-            choice_id=action.choice_id,
-            item_id=action.item_id,
-            skip_ai=action.skip_ai,
-        )
-
-        return GameResponse(
-            session_id=session_id,
-            narrative=result['narrative'],
-            choices=result['choices'],
-            state_summary=result['current_state'],
-            time_advanced=result.get('time_advanced', False),
-            location_changed=result.get('location_changed', False),
-            action_summary=result.get("action_summary"),
-        )
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
 @router.post("/move/{session_id}")
 async def deterministic_move(session_id: str, request: MovementRequest) -> DeterministicActionResponse:
     engine = _get_engine(session_id)
@@ -380,7 +344,7 @@ async def deterministic_move(session_id: str, request: MovementRequest) -> Deter
 
     if request.destination_id:
         result = await engine.movement.handle_choice(f"move_{request.destination_id}")
-        summary = result.get("current_state", engine._get_state_summary())
+        summary = result.get("current_state", engine.get_state_summary())
         message = result.get("narrative", "").strip()
         success = engine.state_manager.state.location_current != before_location
         details = {"choices": result.get("choices", [])}
@@ -392,7 +356,7 @@ async def deterministic_move(session_id: str, request: MovementRequest) -> Deter
             entry_location_id=request.entry_location_id,
             with_characters=request.companions or []
         )
-        summary = engine._get_state_summary()
+        summary = engine.get_state_summary()
         if success:
             zone = engine.zones_map.get(request.zone_id)
             zone_name = zone.name if zone else request.zone_id
@@ -402,7 +366,7 @@ async def deterministic_move(session_id: str, request: MovementRequest) -> Deter
         details = {"zone_id": request.zone_id, "method": request.method, "entry_location_id": request.entry_location_id}
     else:
         success = engine.movement.move_by_direction(request.direction, request.companions or [])
-        summary = engine._get_state_summary()
+        summary = engine.get_state_summary()
         new_location = engine.locations_map.get(state.location_current)
         if success:
             dest_name = new_location.name if new_location else state.location_current
@@ -412,7 +376,7 @@ async def deterministic_move(session_id: str, request: MovementRequest) -> Deter
         details = {"location_id": state.location_current}
 
     if success:
-        engine._update_discoveries()
+        engine.update_discoveries()
 
     return DeterministicActionResponse(
         session_id=session_id,
@@ -436,7 +400,7 @@ async def deterministic_purchase(session_id: str, request: PurchaseRequest) -> D
         count=request.count,
         price=request.price,
     )
-    summary = engine._get_state_summary()
+    summary = engine.get_state_summary()
     return DeterministicActionResponse(
         session_id=session_id,
         success=success,
@@ -464,7 +428,7 @@ async def deterministic_sell(session_id: str, request: SellRequest) -> Determini
         count=request.count,
         price=request.price,
     )
-    summary = engine._get_state_summary()
+    summary = engine.get_state_summary()
     return DeterministicActionResponse(
         session_id=session_id,
         success=success,
@@ -490,7 +454,7 @@ async def deterministic_take(session_id: str, request: InventoryTakeRequest) -> 
         request.item_id,
         count=request.count,
     )
-    summary = engine._get_state_summary()
+    summary = engine.get_state_summary()
     return DeterministicActionResponse(
         session_id=session_id,
         success=success,
@@ -516,7 +480,7 @@ async def deterministic_drop(session_id: str, request: InventoryDropRequest) -> 
         request.item_id,
         count=request.count,
     )
-    summary = engine._get_state_summary()
+    summary = engine.get_state_summary()
     return DeterministicActionResponse(
         session_id=session_id,
         success=success,
@@ -543,7 +507,7 @@ async def deterministic_give(session_id: str, request: InventoryGiveRequest) -> 
         request.item_id,
         count=request.count,
     )
-    summary = engine._get_state_summary()
+    summary = engine.get_state_summary()
     return DeterministicActionResponse(
         session_id=session_id,
         success=success,
@@ -572,7 +536,7 @@ async def deterministic_clothing_put_on(session_id: str, request: ClothingPutOnR
         message = f"{'You' if is_player else character_label} put{'s' if not is_player else ''} on {clothing_name}."
     else:
         message = f"Could not put on {clothing_name}."
-    summary = engine._get_state_summary()
+    summary = engine.get_state_summary()
     return DeterministicActionResponse(
         session_id=session_id,
         success=success,
@@ -598,7 +562,7 @@ async def deterministic_clothing_take_off(session_id: str, request: ClothingTake
         message = f"{'You' if is_player else character_label} take{'s' if not is_player else ''} off {clothing_name}."
     else:
         message = f"Could not remove {clothing_name}."
-    summary = engine._get_state_summary()
+    summary = engine.get_state_summary()
     return DeterministicActionResponse(
         session_id=session_id,
         success=success,
@@ -624,7 +588,7 @@ async def deterministic_clothing_state(session_id: str, request: ClothingStateRe
         message = f"{'You' if is_player else character_label} adjust{'s' if not is_player else ''} {clothing_name} to {state_value}."
     else:
         message = f"Could not adjust {clothing_name}."
-    summary = engine._get_state_summary()
+    summary = engine.get_state_summary()
     return DeterministicActionResponse(
         session_id=session_id,
         success=success,
@@ -650,7 +614,7 @@ async def deterministic_outfit_put_on(session_id: str, request: OutfitPutOnReque
         message = f"{'You' if is_player else character_label} change{'s' if not is_player else ''} into {outfit_name}."
     else:
         message = f"Could not change into {outfit_name}."
-    summary = engine._get_state_summary()
+    summary = engine.get_state_summary()
     return DeterministicActionResponse(
         session_id=session_id,
         success=success,
@@ -675,7 +639,7 @@ async def deterministic_outfit_take_off(session_id: str, request: OutfitTakeOffR
         message = f"{'You' if is_player else character_label} remove{'s' if not is_player else ''} {outfit_name}."
     else:
         message = f"Could not remove {outfit_name}."
-    summary = engine._get_state_summary()
+    summary = engine.get_state_summary()
     return DeterministicActionResponse(
         session_id=session_id,
         success=success,
@@ -803,7 +767,7 @@ async def get_character_full(session_id: str, character_id: str):
     character_memories = character_memories[-5:]
 
     # Get current state from summary
-    summary = engine._get_state_summary()
+    summary = engine.get_state_summary()
     summary_meters = summary.get("meters", {})
     summary_modifiers = summary.get("modifiers", {})
 

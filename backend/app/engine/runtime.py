@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import random
 from dataclasses import dataclass, field
 from typing import Any
@@ -20,7 +21,7 @@ class SessionRuntime:
 
     game: GameDefinition
     session_id: str
-    logger: Any = field(init=False)
+    logger: logging.Logger = field(init=False)
     state_manager: StateManager = field(init=False)
     index: GameIndex = field(init=False)
     base_seed: int | None = field(init=False, default=None)

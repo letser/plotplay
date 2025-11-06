@@ -209,7 +209,7 @@ Remember: This is just scene-setting. No need to describe player actions yet."""
             choices = self._generate_choices(start_node, [])
 
             # Build final state summary
-            final_state = self._get_state_summary()
+            final_state = self.get_state_summary()
 
             self.logger.info(f"Opening scene generated: {len(accumulated)} chars")
 
@@ -224,7 +224,7 @@ Remember: This is just scene-setting. No need to describe player actions yet."""
             self.logger.error(f"Error generating opening scene: {e}", exc_info=True)
             raise
 
-    def _update_discoveries(self):
+    def update_discoveries(self):
         """Checks for and applies new location discoveries."""
         self.discovery.refresh()
 
@@ -257,11 +257,11 @@ Remember: This is just scene-setting. No need to describe player actions yet."""
         """
         self.presence.refresh()
 
-    def _reconcile_narrative(self, player_action: str, ai_narrative: str, deltas: dict,
-                             target_char_id: str | None) -> str:
+    def reconcile_narrative(self, player_action: str, ai_narrative: str, deltas: dict,
+                            target_char_id: str | None) -> str:
         return self.narrative.reconcile(player_action, ai_narrative, deltas, target_char_id)
 
-    def _apply_ai_state_changes(self, deltas: dict):
+    def apply_ai_state_changes(self, deltas: dict):
         if not deltas:
             return
 
@@ -796,13 +796,13 @@ Remember: This is just scene-setting. No need to describe player actions yet."""
         message = f"You drop {count}x {item_label} at {location_label}."
         return True, message
 
-    def _format_player_action(self, action_type, action_text, target, choice_id, item_id) -> str:
+    def format_player_action(self, action_type, action_text, target, choice_id, item_id) -> str:
         return self.action_formatter.format(action_type, action_text, target, choice_id, item_id)
 
-    def _check_and_apply_node_transitions(self):
+    def check_and_apply_node_transitions(self):
         self.nodes.apply_transitions()
 
-    async def _handle_predefined_choice(self, choice_id: str, event_choices: list[Choice]):
+    async def handle_predefined_choice(self, choice_id: str, event_choices: list[Choice]):
         # Check node and event choices
         handled = await self.nodes.handle_predefined_choice(choice_id, event_choices)
         if handled:
@@ -814,7 +814,7 @@ Remember: This is just scene-setting. No need to describe player actions yet."""
     def _generate_choices(self, node: Node, event_choices: list[Choice]) -> list[dict[str, Any]]:
         return self.choices.build(node, event_choices)
 
-    def _get_state_summary(self) -> dict[str, Any]:
+    def get_state_summary(self) -> dict[str, Any]:
         return self.state_summary.build()
 
     def get_current_node(self) -> Node:

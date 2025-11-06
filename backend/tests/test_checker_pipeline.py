@@ -37,7 +37,7 @@ def test_apply_ai_state_changes_new_schema(engine_fixture):
         },
     }
 
-    engine._apply_ai_state_changes(deltas)
+    engine.apply_ai_state_changes(deltas)
 
     assert state.meters["player"]["energy"] == baseline_energy - 10
     assert state.flags.get("met_friend") is True
@@ -65,7 +65,7 @@ def test_apply_ai_state_changes_handles_clothing_and_discoveries(engine_fixture)
         },
     }
 
-    engine._apply_ai_state_changes(deltas)
+    engine.apply_ai_state_changes(deltas)
 
     assert state.clothing_states["player"]["layers"]["top"] == "removed"
     assert "campus" in state.discovered_zones

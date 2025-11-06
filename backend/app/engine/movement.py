@@ -81,7 +81,7 @@ class MovementService:
         return {
             "narrative": "You can't seem to go that way.",
             "choices": engine._generate_choices(engine.get_current_node(), []),
-            "current_state": engine._get_state_summary(),
+            "current_state": engine.get_state_summary(),
             "action_summary": engine.state_summary.build_action_summary("You attempt to move, but the path is blocked."),
         }
 
@@ -93,7 +93,7 @@ class MovementService:
             return {
                 "narrative": "There's nowhere to go from here.",
                 "choices": [],
-                "current_state": engine._get_state_summary(),
+                "current_state": engine.get_state_summary(),
                 "action_summary": engine.state_summary.build_action_summary("You attempt to move, but remain in place."),
             }
 
@@ -107,7 +107,7 @@ class MovementService:
         return {
             "narrative": "You try to move, but there's no clear path forward.",
             "choices": engine._generate_choices(engine.get_current_node(), []),
-            "current_state": engine._get_state_summary(),
+            "current_state": engine.get_state_summary(),
             "action_summary": engine.state_summary.build_action_summary("You look for a route but stay put."),
         }
 
@@ -125,7 +125,7 @@ class MovementService:
             return {
                 "narrative": "That area is not yet accessible.",
                 "choices": engine._generate_choices(engine.get_current_node(), []),
-                "current_state": engine._get_state_summary(),
+                "current_state": engine.get_state_summary(),
             }
 
         # Determine entry location
@@ -158,7 +158,7 @@ class MovementService:
         state.location_privacy = engine._get_location_privacy(destination_location_id)
 
         engine._advance_time(minutes=time_cost_minutes)
-        engine._check_and_apply_node_transitions()
+        engine.check_and_apply_node_transitions()
         self._sync_presence_after_move()
 
         new_location = engine.get_location(destination_location_id)
@@ -179,7 +179,7 @@ class MovementService:
         return {
             "narrative": final_narrative,
             "choices": engine._generate_choices(engine.get_current_node(), []),
-            "current_state": engine._get_state_summary(),
+            "current_state": engine.get_state_summary(),
             "action_summary": engine.state_summary.build_action_summary(f"You travel to {dest_zone.name}."),
         }
 
@@ -198,7 +198,7 @@ class MovementService:
             return {
                 "narrative": "You haven't discovered that location yet.",
                 "choices": engine._generate_choices(engine.get_current_node(), []),
-                "current_state": engine._get_state_summary(),
+                "current_state": engine.get_state_summary(),
             }
 
         moving_companions: list[str] = []
@@ -222,7 +222,7 @@ class MovementService:
                 return {
                     "narrative": f"{character_def.name} seems hesitant. They don't want to go there right now.",
                     "choices": engine._generate_choices(engine.get_current_node(), []),
-                    "current_state": engine._get_state_summary(),
+                    "current_state": engine.get_state_summary(),
                 }
 
         # Calculate time cost for local movement
@@ -236,7 +236,7 @@ class MovementService:
         state.location_privacy = engine._get_location_privacy(destination_id)
 
         engine._advance_time(minutes=time_cost_minutes)
-        engine._check_and_apply_node_transitions()
+        engine.check_and_apply_node_transitions()
         self._sync_presence_after_move(moving_companions)
 
         new_location = engine.get_location(destination_id)
@@ -272,7 +272,7 @@ class MovementService:
         return {
             "narrative": final_narrative,
             "choices": engine._generate_choices(engine.get_current_node(), []),
-            "current_state": engine._get_state_summary(),
+            "current_state": engine.get_state_summary(),
             "action_summary": engine.state_summary.build_action_summary(f"You move to the {new_location.name if new_location else destination_id}."),
         }
 
@@ -309,7 +309,7 @@ class MovementService:
                     if time_cost > 0:
                         engine._advance_time(minutes=time_cost)
 
-                    engine._check_and_apply_node_transitions()
+                    engine.check_and_apply_node_transitions()
                     self._sync_presence_after_move(with_characters)
                     return True
 
@@ -359,7 +359,7 @@ class MovementService:
                 state.location_previous = state.location_current
                 state.location_current = entry_location_id
                 state.location_privacy = engine._get_location_privacy(entry_location_id)
-                engine._check_and_apply_node_transitions()
+                engine.check_and_apply_node_transitions()
                 self._sync_presence_after_move(with_characters)
                 return True
             return False
@@ -428,7 +428,7 @@ class MovementService:
         state.location_privacy = engine._get_location_privacy(destination_location_id)
 
         engine._advance_time(minutes=time_cost_minutes)
-        engine._check_and_apply_node_transitions()
+        engine.check_and_apply_node_transitions()
         self._sync_presence_after_move(with_characters)
 
         self.logger.info(
