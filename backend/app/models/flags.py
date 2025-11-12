@@ -37,7 +37,7 @@ FlagId = NewType("FlagId", str)
 
 
 Flag = Annotated[BoolFlag | NumberFlag | StringFlag, Field(discriminator="type")]
-
+FlagValue = bool | int | float | str
 
 FlagsDefinition = dict[FlagId, Flag]
 FlagsConfig = FlagsDefinition

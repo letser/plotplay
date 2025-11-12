@@ -5,7 +5,7 @@ Nodes
 
 from __future__ import annotations
 
-from typing import NewType, TYPE_CHECKING, Annotated, Union, Any
+from typing import NewType, TYPE_CHECKING, Any
 from enum import StrEnum
 
 from pydantic import Field, model_validator
@@ -15,11 +15,10 @@ from .narration import GameNarration
 from .characters import CharacterId
 
 if TYPE_CHECKING:
-    from .effects import EffectsList, AnyEffect
+    from .effects import EffectsList
 else:
     # Use string annotations to avoid circular import while still enabling parsing
     EffectsList = list[Any]  # Will be properly typed after model_rebuild()
-    AnyEffect = Any
 
 
 class NodeType(StrEnum):
@@ -109,5 +108,3 @@ class EventTrigger(NodeCondition):
 class Event(EventTrigger, Node):
     type: NodeType = NodeType.EVENT
 
-# Legacy aliases for compatibility with the current engine
-Choice = NodeChoice

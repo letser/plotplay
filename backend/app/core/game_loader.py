@@ -109,13 +109,6 @@ class GameLoader:
             if file_path.exists():
                 included_content = self._load_yaml(file_path)
                 self._validate_root_keys(included_content, include_file)
-                merge_config = included_content.pop("__merge__", {})
-                if merge_config and not isinstance(merge_config, dict):
-                    raise ValueError(
-                        f"__merge__ block in '{include_file}' must be a mapping."
-                    )
-                merge_mode = merge_config.get("mode", "append") if isinstance(merge_config, dict) else "append"
-                replace_mode = self._parse_merge_mode(merge_mode, include_file)
 
                 if "includes" in included_content:
                     raise ValueError(
@@ -123,7 +116,7 @@ class GameLoader:
                     )
 
                 try:
-                    game_data = self._merge_dicts(game_data, included_content, replace_mode)
+                    game_data = self._merge_dicts(game_data, included_content)
                 except ValueError as e:
                     raise ValueError(f"Error merging included file '{include_file}': {e}")
             else:
@@ -188,7 +181,6 @@ class GameLoader:
             cls,
             base: dict[str, Any],
             incoming: dict[str, Any],
-            replace_mode: bool
     ) -> dict[str, Any]:
         """
         Merge `incoming` into `base` recursively according to merge mode.
@@ -196,8 +188,6 @@ class GameLoader:
         - 'append': error on duplicate IDs.
         :param base: The base dictionary.
         :param incoming: The dictionary to merge into base.
-        :param replace_mode: Whether to replace or append on merge conflicts.
-
         """
         result = base.copy()
 
@@ -211,30 +201,22 @@ class GameLoader:
 
             # Case 1: both are dicts → merge recursively
             if isinstance(base_value, dict) and isinstance(inc_value, dict):
-                result[key] = cls._merge_dicts(base_value, inc_value, replace_mode)
+                result[key] = cls._merge_dicts(base_value, inc_value)
 
             # Case 2: both are lists → treat as a list of dicts with "id"
             elif isinstance(base_value, list) and isinstance(inc_value, list):
-                result[key] = cls._merge_lists(base_value, inc_value, replace_mode)
+                result[key] = cls._merge_lists(base_value, inc_value)
 
-            # Case 3: primitive or mismatched types → just overwrite in replace_mode, or append check
+            # Case 3: primitive or mismatched types → just overwrite
             else:
-                if replace_mode:
-                    result[key] = inc_value
-                else:  # append
-                    # if both are scalars and equal → ok, else error
-                    if result[key] != inc_value:
-                        raise ValueError(
-                            f"Key '{key}' has conflicting non-list values in append mode."
-                        )
+                result[key] = inc_value
 
         return result
 
     @staticmethod
     def _merge_lists(
             base_list: list[Any],
-            inc_list: list[Any],
-            replace_mode: bool
+            inc_list: list[Any]
     ) -> list[Any]:
         """
         Merge two lists of dicts with 'id' fields.
@@ -242,7 +224,6 @@ class GameLoader:
         - 'append': error if duplicate IDs are found.
         :param base_list: The base list.
         :param inc_list: The list to merge into base.
-        :param replace_mode: Whether to replace or append on merge conflicts.
         :raises ValueError: If duplicate IDs are found and replace_mode is False.
         """
         # Convert base list to dict by id if possible
@@ -269,13 +250,7 @@ class GameLoader:
                 result_list.append(inc_item)
                 continue
 
-            if inc_id in base_map:
-                if replace_mode:
-                    base_map[inc_id] = inc_item
-                else:  # append mode
-                    raise ValueError(f"Duplicate ID '{inc_id}' in append mode.")
-            else:
-                base_map[inc_id] = inc_item
+            base_map[inc_id] = inc_item
 
         # Recombine: keep the original order, then any new IDs
         seen = set()
@@ -309,24 +284,6 @@ class GameLoader:
         "return: The cloned value.
         """
         return deepcopy(value)
-
-    @staticmethod
-    def _parse_merge_mode(mode_value: Any, source: str) -> bool:
-        """Interpret merge mode config."""
-        if isinstance(mode_value, bool):
-            return mode_value
-
-        if isinstance(mode_value, str):
-            normalized = mode_value.strip().lower()
-            if normalized == "replace":
-                return True
-            if normalized == "append":
-                return False
-
-        raise ValueError(
-            f"Invalid merge mode '{mode_value}' in '{source}'. "
-            "Supported values are 'append' or 'replace'."
-        )
 
     @staticmethod
     def _validate_root_keys(data: dict[str, Any], source: str) -> None:

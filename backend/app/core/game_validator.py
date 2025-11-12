@@ -20,6 +20,7 @@ class GameValidator:
         self.warnings: list[str] = []
 
         # --- Collected IDs for cross-referencing ---
+
         self.node_ids: set[str] = {node.id for node in self.game.nodes}
         self.ending_node_ids: set[str] = {
             node.id for node in self.game.nodes if node.type == NodeType.ENDING
@@ -333,39 +334,58 @@ class GameValidator:
                             f"[Character: {char.id}] > Movement willingness references unknown location '{willing.location}'."
                         )
 
+    def _validate_item_triggers(self, target, effect_prefix: str) -> None:
+        """Validate triggers for a single clothing item or outfit."""
+        self._validate_effects(target.on_get, f"{effect_prefix} on_get")
+        self._validate_effects(target.on_lost, f"{effect_prefix} on_lost")
+        self._validate_effects(target.on_put_on, f"{effect_prefix} on_put_on")
+        self._validate_effects(target.on_take_off, f"{effect_prefix} on_take_off")
+
     def _validate_items_and_wardrobe(self) -> None:
         """Validate item effects, wardrobe definitions, and outfits."""
+
+        # Local helpers to reduce duplication
+
+        def _validate_clothing_entry(clothing_entry, slots: set[str], slot_error_prefix: str, effect_prefix: str) -> None:
+            """Validate a single clothing entry: slots and effects."""
+            for slot in clothing_entry.occupies or []:
+                if slot not in slots:
+                    self.errors.append(
+                        f"{slot_error_prefix} Clothing '{clothing_entry.id}' occupies undefined slot '{slot}'."
+                    )
+            self._validate_item_triggers(clothing_entry, effect_prefix)
+
+        def _validate_outfit_entry(outfit_entry, clothing_ids: set[str], ref_error_prefix: str, effect_prefix: str) -> None:
+            """Validate a single outfit entry: item references and effects."""
+            for clothing_id in outfit_entry.items or []:
+                if clothing_id not in clothing_ids:
+                    self.errors.append(
+                        f"{ref_error_prefix} Outfit '{outfit_entry.id}' references unknown clothing '{clothing_id}'."
+                    )
+            self._validate_item_triggers(outfit_entry, effect_prefix)
+
         # Items
         for item in self.game.items:
-            self._validate_effects(item.on_get, f"Item: {item.id} on_get")
-            self._validate_effects(item.on_lost, f"Item: {item.id} on_lost")
-            self._validate_effects(item.on_use, f"Item: {item.id} on_use")
-            self._validate_effects(item.on_give, f"Item: {item.id} on_give")
+            self._validate_item_triggers(item, f"Item: {item.id}")
 
         # Global wardrobe
         wardrobe = self.game.wardrobe
         if wardrobe:
             for clothing in wardrobe.items or []:
-                for slot in clothing.occupies or []:
-                    if slot not in self.global_slots:
-                        self.errors.append(
-                            f"[Wardrobe] > Clothing '{clothing.id}' occupies undefined slot '{slot}'."
-                        )
-                self._validate_effects(clothing.on_get, f"Clothing: {clothing.id} on_get")
-                self._validate_effects(clothing.on_lost, f"Clothing: {clothing.id} on_lost")
-                self._validate_effects(clothing.on_put_on, f"Clothing: {clothing.id} on_put_on")
-                self._validate_effects(clothing.on_take_off, f"Clothing: {clothing.id} on_take_off")
+                _validate_clothing_entry(
+                    clothing,
+                    self.global_slots,
+                    "[Wardrobe] >",
+                    f"Clothing: {clothing.id}"
+                )
 
             for outfit in wardrobe.outfits or []:
-                for clothing_id in outfit.items or []:
-                    if clothing_id not in self.clothing_ids:
-                        self.errors.append(
-                            f"[Wardrobe] > Outfit '{outfit.id}' references unknown clothing '{clothing_id}'."
-                        )
-                self._validate_effects(outfit.on_get, f"Outfit: {outfit.id} on_get")
-                self._validate_effects(outfit.on_lost, f"Outfit: {outfit.id} on_lost")
-                self._validate_effects(outfit.on_put_on, f"Outfit: {outfit.id} on_put_on")
-                self._validate_effects(outfit.on_take_off, f"Outfit: {outfit.id} on_take_off")
+                _validate_outfit_entry(
+                    outfit,
+                    self.clothing_ids,
+                    "[Wardrobe] >",
+                    f"Outfit: {outfit.id}"
+                )
 
         # Character wardrobe overrides
         for char in self.game.characters:
@@ -373,26 +393,29 @@ class GameValidator:
                 continue
             allowed_slots = self.character_slots[char.id]
             for clothing in char.wardrobe.items or []:
-                for slot in clothing.occupies or []:
-                    if slot not in allowed_slots:
-                        self.errors.append(
-                            f"[Character: {char.id}] > Clothing '{clothing.id}' occupies undefined slot '{slot}'."
-                        )
-                self._validate_effects(clothing.on_get, f"Character {char.id} clothing {clothing.id} on_get")
-                self._validate_effects(clothing.on_lost, f"Character {char.id} clothing {clothing.id} on_lost")
-                self._validate_effects(clothing.on_put_on, f"Character {char.id} clothing {clothing.id} on_put_on")
-                self._validate_effects(clothing.on_take_off, f"Character {char.id} clothing {clothing.id} on_take_off")
+                _validate_clothing_entry(
+                    clothing,
+                    allowed_slots,
+                    f"[Character: {char.id}] >",
+                    f"Character {char.id} clothing {clothing.id}"
+                )
 
             for outfit in char.wardrobe.outfits or []:
-                for clothing_id in outfit.items or []:
-                    if clothing_id not in self.clothing_ids:
-                        self.errors.append(
-                            f"[Character: {char.id}] > Outfit '{outfit.id}' references unknown clothing '{clothing_id}'."
-                        )
-                self._validate_effects(outfit.on_get, f"Character {char.id} outfit {outfit.id} on_get")
-                self._validate_effects(outfit.on_lost, f"Character {char.id} outfit {outfit.id} on_lost")
-                self._validate_effects(outfit.on_put_on, f"Character {char.id} outfit {outfit.id} on_put_on")
-                self._validate_effects(outfit.on_take_off, f"Character {char.id} outfit {outfit.id} on_take_off")
+                _validate_outfit_entry(
+                    outfit,
+                    self.clothing_ids,
+                    f"[Character: {char.id}] >",
+                    f"Character {char.id} outfit {outfit.id}"
+                )
+
+    def _validate_node_triggers(self, target, effect_prefix: str) -> None:
+        """Validate triggers for a node or event."""
+        self._validate_effects(target.on_entry, f"{effect_prefix} on_entry")
+        self._validate_effects(target.on_exit, f"{effect_prefix} on_exit")
+
+        self._validate_choices(target.choices, f"{effect_prefix}  choices")
+        self._validate_choices(target.dynamic_choices, f"{effect_prefix} dynamic_choices")
+        self._validate_triggers(target.triggers, f"{effect_prefix} triggers")
 
     def _validate_nodes(self) -> None:
         """Validates all references within the node list."""
@@ -412,12 +435,7 @@ class GameValidator:
                     )
                 ending_ids.add(node.ending_id)
 
-            self._validate_effects(node.on_entry, f"Node: {node.id} on_entry")
-            self._validate_effects(node.on_exit, f"Node: {node.id} on_exit")
-
-            self._validate_choices(node.choices, f"Node: {node.id} choices")
-            self._validate_choices(node.dynamic_choices, f"Node: {node.id} dynamic_choices")
-            self._validate_triggers(node.triggers, f"Node: {node.id} triggers")
+            self._validate_node_triggers(node, f"Node: {node.id}")
 
     def _validate_events(self) -> None:
         """Validates all references within the events list."""
@@ -428,15 +446,10 @@ class GameValidator:
                         f"[Event: {event.id}] > characters_present contains unknown character '{char_id}'."
                     )
 
-            self._validate_effects(event.on_entry, f"Event: {event.id} on_entry")
-            self._validate_effects(event.on_exit, f"Event: {event.id} on_exit")
-
-            self._validate_choices(event.choices, f"Event: {event.id} choices")
-            self._validate_choices(event.dynamic_choices, f"Event: {event.id} dynamic_choices")
-            self._validate_triggers(event.triggers, f"Event: {event.id} triggers")
+            self._validate_node_triggers(event, f"Event: {event.id}")
 
     def _validate_actions(self) -> None:
-        """Validate action references and effect payloads."""
+        """Validate action references and effects payloads."""
         for action in self.game.actions:
             self._validate_effects(action.effects, f"Action: {action.id} effects")
 
@@ -831,12 +844,14 @@ class GameValidator:
                     f"[{context}] > Unknown inventory item_type '{item_type}'."
                 )
 
-    def _effect_value(self, effect: Any, key: str, default: Any = None) -> Any:
+    @staticmethod
+    def _effect_value(effect: Any, key: str, default: Any = None) -> Any:
         if isinstance(effect, Mapping):
             return effect.get(key, default)
         return getattr(effect, key, default)
 
-    def _coerce_list(self, value: Any) -> list[Any]:
+    @staticmethod
+    def _coerce_list(value: Any) -> list[Any]:
         if not value:
             return []
         if isinstance(value, list):

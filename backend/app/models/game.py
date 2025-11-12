@@ -12,7 +12,7 @@ from .arcs import Arc
 from .characters import Character
 from .items import Item
 from .locations import Zone, Location, LocationId, MovementConfig
-from .meters import MetersConfig, Meter
+from .meters import MetersConfig, Meter, MeterId
 from .nodes import NodeId, Node, Event
 from .time import TimeConfig, TimeHHMM, TimeMode
 from .flags import FlagsConfig
@@ -70,6 +70,7 @@ class GameIndex:
         index.characters = {char.id: char for char in game.characters}
         index.items = {item.id: item for item in game.items}
 
+        # Meters templates
         if game.meters:
             if game.meters.player:
                 index.player_meters = dict(game.meters.player)
@@ -140,6 +141,7 @@ class GameDefinition(SimpleModel):
     # Extra files to include
     includes: list[str] = Field(default_factory=list)
 
+    # Cross-index for accessing game objects by ID
     _index: GameIndex = PrivateAttr(default_factory=GameIndex)
 
     @model_validator(mode='after')
@@ -164,7 +166,7 @@ class GameDefinition(SimpleModel):
             if not self.meters.player:
                 self.meters.player = {}
             if "money" not in self.meters.player:
-                self.meters.player["money"] = Meter(
+                self.meters.player[MeterId("money")] = Meter(
                     min=0,
                     max=int(self.economy.max_money),
                     default=int(self.economy.starting_money),
