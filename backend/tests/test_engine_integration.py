@@ -11,16 +11,16 @@ Tests the following systems working together according to specification:
 import pytest
 from app.core.game_loader import GameLoader
 from app.core.state_manager import StateManager
-from app.models.game import GameDefinition, MetaConfig, GameStartConfig
+from app.models.game import GameDefinition, MetaConfig, GameStart
 from app.models.locations import Zone, Location
 from app.models.nodes import Node, NodeChoice
 from app.models.characters import Character
-from app.models.time import TimeConfig
+from app.models.time import Time
 from app.models.effects import (
     MeterChangeEffect, FlagSetEffect, ConditionalEffect,
     InventoryAddEffect, InventoryRemoveEffect, GotoEffect
 )
-from app.models.modifiers import Modifier, ModifiersConfig
+from app.models.modifiers import Modifier, Modifiers
 from app.engine.effects import EffectResolver
 from app.engine.movement import MovementService
 from app.engine.time import TimeService
@@ -29,7 +29,7 @@ from app.engine.time import TimeService
 @pytest.fixture
 def game_for_effects_test() -> GameDefinition:
     """Create a minimal game for testing effects."""
-    from app.models.meters import MetersConfig, Meter
+    from app.models.meters import MetersTemplate, Meter
     from app.models.flags import FlagsConfig, BoolFlag
     from app.models.items import Item
 
@@ -39,17 +39,17 @@ def game_for_effects_test() -> GameDefinition:
             title="Effects Test Game",
             version="1.0.0"
         ),
-        start=GameStartConfig(
+        start=GameStart(
             node="start",
             location="room",
             day=1,
             slot="morning"
         ),
-        time=TimeConfig(
+        time=Time(
             mode="slots",
             slots=["morning", "afternoon", "evening"]
         ),
-        meters=MetersConfig(
+        meters=MetersTemplate(
             player={
                 "energy": Meter(min=0, max=100, default=50, visible=True),
                 "health": Meter(min=0, max=100, default=100, visible=True)
@@ -308,9 +308,9 @@ class TestModifierSystem:
     @pytest.fixture
     def game_with_modifiers(self) -> GameDefinition:
         """Create a game with modifiers defined."""
-        from app.models.meters import MetersConfig, Meter
+        from app.models.meters import MetersTemplate, Meter
 
-        modifiers = ModifiersConfig(
+        modifiers = Modifiers(
             library=[
                 Modifier(
                     id="energized",
@@ -335,17 +335,17 @@ class TestModifierSystem:
                 title="Modifier Test",
                 version="1.0.0"
             ),
-            start=GameStartConfig(
+            start=GameStart(
                 node="start",
                 location="room",
                 day=1,
                 slot="morning"
             ),
-            time=TimeConfig(
+            time=Time(
                 mode="slots",
                 slots=["morning"]
             ),
-            meters=MetersConfig(
+            meters=MetersTemplate(
                 player={
                     "energy": Meter(min=0, max=100, default=50, visible=True)
                 }

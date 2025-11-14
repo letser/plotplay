@@ -4,13 +4,12 @@ Modifiers System.
 """
 from __future__ import annotations
 
+from dataclasses import dataclass
 from enum import StrEnum
 
 from pydantic import Field
-from typing import NewType, TYPE_CHECKING
+from typing import TYPE_CHECKING
 from .model import SimpleModel, DescriptiveModel, DSLExpression, OptionalConditionalMixin
-from .characters import BehaviorGateId
-from .meters import MeterId
 
 if TYPE_CHECKING:
     from .effects import EffectsList
@@ -18,13 +17,12 @@ else:
     EffectsList = list
 
 class MeterClamp(SimpleModel):
-    min: int
-    max: int
+    min: int | float
+    max: int | float
 
-ModifierId = NewType("ModifierId", str)
 
 class Modifier(OptionalConditionalMixin, DescriptiveModel):
-    id: ModifierId
+    id: str
     group: str | None = None
 
     # No conditions at all or exactly one must be set
@@ -41,11 +39,11 @@ class Modifier(OptionalConditionalMixin, DescriptiveModel):
     dialogue_style: str | None = None
 
     # Gate rules
-    disallow_gates: list[BehaviorGateId] = Field(default_factory=list)
-    allow_gates: list[BehaviorGateId] = Field(default_factory=list)
+    disallow_gates: list[str] = Field(default_factory=list)
+    allow_gates: list[str] = Field(default_factory=list)
 
     # Meter clamping
-    clamp_meters: dict[MeterId, MeterClamp] | None = Field(default_factory=dict)
+    clamp_meters: dict[str, MeterClamp] | None = Field(default_factory=dict)
 
     # Events
     on_entry: EffectsList = Field(default_factory=list)
@@ -57,6 +55,6 @@ class ModifierStacking(StrEnum):
     LOWEST = "lowest"
     ALL = "all"
 
-class ModifiersConfig(SimpleModel):
+class Modifiers(SimpleModel):
     stacking: dict[str, ModifierStacking] = Field(default_factory=dict)
     library: list[Modifier] = Field(default_factory=list)

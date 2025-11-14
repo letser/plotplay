@@ -9,7 +9,7 @@ from .model import SimpleModel, DescriptiveModel, DSLExpression
 from .inventory import Inventory
 
 
-class EconomyConfig(SimpleModel):
+class Economy(SimpleModel):
     """Economy configuration."""
     enabled: bool = True
     starting_money: float = 50
@@ -22,8 +22,10 @@ class Shop(DescriptiveModel):
     """Shop definition."""
     name: str
     when: DSLExpression | None = None
+    can_sell: DSLExpression | None = None
     can_buy: DSLExpression | None = None
     multiplier_sell: DSLExpression | None = None
     multiplier_buy: DSLExpression | None = None
+    resell: bool = False
 
     inventory: Inventory = Field(default_factory=Inventory)

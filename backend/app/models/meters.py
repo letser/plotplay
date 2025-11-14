@@ -2,33 +2,35 @@
 PlotPlay Game Models.
 Meters System
 """
-from typing import Literal, NewType
+from typing import Literal
 from pydantic import Field, model_validator
 from .model import SimpleModel, DescriptiveModel, DSLExpression
 
 
 class MeterThreshold(SimpleModel):
     """Meter threshold definition."""
-    min: int
-    max: int
+    min: int | float
+    max: int | float
 
+
+MeterFormat = Literal["integer", "percent", "currency"]
 
 class Meter(DescriptiveModel):
     """Meter definition with thresholds and visibility."""
-    min: int = 0
-    max: int = 100
-    default: int = 0
+    min: int | float = 0
+    max: int | float= 100
+    default: int | float = 0
 
     # Visibility and display
     visible: bool = True
     hidden_until: DSLExpression | None = None
     icon: str | None = None
-    format: Literal["integer", "percent", "currency"] | None = None
+    format: MeterFormat | None = None
 
     # Decay and caps
-    decay_per_day: int = 0
-    decay_per_slot: int = 0
-    delta_cap_per_turn: int | None = None
+    decay_per_day: int | float = 0
+    decay_per_slot: int | float = 0
+    delta_cap_per_turn: int | float | None = None
 
     # Named thresholds
     thresholds: dict[str, MeterThreshold] = Field(default_factory=dict)
@@ -52,12 +54,11 @@ class Meter(DescriptiveModel):
         return self
 
 
-MeterId = NewType("MeterId", str)
+Meters = dict[str, Meter]
 
-MetersDefinition = dict[MeterId, Meter]
-
-
-class MetersConfig(SimpleModel):
+class MetersTemplate(SimpleModel):
     """Meters configuration."""
-    player: MetersDefinition | None = Field(default_factory=dict)
-    template: MetersDefinition | None = Field(default_factory=dict)
+    player: Meters | None = Field(default_factory=dict)
+    template: Meters | None = Field(default_factory=dict)
+
+MetersState = dict[str, int | float]

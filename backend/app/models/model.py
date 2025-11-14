@@ -3,7 +3,6 @@ PlotPlay Game Models.
 Base models
 """
 
-from typing import NewType
 from pydantic import BaseModel, model_validator
 
 class SimpleModel(BaseModel):
@@ -15,7 +14,7 @@ class DescriptiveModel(BaseModel):
     # Author's note description
     description: str | None = None
 
-DSLExpression = NewType("DSLExpression", str)
+DSLExpression = str
 
 
 class OptionalConditionalMixin(SimpleModel):

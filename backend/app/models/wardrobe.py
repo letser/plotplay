@@ -5,7 +5,8 @@ Clothing and wardrobe
 
 from __future__ import annotations
 
-from typing import NewType, TYPE_CHECKING
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 from enum import StrEnum
 
 from pydantic import Field, model_validator
@@ -17,11 +18,8 @@ if TYPE_CHECKING:
 else:
     EffectsList = list
 
-ClothingSlot = NewType("ClothingSlot", str)
-ClothingId = NewType("ClothingId", str)
-OutfitId = NewType("OutfitId", str)
 
-class ClothingState(StrEnum):
+class ClothingCondition(StrEnum):
     """Clothing state."""
     INTACT = "intact"
     OPENED = "opened"
@@ -37,28 +35,21 @@ class ClothingLook(SimpleModel):
     removed: str | None = None
 
 
-class Clothing(DescriptiveModel):
+class ClothingItem(DescriptiveModel):
     """Clothing Item definition."""
-    id: ClothingId
+    id: str
     name: str
     value: float = 0.0
-    state: ClothingState = ClothingState.INTACT
+    condition: ClothingCondition = ClothingCondition.INTACT
     look: ClothingLook
 
-    occupies: list[ClothingSlot] = Field(default_factory=list)
-    conceals: list[ClothingSlot] = Field(default_factory=list)
+    # List of slots that item occupies and conceals
+    occupies: list[str] = Field(default_factory=list)
+    conceals: list[str] = Field(default_factory=list)
     can_open: bool = False
 
     locked: bool = False
     unlock_when: DSLExpression | None = None
-
-    # Usage
-    consumable: bool | None = False
-    use_text: str | None = None
-
-    can_give: bool | None = False
-
-    obtain_conditions: list[DSLExpression] = Field(default_factory=list)
 
     # Dynamic effects
     on_get: EffectsList = Field(default_factory=list)
@@ -74,9 +65,11 @@ class Clothing(DescriptiveModel):
 
 
 class Outfit(DescriptiveModel):
-    id: OutfitId
+    id: str
     name: str
-    items: list[ClothingId] = Field(default_factory=list)
+    value: float = 0.0
+
+    items: dict[str, ClothingCondition] = Field(default_factory=dict)
 
     grant_items: bool = True
 
@@ -90,8 +83,20 @@ class Outfit(DescriptiveModel):
     on_take_off: EffectsList = Field(default_factory=list)
 
 
-class WardrobeConfig(SimpleModel):
+class Wardrobe(SimpleModel):
     """Wardrobe configuration."""
-    slots: list[ClothingSlot] = Field(default_factory=list)
-    items: list[Clothing] = Field(default_factory=list)
+    slots: list[str] = Field(default_factory=list)
+    items: list[ClothingItem] = Field(default_factory=list)
     outfits: list[Outfit] = Field(default_factory=list)
+
+
+class Clothing(SimpleModel):
+    outfit: str | None = None
+    items: dict[str, ClothingCondition] = Field(default_factory=dict)
+
+
+@dataclass
+class ClothingState():
+    outfit: str | None = None
+    items: dict[str, ClothingCondition] = field(default_factory=dict)
+

@@ -2,24 +2,22 @@
 PlotPlay Game Models.
 Characters.
 """
+from dataclasses import dataclass, field
 
-from typing import NewType
 from pydantic import Field, model_validator
 
+from .arcs import ArcState
 from .model import SimpleModel, DescriptiveModel, DSLExpression, RequiredConditionalMixin
-from .meters import MetersDefinition
-from .inventory import Inventory
-from .wardrobe import WardrobeConfig, ClothingSlot, ClothingId, OutfitId
-from .locations import LocationId, MovementWillingnessConfig
+from .meters import Meters, MetersState
+from .inventory import Inventory, InventoryState
+from .wardrobe import Wardrobe, Clothing, ClothingState
+from .locations import MovementWillingness
 from .economy import Shop
 
 
-
-BehaviorGateId = NewType("BehaviorGateId", str)
-
-class BehaviorGate(RequiredConditionalMixin, SimpleModel):
+class Gate(RequiredConditionalMixin, SimpleModel):
     """Consent/behavior gate."""
-    id: BehaviorGateId
+    id: str
     when: DSLExpression | None = None
     when_any: list[DSLExpression] | None = Field(default_factory=list)
     when_all: list[DSLExpression] | None = Field(default_factory=list)
@@ -40,20 +38,12 @@ class CharacterSchedule(RequiredConditionalMixin, SimpleModel):
     when: DSLExpression | None = None
     when_any: list[DSLExpression] | None = Field(default_factory=list)
     when_all: list[DSLExpression] | None = Field(default_factory=list)
-    location: LocationId
-
-
-class ClothingConfig(SimpleModel):
-    outfit: OutfitId | None = None
-    items: dict[ClothingSlot, ClothingId] = Field(default_factory=dict)
-
-
-CharacterId = NewType("CharacterId", str)
+    location: str
 
 
 class Character(DescriptiveModel):
     """Complete character definition."""
-    id: CharacterId
+    id: str
     name: str
     age: int
     gender: str
@@ -65,20 +55,24 @@ class Character(DescriptiveModel):
     appearance: str | None = None
 
     # Meters override
-    meters: MetersDefinition | None = None
+    meters: Meters | None = Field(default_factory=Meters)
 
     # Behaviors
-    gates: list[BehaviorGate] = Field(default_factory=list)
+    gates: list[Gate] = Field(default_factory=list)
 
     # Wardrobe override and clothing
-    wardrobe: WardrobeConfig | None = None
-    clothing: ClothingConfig | None = None
+    wardrobe: Wardrobe | None = None
+    clothing: Clothing | None = None
 
     # Schedule
-    schedule: list[CharacterSchedule] | None = None
+    schedule: list[CharacterSchedule] | None = Field(default_factory=list)
+
+    #Locking
+    locked: bool = False
+    unlock_when: DSLExpression | None = None
 
     # Movement willingness
-    movement: MovementWillingnessConfig | None = None
+    movement: MovementWillingness | None = None
 
     # Inventory
     inventory: Inventory | None = None
@@ -86,3 +80,30 @@ class Character(DescriptiveModel):
     # Shop for merchants
     shop: Shop | None = None
 
+
+@dataclass
+class CharacterState:
+    """Holds per-character runtime data."""
+    #Locking
+    locked: bool = False
+
+    # Characters meters
+    meters: MetersState = field(default_factory=MetersState)
+
+    # Inventory
+    inventory: InventoryState = field(default_factory=InventoryState)
+
+    # Shop
+    shop: InventoryState | None = None
+
+    # Current clothing state
+    clothing: ClothingState = field(default_factory=ClothingState)
+
+    # Effective modifiers (modifier_id -> duration)
+    modifiers: dict[str, int] = field(default_factory=list)
+
+    # Active gates (gate_id -> (acceptance, refusal))
+    gates: dict[str, tuple[str, str]] = field(default_factory=dict)
+
+    # Arcs progression (arc_id -> ArcState)
+    active_arcs: dict[str, ArcState] = field(default_factory=dict)

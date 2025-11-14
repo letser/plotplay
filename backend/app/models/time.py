@@ -2,14 +2,13 @@
 PlotPlay Game Models.
 Time System.
 """
-
+from dataclasses import dataclass
 from enum import StrEnum
-from typing import Annotated, NewType
+from typing import Annotated
 from pydantic import Field, field_validator, model_validator, StringConstraints
 from .model import SimpleModel
 
 
-TimeSlot = NewType("TimeSlot", str)
 TimeHHMM = Annotated[str, StringConstraints(pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")]
 
 class TimeMode(StrEnum):
@@ -18,12 +17,10 @@ class TimeMode(StrEnum):
     HYBRID = "hybrid"
 
 
-class SlotWindow(SimpleModel):
+class TimeSlotWindow(SimpleModel):
     """Time window for a slot in hybrid mode."""
     start: TimeHHMM
     end: TimeHHMM
-
-WeekDay = NewType("WeekDay", str)
 
 
 class TimeStart(SimpleModel):
@@ -33,18 +30,23 @@ class TimeStart(SimpleModel):
     time: TimeHHMM | None = None  # HH:MM for clock/hybrid
 
 
-class TimeConfig(SimpleModel):
+TimeSlots = list[str]
+
+TimeSlotWindows = dict[str, TimeSlotWindow]
+
+
+class Time(SimpleModel):
     """Complete time system configuration."""
     mode: TimeMode = TimeMode.SLOTS
-    slots: list[TimeSlot] | None = Field(default_factory=list)
+    slots: TimeSlots | None = Field(default_factory=TimeSlots)
     actions_per_slot: int | None = None
     minutes_per_action: int | None = None
-    slot_windows: dict[TimeSlot, SlotWindow] | None = Field(default_factory=dict)
+    slot_windows: TimeSlotWindows | None = Field(default_factory=TimeSlotWindows)
 
-    week_days: list[WeekDay] = Field(default_factory=lambda: [
+    week_days: list[str] = Field(default_factory=lambda: [
         "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"
     ])
-    start_day: WeekDay = "monday"
+    start_day: str = "monday"
 
     @field_validator('start_day')
     @classmethod
@@ -91,3 +93,12 @@ class TimeConfig(SimpleModel):
                 )
 
         return self
+
+
+@dataclass
+class TimeState:
+    """Current in-game time snapshot."""
+    day: int = 1
+    slot: str | None = None
+    time_hhmm: TimeHHMM | None = None
+    weekday: str | None = None

@@ -5,7 +5,7 @@ Items
 
 from __future__ import annotations
 
-from typing import NewType, TYPE_CHECKING
+from typing import TYPE_CHECKING
 from pydantic import Field
 
 from .model import DescriptiveModel, DSLExpression, SimpleModel
@@ -16,12 +16,9 @@ else:
     EffectsList = list
 
 
-ItemId = NewType("ItemId", str)
-
-
 class Item(DescriptiveModel):
     """Item definition."""
-    id: ItemId
+    id: str
     name: str
     category: str | None = None
     icon: str | None = None
@@ -37,7 +34,9 @@ class Item(DescriptiveModel):
 
     can_give: bool | None = False
 
-    obtain_conditions: list[DSLExpression] = Field(default_factory=list)
+    #Locking
+    locked: bool = False
+    unlock_when: DSLExpression | None = None
 
     # Dynamic effects
     on_get: EffectsList = Field(default_factory=list)
@@ -45,11 +44,3 @@ class Item(DescriptiveModel):
     on_use: EffectsList = Field(default_factory=list)
     on_give: EffectsList = Field(default_factory=list)
 
-
-class InventoryItem(SimpleModel):
-    """Inventory item definition."""
-    item: ItemId
-    count: int = 1
-    replenish: bool = False
-    discovered: bool = True
-    discovered_when: DSLExpression | None = None

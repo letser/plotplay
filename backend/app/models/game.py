@@ -6,20 +6,21 @@ from dataclasses import dataclass, field
 
 from pydantic import Field, model_validator, PrivateAttr
 
+from .events import Event
 from .model import SimpleModel, DescriptiveModel
 from .actions import Action
 from .arcs import Arc
 from .characters import Character
 from .items import Item
-from .locations import Zone, Location, LocationId, MovementConfig
-from .meters import MetersConfig, Meter, MeterId
-from .nodes import NodeId, Node, Event
-from .time import TimeConfig, TimeHHMM, TimeMode
-from .flags import FlagsConfig
-from .modifiers import ModifiersConfig, Modifier
-from .narration import GameNarration
-from .economy import EconomyConfig
-from .wardrobe import WardrobeConfig, Clothing, Outfit
+from .locations import Zone, Location, Movement
+from .meters import MetersTemplate, Meter
+from .nodes import Node
+from .time import Time, TimeHHMM, TimeMode
+from .flags import Flags
+from .modifiers import Modifiers, Modifier
+from .narration import Narration
+from .economy import Economy
+from .wardrobe import Wardrobe, ClothingItem, Outfit
 
 
 class MetaConfig(DescriptiveModel):
@@ -33,9 +34,9 @@ class MetaConfig(DescriptiveModel):
     license: str | None = None
 
 
-class GameStartConfig(SimpleModel):
-    node: NodeId
-    location: LocationId
+class GameStart(SimpleModel):
+    node: str
+    location: str
     day: int | None = 1
     slot: str | None = None
     time: TimeHHMM | None = "00:00"
@@ -44,13 +45,15 @@ class GameStartConfig(SimpleModel):
 @dataclass
 class GameIndex:
     """Lookup tables for fast runtime access."""
+    meters: dict[str, Meter] = field(default_factory=dict)
+    flags: dict[str, bool] = field(default_factory=dict)
     nodes: dict[str, Node] = field(default_factory=dict)
     events: dict[str, Event] = field(default_factory=dict)
     actions: dict[str, Action] = field(default_factory=dict)
     arcs: dict[str, Arc] = field(default_factory=dict)
     characters: dict[str, Character] = field(default_factory=dict)
     items: dict[str, Item] = field(default_factory=dict)
-    clothing: dict[str, Clothing] = field(default_factory=dict)
+    clothing: dict[str, ClothingItem] = field(default_factory=dict)
     outfits: dict[str, Outfit] = field(default_factory=dict)
     modifiers: dict[str, Modifier] = field(default_factory=dict)
     zones: dict[str, Zone] = field(default_factory=dict)
@@ -78,7 +81,7 @@ class GameIndex:
                 index.template_meters = dict(game.meters.template)
 
         # Global wardrobe
-        def register_clothing(source: WardrobeConfig | None):
+        def register_clothing(source: Wardrobe | None):
             if not source:
                 return
             for clothing_item in source.items or []:
@@ -111,29 +114,32 @@ class GameDefinition(SimpleModel):
     """
     # Game meta and narration
     meta: MetaConfig
-    narration: GameNarration = Field(default_factory=GameNarration)
+    narration: Narration = Field(default_factory=Narration)
     rng_seed: int | str | None = None
 
     # Game starting point
-    start: GameStartConfig = Field(default_factory=GameStartConfig)
+    start: GameStart = Field(default_factory=GameStart)
 
     # Meters and flags
-    meters: MetersConfig = Field(default_factory=MetersConfig)
-    flags: FlagsConfig = Field(default_factory=FlagsConfig)
+    meters: MetersTemplate = Field(default_factory=MetersTemplate)
+    flags: Flags = Field(default_factory=Flags)
 
     # Game world
-    time: TimeConfig = Field(default_factory=TimeConfig)
-    economy: EconomyConfig = Field(default_factory=EconomyConfig)
+    time: Time = Field(default_factory=Time)
+    economy: Economy = Field(default_factory=Economy)
     items: list[Item] = Field(default_factory=list)
-    wardrobe: WardrobeConfig = Field(default_factory=WardrobeConfig)
+    wardrobe: Wardrobe = Field(default_factory=Wardrobe)
 
+    # Characters
     characters: list[Character] = Field(default_factory=list)
+
+    # Zones, locations and movement rules
     zones: list[Zone] = Field(default_factory=list)
-    movement: MovementConfig = Field(default_factory=MovementConfig)
+    movement: Movement = Field(default_factory=Movement)
 
     # Game logic
     nodes: list[Node] = Field(default_factory=list)
-    modifiers: ModifiersConfig = Field(default_factory=ModifiersConfig)
+    modifiers: Modifiers = Field(default_factory=Modifiers)
     actions: list[Action] = Field(default_factory=list)
     events: list[Event] = Field(default_factory=list)
     arcs: list[Arc] = Field(default_factory=list)
@@ -166,7 +172,7 @@ class GameDefinition(SimpleModel):
             if not self.meters.player:
                 self.meters.player = {}
             if "money" not in self.meters.player:
-                self.meters.player[MeterId("money")] = Meter(
+                self.meters.player["money"] = Meter(
                     min=0,
                     max=int(self.economy.max_money),
                     default=int(self.economy.starting_money),

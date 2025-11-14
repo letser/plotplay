@@ -2,9 +2,8 @@
 PlotPlay Game Models.
 Locations and movement system
 """
-
+from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Literal, NewType
 
 from pydantic import Field, field_validator, model_validator
 
@@ -12,14 +11,10 @@ from .model import (
     DSLExpression,
     DescriptiveModel,
     OptionalConditionalMixin,
-    RequiredConditionalMixin,
     SimpleModel,
 )
 from .economy import Shop
-from .inventory import Inventory
-
-ZoneId = NewType("ZoneId", str)
-LocationId = NewType("LocationId", str)
+from .inventory import Inventory, InventoryState
 
 
 class LocationPrivacy(StrEnum):
@@ -71,7 +66,7 @@ class LocalDirection(StrEnum):
 
 class LocationConnection(SimpleModel):
     """Conditional connection to one or multiple locations."""
-    to: LocationId
+    to: str
     description: str | None = None
     locked: bool = False
     direction: LocalDirection
@@ -89,7 +84,7 @@ class LocationAccess(SimpleModel):
 
 class Location(DescriptiveModel):
     """Location definition."""
-    id: LocationId
+    id: str
     name: str
     summary: str | None = None
     privacy: LocationPrivacy = LocationPrivacy.LOW
@@ -101,12 +96,9 @@ class Location(DescriptiveModel):
     shop: Shop | None = None
 
 
-MovementMethod = NewType("MovementMethod", str)
-
-
 class TravelMethod(SimpleModel):
     """Travel method definition."""
-    name: MovementMethod
+    name: str
     base_time: int
 
     @model_validator(mode='after')
@@ -116,7 +108,7 @@ class TravelMethod(SimpleModel):
         return self
 
 
-class MovementConfig(SimpleModel):
+class Movement(SimpleModel):
     base_time: int | None = 1
     use_entry_exit: bool = False
     methods: list[TravelMethod] = Field(default_factory=list)
@@ -156,15 +148,15 @@ class MovementConfig(SimpleModel):
 
 class ZoneConnection(DescriptiveModel):
     """Connection between zones."""
-    to: list[ZoneId | Literal["all"]] = Field(default_factory=list)
-    exceptions: list[ZoneId] | None = Field(default_factory=list)
-    methods: list[MovementMethod] = Field(default_factory=list)
+    to: list[str] = Field(default_factory=list)
+    exceptions: list[str] | None = Field(default_factory=list)
+    methods: list[str] = Field(default_factory=list)
     distance: float | None = 1.0
 
 
 class Zone(DescriptiveModel):
     """World zone containing locations."""
-    id: ZoneId
+    id: str
     name: str
     summary: str | None = None
     privacy: LocationPrivacy = LocationPrivacy.LOW
@@ -174,28 +166,50 @@ class Zone(DescriptiveModel):
 
     locations: list[Location] = Field(default_factory=list)
 
-    entrances: list[LocationId] = Field(default_factory=list)
-    exits: list[LocationId] = Field(default_factory=list)
+    entrances: list[str] = Field(default_factory=list)
+    exits: list[str] = Field(default_factory=list)
 
 
 class ZoneMovementWillingness(OptionalConditionalMixin, SimpleModel):
     """Defines an NPC's willingness to move with the player."""
-    zone: ZoneId
+    zone: str
     when: DSLExpression | None = None
     when_all: list[DSLExpression] | None = Field(default_factory=list)
     when_any: list[DSLExpression] | None = Field(default_factory=list)
-    methods: list[MovementMethod] = Field(default_factory=list)
+    methods: list[str] = Field(default_factory=list)
 
 
 class LocationMovementWillingness(OptionalConditionalMixin, SimpleModel):
     """Defines an NPC's willingness to move with the player."""
-    location: LocationId
+    location: str
     when: DSLExpression | None = None
     when_all: list[DSLExpression] | None = Field(default_factory=list)
     when_any: list[DSLExpression] | None = Field(default_factory=list)
 
 
-class MovementWillingnessConfig(SimpleModel):
+class MovementWillingness(SimpleModel):
     """Defines an NPC's willingness to move with the player."""
     willing_zones: list[ZoneMovementWillingness] = Field(default_factory=list)
     willing_locations: list[LocationMovementWillingness] = Field(default_factory=list)
+
+
+@dataclass()
+class ZoneState:
+    """Current zone snapshot."""
+    id: str
+    discovered: bool | None = True
+    locked: bool | None = False
+
+
+@dataclass
+class LocationState:
+    """Current player location snapshot."""
+    id: str
+    zone_id: str
+    discovered: bool | None = True
+    locked: bool | None = False
+    privacy: LocationPrivacy = LocationPrivacy.LOW
+    previous_id: str | None = None
+    # Location inventory and shop
+    inventory: InventoryState = field(default_factory=InventoryState)
+    shop: InventoryState | None = None

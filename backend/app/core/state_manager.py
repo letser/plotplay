@@ -4,150 +4,57 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field, asdict
 from datetime import UTC, datetime
-from typing import Any
 
 from app.models.effects import AnyEffect
 from app.models.game import GameDefinition
-from app.models.inventory import Inventory
-from app.models.locations import LocationPrivacy, ZoneId, LocationId
-from app.models.time import TimeMode
-from models.actions import ActionId
-from models.arcs import ArcId
-from models.characters import CharacterId, BehaviorGateId
-from models.flags import FlagId, FlagValue
-from models.items import ItemId
-from models.meters import MeterId
-from models.modifiers import ModifierId, Modifier
-from models.nodes import NodeId
-from models.wardrobe import OutfitId, ClothingSlot, ClothingId, ClothingState
-
-
-@dataclass
-class TimeSnapshot:
-    """Current in-game time snapshot."""
-    day: int = 1
-    slot: str | None = None
-    time_hhmm: str | None = None
-    weekday: str | None = None
-
-@dataclass()
-class InventorySnapshot:
-    """Inventory and wardrobe snapshot for a character or a location."""
-    items: dict[ItemId, int] = field(default_factory=dict)
-    clothing: dict[ClothingSlot, ClothingId] = field(default_factory=dict)
-    outfits: list[OutfitId] = field(default_factory=list)
-
-
-@dataclass()
-class ShopSnapshot:
-    """Inventory for shops with counts."""
-    items: dict[ItemId, int] = field(default_factory=dict)
-    clothing: dict[ClothingId, int] = field(default_factory=dict)
-    outfits: dict[OutfitId, int] = field(default_factory=dict)
-
-
-@dataclass()
-class ZoneSnapshot:
-    """Current zone snapshot."""
-    id: ZoneId | None = None
-    discovered: bool | None = True
-    locked: bool | None = False
-
-
-@dataclass
-class LocationSnapshot:
-    """Current player location snapshot."""
-    id: LocationId | None = None
-    zone_id: ZoneId | None = None
-    discovered: bool | None = True
-    locked: bool | None = False
-    privacy: LocationPrivacy = LocationPrivacy.LOW
-    previous_id: LocationId | None = None
-    # Location inventory and shop
-    inventory: InventorySnapshot = field(default_factory=InventorySnapshot)
-    shop: ShopSnapshot = field(default_factory=ShopSnapshot)
-
-
-@dataclass
-class ArcState:
-    """Tracks arc stage and history."""
-    stage: str | None = None
-    history: list[str] = field(default_factory=list)
-
-
-FlagsSnapshot = dict[FlagId, FlagValue]
-
-@dataclass
-class CharacterState:
-    """Holds per-character runtime data."""
-
-    # Characters meters
-    meters: dict[MeterId, int] = field(default_factory=dict)
-
-    # Items, wardrobe, and unlocked/present outfits, shop inventory
-    inventory: InventorySnapshot = field(default_factory=InventorySnapshot)
-    shop: ShopSnapshot = field(default_factory=ShopSnapshot)
-
-    # Current clothing state
-    outfit: OutfitId | None = None
-    clothing: dict[ClothingSlot, ClothingId] = field(default_factory=dict)
-    clothing_state: dict[ClothingSlot, ClothingState] = field(default_factory=dict)
-
-    # Effective modifiers
-    modifiers: dict[ModifierId, Modifier] = field(default_factory=list)
-
-    # Current location
-    # TODO: check do we really need this here?
-    location: LocationSnapshot | None = None
-
-    # Active gates
-    gates: dict[BehaviorGateId, str] = field(default_factory=dict)
-
-    # Arcs progression
-    active_arc: ArcId | None = None
-    arc_history: list[ArcId] = field(default_factory=list)
+from app.models.inventory import Inventory, InventoryState
+from app.models.locations import LocationPrivacy, ZoneState, LocationState
+from app.models.time import TimeMode, TimeState
+from models.characters import CharacterState
+from models.flags import FlagsState
 
 
 @dataclass
 class GameState:
     """Complete game state at a point in time."""
     # Current time
-    time: TimeSnapshot = field(default_factory=TimeSnapshot)
+    time: TimeState = field(default_factory=TimeState)
 
     # Snapshots of the player and all characters, also list of present characters
     player: CharacterState | None = None
-    characters: dict[CharacterId, CharacterState] = field(default_factory=dict)
-    present_chars: list[CharacterId] = field(default_factory=list)
+    characters: dict[str, CharacterState] = field(default_factory=dict)
+    present_characters: list[str] = field(default_factory=list)
 
     # Snapshots of all zones and locations, current zone and location
-    zones: dict[ZoneId, ZoneSnapshot] = field(default_factory=dict)
-    locations: dict[LocationId, LocationSnapshot] = field(default_factory=dict)
+    zones: dict[str, ZoneState] = field(default_factory=dict)
+    locations: dict[str, LocationState] = field(default_factory=dict)
 
     # Discovered locations and zones
-    discovered_zones: set[ZoneId] = field(default_factory=set)
-    discovered_locations: set[LocationId] = field(default_factory=set)
+    discovered_zones: set[str] = field(default_factory=set)
+    discovered_locations: set[str] = field(default_factory=set)
 
-    # Current zone and location
-    current_zone_id: ZoneId | None = None
-    current_location_id: LocationId | None = None
+    # Current zone, location, privacy
+    current_zone: str | None = None
+    current_location: str | None = None
+    current_privacy: LocationPrivacy = LocationPrivacy.LOW
 
     # Global game flags
-    flags: FlagsSnapshot = field(default_factory=dict)
+    flags: FlagsState = field(default_factory=dict)
+
+    # Shops and merchants - lists of locations and characters with shops
+    shops: list[str] = field(default_factory=list)
+    merchants: list[str] = field(default_factory=list)
 
     # Nodes progression
-    current_node_id: NodeId | None = None
-    visited_nodes: list[NodeId] = field(default_factory=list)
-    unlocked_endings: list[NodeId] = field(default_factory=list)
-    unlocked_actions: list[ActionId] = field(default_factory=list)
+    current_node: str | None = None
+    visited_nodes: list[str] = field(default_factory=list)
+    unlocked_endings: list[str] = field(default_factory=list)
+    unlocked_actions: list[str] = field(default_factory=list)
 
 
     # Active events with cooldowns and events history
-    cooldowns: dict[NodeId, int] = field(default_factory=dict)
-    events_history: list[NodeId] = field(default_factory=list)
-
-    # Shopping state
-    shops: dict[LocationId, InventorySnapshot] = field(default_factory=dict)
-    merchants: dict[CharacterId, InventorySnapshot] = field(default_factory=dict)
+    cooldowns: dict[str, int] = field(default_factory=dict)
+    events_history: list[str] = field(default_factory=list)
 
 
     # General game stats
@@ -159,20 +66,6 @@ class GameState:
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
-    @property
-    def current_zone(self) -> ZoneSnapshot | None:
-        """Return the current zone snapshot."""
-        return self.zones.get(self.current_zone_id)
-
-    @property
-    def current_location(self) -> LocationSnapshot | None:
-        """Return the current location snapshot."""
-        return self.locations.get(self.current_location_id)
-
-    @property
-    def current_node(self) -> NodeId | None:
-        """Return the current node ID."""
-        return self.current_node_id
 
     def to_dict(self) -> dict:
         """Convert to dictionary for serialization."""
@@ -226,24 +119,25 @@ class StateManager:
 
         # Build lists of snapshots for all zones and locations
         for zone in self.game_def.zones:
-            zone_snapshot = ZoneSnapshot(id=zone.id)
-            zone_snapshot.discovered = zone.access.discovered if zone.access else True
-            zone_snapshot.locked = zone.access.locked if zone.access else False
-            if zone_snapshot.discovered:
+            zone_state = ZoneState(id=zone.id)
+            zone_state.discovered = zone.access.discovered if zone.access else True
+            zone_state.locked = zone.access.locked if zone.access else False
+            if zone_state.discovered:
                 self.state.discovered_zones.add(zone.id)
-            self.state.zones[zone.id] = zone_snapshot
+            self.state.zones[zone.id] = zone_state
 
-            for loc in zone.locations:
-                loc_snapshot = LocationSnapshot(id=loc.id, zone_id=zone.id)
-                loc_snapshot.discovered = loc.access.discovered if loc.access else True
-                loc_snapshot.locked = loc.access.locked if loc.access else False
-                if loc_snapshot.discovered:
-                    self.state.discovered_locations.add(loc.id)
-                self.state.locations[loc.id] = loc_snapshot
+            for location in zone.locations:
+                location_state = LocationState(id=location.id, zone_id=zone.id)
+                location_state.discovered = location.access.discovered if location.access else True
+                location_state.locked = location.access.locked if location.access else False
+                if location_state.discovered:
+                    self.state.discovered_locations.add(location.id)
+                self.state.locations[location.id] = location_state
 
         # Set the start zone and location
-        self.state.current_location_id = LocationId(self.game_def.start.location)
-        self.state.current_zone_id = self.state.current_location.zone_id
+        self.state.current_location = self.game_def.start.location
+        self.state.current_zone = self.index.location_to_zone[self.state.current_location]
+        self.state.current_privacy = self.index.locations[self.state.current_location].privacy
 
 
     def _initialize_location_inventories(self, state: GameState) -> None:

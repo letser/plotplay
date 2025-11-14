@@ -17,31 +17,31 @@ from app.core.game_loader import GameLoader
 from app.core.state_manager import StateManager
 from app.models.game import GameDefinition
 from app.models.characters import Character
-from app.models.meters import MetersConfig, Meter, MetersDefinition
-from app.models.wardrobe import WardrobeConfig, Clothing, Outfit, ClothingLook
+from app.models.meters import MetersTemplate, Meter, MetersDefinition
+from app.models.wardrobe import Wardrobe, ClothingItem, Outfit, ClothingLook
 
 
 @pytest.fixture
 def game_with_overrides() -> GameDefinition:
     """Create a minimal game with character meter and wardrobe overrides."""
-    from app.models.game import GameDefinition, MetaConfig, GameStartConfig
+    from app.models.game import GameDefinition, MetaConfig, GameStart
     from app.models.locations import Zone, Location
     from app.models.nodes import Node
     from app.models.characters import Character, ClothingConfig
-    from app.models.time import TimeConfig
+    from app.models.time import Time
 
     # Define global wardrobe
-    global_wardrobe = WardrobeConfig(
+    global_wardrobe = Wardrobe(
         slots=["top", "bottom", "feet"],
         items=[
-            Clothing(
+            ClothingItem(
                 id="generic_shirt",
                 name="Generic Shirt",
                 value=10.0,
                 occupies=["top"],
                 look=ClothingLook(intact="A plain shirt")
             ),
-            Clothing(
+            ClothingItem(
                 id="generic_pants",
                 name="Generic Pants",
                 value=15.0,
@@ -85,7 +85,7 @@ def game_with_overrides() -> GameDefinition:
         )
     }
 
-    meters_config = MetersConfig(
+    meters_config = MetersTemplate(
         player=player_meters,
         template=template_meters
     )
@@ -109,9 +109,9 @@ def game_with_overrides() -> GameDefinition:
         name="Bob",
         age=28,
         gender="male",
-        wardrobe=WardrobeConfig(
+        wardrobe=Wardrobe(
             items=[
-                Clothing(
+                ClothingItem(
                     id="bob_jacket",
                     name="Bob's Jacket",
                     value=50.0,
@@ -165,13 +165,13 @@ def game_with_overrides() -> GameDefinition:
             title="Character Overrides Test",
             version="1.0.0"
         ),
-        start=GameStartConfig(
+        start=GameStart(
             node="start_node",
             location="test_location",
             day=1,
             slot="morning"
         ),
-        time=TimeConfig(
+        time=Time(
             mode="slots",
             slots=["morning"]
         ),

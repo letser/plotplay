@@ -16,7 +16,7 @@ class Tense(StrEnum):
     PAST = "past"
     PRESENT = "present"
 
-class GameNarration(SimpleModel):
+class Narration(SimpleModel):
     """Narration style configuration."""
     pov: POV = POV.SECOND
     tense: Tense = Tense.PRESENT

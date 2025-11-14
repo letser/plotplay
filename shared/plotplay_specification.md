@@ -610,9 +610,11 @@ items:
     stackable: <bool>             # OPTIONAL. Default: true.
     droppable: <bool>             # OPTIONAL. Default: true.
     
-    # --- Usage ---
-    obtain_conditions: ["<expr>", ...] # OPTIONAL. Conditions to obtain.
+    # --- Locking ---
+    locked: <bool>              # OPTIONAL. Default: false.
+    unlock_when: "<expr>"       # OPTIONAL. Unlock condition.
 
+    # --- Usage ---
     consumable: <bool>            # OPTIONAL. Destroyed on use.
     use_text: "<string>"          # OPTIONAL. Flavor text when used.
     
@@ -637,7 +639,6 @@ items:
     value: 5
     stackable: true
     consumable: true
-    target: "player"
     use_text: "You crack the can and chug the sweet, fizzy boost."
     on_use:
       - { type: meter_change, target: player, meter: energy, op: add, value: 25 }
@@ -720,19 +721,15 @@ Outfits predefine clothing items to slots and populate corresponding items once 
 
 Outfits can be worn either as a single unit and add all items to the character's inventory, 
 or require a character to have/acquire all required items to be applied. Outfits just populate items into slots,
-so individual items can be changed or removed as a set of items. Each clothing item has own state and can be 
-`intact`, `opened`, `displaced`, `removed`. 
-`displaced` and `opened` allow revealing items from underneath slots.
+so individual items can be changed or removed as a set of items. Each clothing item has own condition and can be `intact`, `opened`, `displaced`, `removed`. `displaced` and `opened` allow revealing items from underneath slots.
 `removed` means that the item is removed but still present in the inventory and can be worn again by changing its condition.
 There is no special order between these statuses, 
 the engine assumes that statuses will be set by effects ir detected by the Checker from narrative. 
 
 
-Both clothing items and outfits act like inventory items and can be bought, given, apply effects, etc. 
-The game engine automatically extends the character's inventory with clothing items and outfits.
+Both clothing items and outfits act like items, included into the inventory and can be bought, given, apply effects, etc. 
 
-The game manifest defines a global list of clothing items and outfits. Similar to meters, the definition of each character 
-may extend and override the global lists.
+The game manifest defines a global list of clothing items and outfits. Similar to meters, the definition of each character may extend and override the global lists.
   
 
 ### Global Wardrobe Definition
@@ -742,58 +739,47 @@ may extend and override the global lists.
 wardrobe:
   slots: ["<string>",  ... ]       # Ordered list of clothing slots. 
   # E.g. ["outerwear", "top", "bottom", "underwear_top", "underwear_bottom", "feet", "accessories"] 
-  items:   [<clothing>, ...]  # Global clothing item library
+  items:                           # Global clothing item library
+    - id: "<string>"                 # REQUIRED. Unique clothing item ID.
+      name: "<string>"               # REQUIRED. Display name.
+      value: <float>                 # OPTIONAL. Shop price; non-negative.
+      condition: "intact|opened|displaced|removed"  # OPTIONAL. Default: "intact"
+      look:                          # OPTIONAL. Narrative description.
+        intact: "<string>"           # OPTIONAL. Description of the intact item.
+        opened: "<string>"           # OPTIONAL. Description of the opened item.
+        displaced: "<string>"        # OPTIONAL. Description of the displaced item.
+        removed: "<string>"          # OPTIONAL. Description of the removed item.
+      occupies: ["<slot>", ...]      # REQUIRED. Which slot(s) the current item occupies? Items like dresses that use multiple slots.
+      conceals: ["<slot>", ...]      # OPTIONAL. Which slots are under the current slot? Engine can generate a description based on this. 
+      can_open: <bool>               # OPTIONAL. Default: true. Can be opened/unfastened?
+      # --- Locking ---
+      locked: <bool>              # OPTIONAL. Default: false.
+      unlock_when: "<expr>"       # OPTIONAL. Unlock condition.
+      # --- Dynamic effects ---
+      on_get:  [<effect>, ... ]      # OPTIONAL. Effects applied when get item. See the Effects section.
+      on_lost: [<effect>, ... ]      # OPTIONAL. Effects applied when lost item. See the Effects section.
+      on_put_on:  [<effect>, ... ]   # OPTIONAL. Effects applied when the item is put on.
+      on_take_off: [<effect>, ... ]  # OPTIONAL. Effects applied when the item is taken off.
   outfits: [<outfit>, ...]         # Global outfits library
+    - id: "<string>"              # REQUIRED. Outfit ID.
+      name: "<string>"            # REQUIRED. Display name.
+      description: "<string>"     # OPTIONAL. Author notes.
+
+      # --- Items ---
+      items: {<item_id>: <condition>, ...} #Items in the outfit and their conditions. 
+      grant_items: <bool>                 # OPTIONAL. Auto-grant items.
+            
+      # --- Locking ---
+      locked: <bool>              # OPTIONAL. Default: false.
+      unlock_when: "<expr>"       # OPTIONAL. Unlock condition.
+      # --- Dynamic effects ---
+      on_get:  [<effect>, ... ]      # OPTIONAL. Effects applied when get outfit. See the Effects section.
+      on_lost: [<effect>, ... ]      # OPTIONAL. Effects applied when lost outfit. See the Effects section.
+      on_put_on:  [<effect>, ... ]   # OPTIONAL. Effects applied when the outfit is put on.
+      on_take_off: [<effect>, ... ]  # OPTIONAL. Effects applied when the outfit is taken off.
 ```
 
-```yaml
-# Clothing Item Definition
-# Place under the corresponding wardrobe.items node
-items:
-  - id: "<string>"                 # REQUIRED. Unique clothing item ID.
-    name: "<string>"               # REQUIRED. Display name.
-    value: <float>                 # OPTIONAL. Shop price; non-negative.
-    state: "intact|opened|displaced|removed"  # OPTIONAL. Default: "intact"
-    look:                          # OPTIONAL. Narrative description.
-      intact: "<string>"           # OPTIONAL. Description of the intact item.
-      opened: "<string>"           # OPTIONAL. Description of the opened item.
-      displaced: "<string>"        # OPTIONAL. Description of the displaced item.
-      removed: "<string>"          # OPTIONAL. Description of the removed item.
-    occupies: ["<slot>", ...]      # REQUIRED. Which slot(s) the current item occupies? Items like dresses that use multiple slots.
-    conceals: ["<slot>", ...]      # OPTIONAL. Which slots are under the current slot? Engine can generate a description based on this. 
-    can_open: <bool>               # OPTIONAL. Default: true. Can be opened/unfastened?
-    # --- Locking ---
-    locked: <bool>              # OPTIONAL. Default: false.
-    unlock_when: "<expr>"       # OPTIONAL. Unlock condition.
-    # --- Dynamic effects ---
-    on_get:  [<effect>, ... ]      # OPTIONAL. Effects applied when get item. See the Effects section.
-    on_lost: [<effect>, ... ]      # OPTIONAL. Effects applied when lost item. See the Effects section.
-    on_put_on:  [<effect>, ... ]   # OPTIONAL. Effects applied when the item is put on.
-    on_take_off: [<effect>, ... ]  # OPTIONAL. Effects applied when the item is taken off.
-```
-
-```yaml
-# Outfit definition
-# Place under the corresponding wardrobe.outfits node
-outfits:
-  - id: "<string>"              # REQUIRED. Outfit ID.
-    name: "<string>"            # REQUIRED. Display name.
-    description: "<string>"     # OPTIONAL. Author notes.
-
-    # --- Items ---
-    items: [<clothing>, ...]             # Items in the outfit by slot. 
-    grant_items: <bool>                 # OPTIONAL. Auto-grant items.
-          
-    # --- Locking ---
-    locked: <bool>              # OPTIONAL. Default: false.
-    unlock_when: "<expr>"       # OPTIONAL. Unlock condition.
-    # --- Dynamic effects ---
-    on_get:  [<effect>, ... ]      # OPTIONAL. Effects applied when get outfit. See the Effects section.
-    on_lost: [<effect>, ... ]      # OPTIONAL. Effects applied when lost outfit. See the Effects section.
-    on_put_on:  [<effect>, ... ]   # OPTIONAL. Effects applied when the outfit is put on.
-    on_take_off: [<effect>, ... ]  # OPTIONAL. Effects applied when the outfit is taken off.
-```
-Note: items in outfits will be merged into slots in order of appearance. 
+> Note: items in outfits will be merged into slots in order of appearance. 
 If some items occupy the same slot, the last one will be used.
 
 
@@ -805,43 +791,35 @@ If some items occupy the same slot, the last one will be used.
 
 ## 10. Inventory
 
-Inventory is a collection that lists items, clothing items, and outfits available in some context like shop of location.
-Each list item defines an id of the item and provides how many items are available, defines additional logic 
-and may override the price.
+Inventory is a collection of items, clothing items, and outfits that owned by a character or avilable at a location. 
 
-Currentle the engine allows adding inventory to:
- - locations to define items present in the location (e.g., book at the table, dress in the closet);
- - shops to define items available for sale.
+Dropping an item or clothing item means decreaing its counter for a character and increasing the corresponding value at the current location. Getting an item work in opposite way, as well as transferring between characters. 
 
-The internal game state object tracks the same inventory structure for each character, location, and shop. 
+Outfits work in a different way. Dropping an outfit drops corresponding clothing items but the outfit recipe itself remains known for a character. Obtaining an outfit may either give an outfit recipe itself or also give all corresponding items, depending on outfit configuration. 
+
+The internal game state object tracks the same inventory structure for each character and location. 
 
 ```yaml
 # Inventory definition
 # Place under shop or location nodes 
 
 inventory:
-  items: [<Inventory_item>, ...]              # OPTIONAL. Available items
-  clothing: [<Inventory_item>, ...            # OPTIONAL. Available clothing items
-  outfits: [<inventory_item>, ...] :          # OPTIONAL. Available outfits
-```
-```yaml
-# Inventory_item definition
-# Place inside lists in the inventory 
-
-- id: <item_id|clothing_id"outfit_id>  # REQUIRED.
-  count: <int>                              # OPTIONAL. Default: 1. Number of items available.
-  value: <float>                            # OPTIONAL. Price override of the item.
-  infinite: <bool>                          # OPTIONAL. Infinite (ignores count)? Default: false.
-  discovered: <bool>                        # OPTIONAL. Discovered and visible? Default: true.
-  discovered_when: "<expr>"                 # OPTIONAL. Condition to reveal.
+  items:                                      # OPTIONAL. Ids of available items with counts
+    <str>: <int>
+  clothing:                                   # OPTIONAL. Ids of available clothing items with counts
+    <str>: <int>
+  outfits:                                    # OPTIONAL. Ids of knows/avialble outfits (recepies)
+    <str>: <int>                              # For characters count is alsways 1 if exists
+                                              # For locations may be more than 1 if outfit grants items
 ```
 
 ---
 
 ## 11. Shopping System
 
-The shopping system allows players to buy or sell item. 
-The `shop` node defines its own inventory with items available for sale. 
+
+The shopping system allows players to buy or sell items. 
+The `shop` node defines its own shop inventory with items available for sale. 
 It can also provide an option for the player to sell items. 
 Expressions allow to set price multipliers for selling and purchasing. 
 
@@ -856,8 +834,10 @@ shop:                                 # OPTIONAL. Shop definition.
   description: "<string>"             # OPTIONAL. Author notes.
   when: "<expr>"                      # OPTIONAL. Expression DSL. Default: true. Defines when shop is open.                      
   can_buy: "<expr>"                   # OPTIONAL. Expression DSL. Default: true. Can buy items from the player.
+  can_sell: "<expr>"                  # OPTIONAL. Expression DSL. Default: true. Can sell items to the player.
   multiplier_sell: "<expr>"           # OPTIONAL. Expression DSL. Multiplier for selling to the player. Default 1.0
   multiplier_buy: "<expr>"            # OPTIONAL. Expression DSL. Multiplier for buying from the player. Default 1.0
+  resell: <bool>                      # OPTIONAL. Put bought items in stock and sell back. Default false.
   
   # --- Inventory ---
   inventory: <inventory>
@@ -1053,7 +1033,11 @@ while meters for other characters are taken from the `template`  section.
   wardrobe: { ... }               # OPTIONAL. Overrides / additions to global wardrobe.
   clothing:                       # OPTIONAL. Initial character clothing
     outfit: <outfit_id>           # OPTIONAL. If set, will populate items into slots 
-    items:  {<slot_id>: <item_id>, ... } # OPTIONAL. Clothing items by slots.
+    items:  {<item_id>: <condition>, ... } # OPTIONAL. Clothing items with conditions.
+
+  # --- Locking ---
+  locked: <bool>              # OPTIONAL. Default: false.
+  unlock_when: "<expr>"       # OPTIONAL. Unlock condition.
 
   # --- Schedule ---
   schedule:                      # OPTIONAL. Controls where the character is by time/day. List of schedules 
@@ -1306,7 +1290,7 @@ Changes a flag value.
   # ... common fields
   target: "player | <npc_id>"    # REQUIRED. Effect target. Ignored for the flag_set
   item: "<clothing_id>"          # REQUIRED. Clothing item will occupy corresponding slot(s).
-  state: "intact | displaced | opened | removed" # OPTIONAL. Default: taken from the item or intact.
+  condition: "intact | displaced | opened | removed" # OPTIONAL. Default: taken from the item or intact.
 
 # Takes an item off and keeps it in the wardrobe 
 - type: clothing_take_off
@@ -1319,14 +1303,14 @@ Changes a flag value.
   # ... common fields
   target: "player | <npc_id>"     # REQUIRED. Effect target. Ignored for the flag_set
   item: "<clothing_id>"           # REQUIRED. 
-  state: "intact | displaced | opened | removed" # REQUIRED.
+  condition: "intact | displaced | opened | removed" # REQUIRED.
 
 # Applies state to the item that occupies the slot
 - type: clothing_slot_state
   # ... common fields
   target: "player | <npc_id>"   # REQUIRED. Effect target. Ignored for the flag_set
   slot: "<slot_id>"             # REQUIRED. 
-  state: "intact | displaced | opened | removed" # REQUIRED.
+  condition: "intact | displaced | opened | removed" # REQUIRED.
 
 # Puts on all items from te outfit 
 - type: outfit_put_on

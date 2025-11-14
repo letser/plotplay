@@ -9,15 +9,15 @@ Tests verify:
 """
 import pytest
 from app.core.game_engine import GameEngine
-from app.models.game import GameDefinition, MetaConfig, GameStartConfig
-from app.models.time import TimeConfig
+from app.models.game import GameDefinition, MetaConfig, GameStart
+from app.models.time import Time
 from app.models.locations import (
     Zone, Location, LocationConnection, LocalDirection,
-    MovementConfig
+    Movement
 )
 from app.models.characters import Character
-from app.models.locations import MovementWillingnessConfig, LocationMovementWillingness
-from app.models.meters import MetersConfig, Meter
+from app.models.locations import MovementWillingness, LocationMovementWillingness
+from app.models.meters import MetersTemplate, Meter
 from app.models.nodes import Node
 
 
@@ -30,13 +30,13 @@ def game_with_movement() -> GameDefinition:
             title="Movement Test Game",
             version="1.0.0"
         ),
-        start=GameStartConfig(
+        start=GameStart(
             node="start",
             location="room_a",
             day=1,
             slot="morning"
         ),
-        time=TimeConfig(
+        time=Time(
             mode="hybrid",
             slots=["morning", "afternoon", "evening"],
             minutes_per_action=10,
@@ -47,12 +47,12 @@ def game_with_movement() -> GameDefinition:
                 "evening": {"start": "18:00", "end": "23:00"}
             }
         ),
-        meters=MetersConfig(
+        meters=MetersTemplate(
             player={
                 "energy": Meter(min=0, max=100, default=100, visible=True)
             }
         ),
-        movement=MovementConfig(
+        movement=Movement(
             base_time=5  # 5 minutes for local movement
         ),
         characters=[
@@ -67,7 +67,7 @@ def game_with_movement() -> GameDefinition:
                 name="Friend",
                 age=20,
                 gender="unspecified",
-                movement=MovementWillingnessConfig(
+                movement=MovementWillingness(
                     willing_locations=[
                         LocationMovementWillingness(
                             location="room_b",
@@ -322,13 +322,13 @@ def game_with_zone_travel() -> GameDefinition:
             title="Zone Travel Test Game",
             version="1.0.0"
         ),
-        start=GameStartConfig(
+        start=GameStart(
             node="start",
             location="downtown_plaza",
             day=1,
             slot="morning"
         ),
-        time=TimeConfig(
+        time=Time(
             mode="hybrid",
             slots=["morning", "afternoon", "evening"],
             minutes_per_action=10,
@@ -339,12 +339,12 @@ def game_with_zone_travel() -> GameDefinition:
                 "evening": {"start": "18:00", "end": "23:00"}
             }
         ),
-        meters=MetersConfig(
+        meters=MetersTemplate(
             player={
                 "energy": Meter(min=0, max=100, default=100, visible=True)
             }
         ),
-        movement=MovementConfig(
+        movement=Movement(
             base_time=5,
             methods=[
                 {"walk": 10},

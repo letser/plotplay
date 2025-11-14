@@ -5,10 +5,10 @@ import pytest
 
 from app.core.game_loader import GameLoader
 from app.core.game_engine import GameEngine
-from app.models.game import GameDefinition, MetaConfig, GameStartConfig
-from app.models.time import TimeConfig
-from app.models.meters import MetersConfig, Meter
-from app.models.modifiers import ModifiersConfig, Modifier
+from app.models.game import GameDefinition, MetaConfig, GameStart
+from app.models.time import Time
+from app.models.meters import MetersTemplate, Meter
+from app.models.modifiers import Modifiers, Modifier
 from app.models.characters import Character
 from app.models.locations import Zone, Location
 from app.models.nodes import Node
@@ -62,7 +62,7 @@ def engine_with_modifiers(monkeypatch, mock_ai_service, use_real_ai):
     monkeypatch.setattr("app.engine.runtime.setup_session_logger", fake_logger)
 
     # Create game with modifiers
-    modifiers_config = ModifiersConfig(
+    modifiers_config = Modifiers(
         library=[
             Modifier(
                 id="energized",
@@ -94,17 +94,17 @@ def engine_with_modifiers(monkeypatch, mock_ai_service, use_real_ai):
             title="Modifier Test",
             version="1.0.0"
         ),
-        start=GameStartConfig(
+        start=GameStart(
             node="start",
             location="room",
             day=1,
             slot="morning"
         ),
-        time=TimeConfig(
+        time=Time(
             mode="slots",
             slots=["morning", "afternoon", "evening"]
         ),
-        meters=MetersConfig(
+        meters=MetersTemplate(
             player={
                 "energy": Meter(min=0, max=100, default=50, visible=True)
             }

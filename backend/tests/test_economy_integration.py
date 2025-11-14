@@ -16,14 +16,14 @@ Tests verify:
 """
 import pytest
 from app.core.game_engine import GameEngine
-from app.models.game import GameDefinition, MetaConfig, GameStartConfig
+from app.models.game import GameDefinition, MetaConfig, GameStart
 from app.models.characters import Character
-from app.models.economy import EconomyConfig, Shop
+from app.models.economy import Economy, Shop
 from app.models.items import Item
 from app.models.nodes import Node
-from app.models.time import TimeConfig
+from app.models.time import Time
 from app.models.locations import Zone, Location
-from app.models.meters import MetersConfig, Meter
+from app.models.meters import MetersTemplate, Meter
 from app.models.flags import BoolFlag
 
 
@@ -36,24 +36,24 @@ def game_with_economy() -> GameDefinition:
             title="Economy Test Game",
             version="1.0.0"
         ),
-        start=GameStartConfig(
+        start=GameStart(
             node="start",
             location="shop",
             day=1,
             slot="morning"
         ),
-        time=TimeConfig(
+        time=Time(
             mode="slots",
             slots=["morning", "afternoon", "evening"]
         ),
-        economy=EconomyConfig(
+        economy=Economy(
             enabled=True,
             starting_money=100.0,
             max_money=9999.0,
             currency_name="dollars",
             currency_symbol="$"
         ),
-        meters=MetersConfig(
+        meters=MetersTemplate(
             player={}  # Economy should add money meter automatically
         ),
         zones=[
@@ -112,17 +112,17 @@ def game_without_economy() -> GameDefinition:
             title="No Economy Test Game",
             version="1.0.0"
         ),
-        start=GameStartConfig(
+        start=GameStart(
             node="start",
             location="room",
             day=1,
             slot="morning"
         ),
-        time=TimeConfig(
+        time=Time(
             mode="slots",
             slots=["morning", "afternoon", "evening"]
         ),
-        economy=EconomyConfig(
+        economy=Economy(
             enabled=False
         ),
         zones=[
@@ -162,24 +162,24 @@ def game_with_shop_rules() -> GameDefinition:
             title="Shop Rules Test Game",
             version="1.0.0"
         ),
-        start=GameStartConfig(
+        start=GameStart(
             node="start",
             location="market",
             day=1,
             slot="morning"
         ),
-        time=TimeConfig(
+        time=Time(
             mode="slots",
             slots=["morning", "afternoon"]
         ),
-        economy=EconomyConfig(
+        economy=Economy(
             enabled=True,
             starting_money=200.0,
             max_money=9999.0,
             currency_name="credits",
             currency_symbol="¤"
         ),
-        meters=MetersConfig(
+        meters=MetersTemplate(
             player={}
         ),
         flags={
@@ -366,17 +366,17 @@ class TestEconomyEdgeCases:
                 title="Zero Money Test",
                 version="1.0.0"
             ),
-            start=GameStartConfig(
+            start=GameStart(
                 node="start",
                 location="room",
                 day=1,
                 slot="morning"
             ),
-            time=TimeConfig(
+            time=Time(
                 mode="slots",
                 slots=["morning"]
             ),
-            economy=EconomyConfig(
+            economy=Economy(
                 enabled=True,
                 starting_money=0.0
             ),
@@ -405,17 +405,17 @@ class TestEconomyEdgeCases:
                 title="High Money Test",
                 version="1.0.0"
             ),
-            start=GameStartConfig(
+            start=GameStart(
                 node="start",
                 location="room",
                 day=1,
                 slot="morning"
             ),
-            time=TimeConfig(
+            time=Time(
                 mode="slots",
                 slots=["morning"]
             ),
-            economy=EconomyConfig(
+            economy=Economy(
                 enabled=True,
                 max_money=999999.0
             ),
@@ -444,17 +444,17 @@ class TestEconomyEdgeCases:
                 title="Custom Currency Test",
                 version="1.0.0"
             ),
-            start=GameStartConfig(
+            start=GameStart(
                 node="start",
                 location="room",
                 day=1,
                 slot="morning"
             ),
-            time=TimeConfig(
+            time=Time(
                 mode="slots",
                 slots=["morning"]
             ),
-            economy=EconomyConfig(
+            economy=Economy(
                 enabled=True,
                 currency_name="gold coins",
                 currency_symbol="🪙"

@@ -5,14 +5,13 @@ Nodes
 
 from __future__ import annotations
 
-from typing import NewType, TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any
 from enum import StrEnum
 
 from pydantic import Field, model_validator
 
 from .model import SimpleModel, DescriptiveModel, DSLExpression, OptionalConditionalMixin
-from .narration import GameNarration
-from .characters import CharacterId
+from .narration import Narration
 
 if TYPE_CHECKING:
     from .effects import EffectsList
@@ -27,9 +26,6 @@ class NodeType(StrEnum):
     ENCOUNTER = "encounter"
     ENDING = "ending"
     EVENT = "event"
-
-
-NodeId = NewType("NodeId", str)
 
 
 class NodeCondition(OptionalConditionalMixin, SimpleModel):
@@ -49,13 +45,13 @@ class NodeChoice(NodeTrigger):
 
 class Node(DescriptiveModel):
     """Story node definition."""
-    id: NodeId
+    id: str
     type: NodeType
     title: str
-    characters_present: list[CharacterId] = Field(default_factory=list)
+    characters_present: list[str] = Field(default_factory=list)
 
     # Narration override and injections
-    narration: GameNarration | None = None
+    narration: Narration | None = None
     beats: list[str] = Field(default_factory=list)
 
     # Effects
@@ -68,7 +64,7 @@ class Node(DescriptiveModel):
     triggers: list[NodeTrigger] = Field(default_factory=list)
 
     # Ending specific
-    ending_id: NodeId | None = None
+    ending_id: str | None = None
 
     @model_validator(mode='after')
     def validate_ending(self):
@@ -76,35 +72,3 @@ class Node(DescriptiveModel):
         if self.type == NodeType.ENDING and not self.ending_id:
             raise ValueError(f"Ending node {self.id} must have ending_id")
         return self
-
-class EventTrigger(NodeCondition):
-    """Event trigger."""
-    probability: int | None  = 100
-    cooldown: int | None = 0
-    once_per_game: bool | None = False
-
-    @model_validator(mode='after')
-    def validate_event_rules(self):
-        """Ensure events have either a condition or behave as random."""
-        has_condition = any([
-            bool(self.when),
-            bool(self.when_any),
-            bool(self.when_all),
-        ])
-        if self.probability is not None and self.probability > 100:
-            raise ValueError(
-                "Probability cannot be greater than 100%."
-            )
-
-        is_random = self.probability is not None and self.probability > 0
-
-        if not has_condition and not is_random:
-            raise ValueError(
-                "Event must define either a condition or a random probability (>0)."
-            )
-
-        return self
-
-class Event(EventTrigger, Node):
-    type: NodeType = NodeType.EVENT
-

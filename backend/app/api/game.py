@@ -12,7 +12,7 @@ import asyncio
 from app.core.game_loader import GameLoader
 from app.core.game_engine import GameEngine
 from app.core.conditions import ConditionEvaluator
-from app.models.wardrobe import ClothingState
+from app.models.wardrobe import ClothingCondition
 
 router = APIRouter()
 
@@ -100,7 +100,7 @@ class InventoryGiveRequest(BaseModel):
 class ClothingPutOnRequest(BaseModel):
     character_id: str = "player"
     clothing_id: str
-    state: ClothingState | None = None
+    state: ClothingCondition | None = None
 
 
 class ClothingTakeOffRequest(BaseModel):
@@ -111,7 +111,7 @@ class ClothingTakeOffRequest(BaseModel):
 class ClothingStateRequest(BaseModel):
     character_id: str = "player"
     clothing_id: str
-    state: ClothingState
+    state: ClothingCondition
 
 
 class OutfitPutOnRequest(BaseModel):
@@ -526,8 +526,8 @@ async def deterministic_give(session_id: str, request: InventoryGiveRequest) -> 
 @router.post("/clothing/{session_id}/put-on")
 async def deterministic_clothing_put_on(session_id: str, request: ClothingPutOnRequest) -> DeterministicActionResponse:
     engine = _get_engine(session_id)
-    state_value = request.state.value if isinstance(request.state, ClothingState) else request.state
-    apply_state = state_value or ClothingState.INTACT.value
+    state_value = request.state.value if isinstance(request.state, ClothingCondition) else request.state
+    apply_state = state_value or ClothingCondition.INTACT.value
     success = engine.clothing.put_on_clothing(request.character_id, request.clothing_id, apply_state)
     clothing_name = _describe_item(engine, request.clothing_id)
     character_label = _describe_character(engine, request.character_id)
@@ -579,7 +579,7 @@ async def deterministic_clothing_take_off(session_id: str, request: ClothingTake
 @router.post("/clothing/{session_id}/state")
 async def deterministic_clothing_state(session_id: str, request: ClothingStateRequest) -> DeterministicActionResponse:
     engine = _get_engine(session_id)
-    state_value = request.state.value if isinstance(request.state, ClothingState) else str(request.state)
+    state_value = request.state.value if isinstance(request.state, ClothingCondition) else str(request.state)
     success = engine.clothing.set_clothing_state(request.character_id, request.clothing_id, state_value)
     clothing_name = _describe_item(engine, request.clothing_id)
     character_label = _describe_character(engine, request.character_id)

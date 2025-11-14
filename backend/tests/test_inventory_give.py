@@ -2,11 +2,11 @@
 
 import pytest
 from app.core.game_engine import GameEngine
-from app.models.game import GameDefinition, MetaConfig, GameStartConfig
+from app.models.game import GameDefinition, MetaConfig, GameStart
 from app.models.characters import Character
 from app.models.items import Item
 from app.models.nodes import Node
-from app.models.time import TimeConfig
+from app.models.time import Time
 from app.models.locations import Zone, Location
 from app.models.flags import BoolFlag
 from app.models.effects import InventoryGiveEffect, InventoryChangeEffect, FlagSetEffect
@@ -21,13 +21,13 @@ def game_with_items() -> GameDefinition:
             title="Give Test Game",
             version="1.0.0"
         ),
-        start=GameStartConfig(
+        start=GameStart(
             node="start",
             location="room",
             day=1,
             slot="morning"
         ),
-        time=TimeConfig(
+        time=Time(
             mode="slots",
             slots=["morning", "afternoon", "evening"]
         ),

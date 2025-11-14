@@ -5,11 +5,11 @@ Arc System.
 
 from __future__ import annotations
 
-from typing import NewType, TYPE_CHECKING
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 from pydantic import Field, model_validator
 
 from .model import DescriptiveModel, DSLExpression
-from .characters import CharacterId
 
 if TYPE_CHECKING:
     from .effects import EffectsList
@@ -38,17 +38,18 @@ class ArcStage(DescriptiveModel):
         return self
 
 
-ArcId = NewType("ArcId", str)
-
-
 class Arc(DescriptiveModel):
     """Story arc definition."""
-    id: ArcId
+    id: str
     title: str
-    character: CharacterId | None = None
+    character: str
     category: str | None = None
     repeatable: bool = False
     stages: list[ArcStage] = Field(default_factory=list)
 
-# Legacy alias maintained for engine compatibility
-Stage = ArcStage
+
+@dataclass
+class ArcState:
+    """Tracks arc stage and history."""
+    stage: str | None = None
+    history: list[str] = field(default_factory=list)

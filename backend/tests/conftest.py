@@ -303,29 +303,29 @@ def sample_game_state() -> GameState:
 @pytest.fixture
 def wardrobe_game():
     """Game fixture with complete wardrobe system for clothing tests."""
-    from app.models.wardrobe import WardrobeConfig, Clothing, Outfit, ClothingLook
+    from app.models.wardrobe import Wardrobe, ClothingItem, Outfit, ClothingLook
     from app.models.characters import Character, ClothingConfig
-    from app.models.game import GameDefinition, MetaConfig, GameStartConfig
-    from app.models.time import TimeConfig
+    from app.models.game import GameDefinition, MetaConfig, GameStart
+    from app.models.time import Time
     from app.models.locations import Zone, Location
     from app.models.nodes import Node
 
     # Define clothing items
-    t_shirt = Clothing(
+    t_shirt = ClothingItem(
         id="t_shirt",
         name="T-shirt",
         occupies=["top"],
         look=ClothingLook(intact="a casual t-shirt")
     )
 
-    jeans = Clothing(
+    jeans = ClothingItem(
         id="jeans",
         name="Jeans",
         occupies=["bottom"],
         look=ClothingLook(intact="blue jeans")
     )
 
-    dress = Clothing(
+    dress = ClothingItem(
         id="dress",
         name="Dress",
         occupies=["top", "bottom"],
@@ -337,7 +337,7 @@ def wardrobe_game():
         )
     )
 
-    jacket = Clothing(
+    jacket = ClothingItem(
         id="jacket",
         name="Jacket",
         occupies=["top_outer"],
@@ -359,7 +359,7 @@ def wardrobe_game():
     )
 
     # Create wardrobe config
-    wardrobe = WardrobeConfig(
+    wardrobe = Wardrobe(
         items=[t_shirt, jeans, dress, jacket],
         outfits=[casual_outfit, formal_outfit]
     )
@@ -381,13 +381,13 @@ def wardrobe_game():
             title="Wardrobe Test Game",
             version="1.0.0"
         ),
-        start=GameStartConfig(
+        start=GameStart(
             node="start",
             location="room",
             day=1,
             slot="morning"
         ),
-        time=TimeConfig(
+        time=Time(
             mode="slots",
             slots=["morning", "afternoon", "evening"]
         ),

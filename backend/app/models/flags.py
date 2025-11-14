@@ -2,7 +2,7 @@
 PlotPlay Game Models.
 Flags.
 """
-from typing import Literal, Annotated, NewType
+from typing import Literal, Annotated
 from pydantic import Field
 from .model import DescriptiveModel, DSLExpression
 
@@ -33,11 +33,11 @@ class StringFlag(_FlagBase):
     default: str
     allowed_values: list[str] | None = Field(default_factory=list)
 
-FlagId = NewType("FlagId", str)
-
 
 Flag = Annotated[BoolFlag | NumberFlag | StringFlag, Field(discriminator="type")]
+
 FlagValue = bool | int | float | str
 
-FlagsDefinition = dict[FlagId, Flag]
-FlagsConfig = FlagsDefinition
+Flags = dict[str, Flag]
+
+FlagsState = dict[str, FlagValue]

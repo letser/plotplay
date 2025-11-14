@@ -2,15 +2,15 @@
 PlotPlay Game Models.
 Inventory
 """
+from dataclasses import dataclass, field
 
 from pydantic import Field
 from .model import SimpleModel, DSLExpression
-from .items import ItemId
-from .wardrobe import ClothingId, OutfitId
 
 
-class InventoryItemBase(SimpleModel):
-    """Common fields for InventoryItem models."""
+class InventoryItem(SimpleModel):
+    """Inventory item to represent an item, clothing item, or outfit."""
+    id: str
     count: int = 1
     value: float | None = None
     infinite: bool | None  = False
@@ -18,18 +18,16 @@ class InventoryItemBase(SimpleModel):
     discovered_when: DSLExpression | None = None
 
 
-class InventoryItem(InventoryItemBase):
-    id: ItemId
-
-class InventoryClothingItem(InventoryItemBase):
-    id: ClothingId
-
-class InventoryOutfit(InventoryItemBase):
-    id: OutfitId
-
-
 class Inventory(SimpleModel):
-    """Inventory definition - combination of Items, ClothingItems and Outfits."""
-    items: list[InventoryItem] = Field(default_factory=list)
-    clothing: list[InventoryClothingItem] = Field(default_factory=list)
-    outfits: list[InventoryOutfit] = Field(default_factory=list)
+    """Inventory definition - combination of items, clothing items, and outfits."""
+    items: dict[str, int] = Field(default_factory=dict)
+    clothing: dict[str, int] = Field(default_factory=dict)
+    outfits: dict[str, int] = Field(default_factory=dict)
+
+@dataclass
+class InventoryState:
+    """Inventory state - runtime inventory representation."""
+    items: dict[str, int] = field(default_factory=dict)
+    clothing: dict[str, int] = field(default_factory=dict)
+    outfits: dict[str, int] = field(default_factory=dict)
+
