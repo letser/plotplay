@@ -249,8 +249,12 @@ arg            := expr
 - For dynamic paths, use `get("flags.route_locked", false)`.
 
 ### Built-in Functions
-- `has(item_id)` → bool (player inventory)
-- `npc_present(npc_id)` → bool (NPC currently in same location)
+- `has(<player or npc_id>, <item_id>)` → bool (player inventory)
+- `has_clothing(<player or npc_id>, <item_id>)` → bool (clothing inventory)
+- `has_outfit(<player or npc_id>, <outfit_id>)` → bool (clothing inventory)
+- `wears_clothing(<player or npc_id>, <item_id>)` → bool (clothing inventory)
+- `wears_outfit(<player or npc_id>, <outfit_id>)` → bool (clothing inventory)
+- `npc_present(<npc_id>)` → bool (NPC currently in same location)
 - `rand(p)` → bool (Bernoulli; `0.0 ≤ p ≤ 1.0`; seeded per turn)
 - `min(a,b)`, `max(a,b)`, `abs(x)`
 - `clamp(x, lo, hi)`
@@ -293,8 +297,7 @@ The following variables and namespaces are available:
   - Prefer `npc_present('emma')` for clarity.
 
 #### Meters
-- `meters.player.<meter_id>` (number)
-- `meters.<npc_id>.<meter_id>` (number)
+- `meters.<player or npc_id>.<meter_id>` (number)
   - Example: `meters.emma.trust`, `meters.player.energy`
 
 #### Flags
@@ -312,8 +315,8 @@ The following variables and namespaces are available:
   - Prefer `has('flowers')` for player possession checks.
 
 #### Clothing (runtime state)
-- `clothing.<npc_id>.layers.<layer_id>` — `"intact" | "displaced" | "removed"`
-- `clothing.<npc_id>.outfit` — current outfit id
+- `clothing.<player or npc_id>.slots.<slot>` — `"intact" | "displaced" | "opened" | "removed"`
+- `clothing.<player or npc_id>.outfit` — current outfit id
 
 #### Gates (consent/behavior)
 - `gates.<npc_id>.<gate_id>` (bool)
@@ -330,6 +333,8 @@ The following variables and namespaces are available:
  - `{character}` - Current character in modifier context
  - `{target}` - Effect target
  - `{location}` - Current location
+ - `{zone}` - Current zone
+ - `{privacy}` - Current privacy level
 
 ### Authoring Guidelines
 - Prefer checking **gates** (`gates.emma.accept_kiss`) over raw meter math.
@@ -395,23 +400,10 @@ which may introduce additional meters for this specific NPC or override meters f
 
 ```
 ### Example (NPC meter)
-```yaml
-meters:
-  template:
-    trust:
-      min: 0
-      max: 100
-      default: 10
-      thresholds:
-        stranger: {min: 0, max: 19}
-        acquaintance: {min: 20, max: 39}
-        friend: {min: 40, max: 69}
-        close: {min: 70, max: 89}
-        intimate: {min: 90, max: 100}
-      delta_cap_per_turn: 3
-      description: "Social comfort with the player; drives access to dates/kissing."
-```
 
+```yaml
+TODO: add example
+```
 ---
 
 ## 5. Flags
@@ -450,29 +442,7 @@ They can be boolean, number, or string, but should remain simple and stable over
 ### Examples
 
 ```yaml
-flags:
-  emma_met:
-    type: "bool"
-    default: false
-    visible: true
-    label: "Met Emma"
-    description: "Set true after the first introduction scene."
-
-  first_kiss:
-    type: "bool"
-    default: false
-    description: "Marks the first successful kiss with Emma."
-
-  route_locked:
-    type: "bool"
-    default: false
-    description: "Prevents switching arcs once a route is committed."
-
-  study_reputation:
-    type: "string"
-    default: "neutral"
-    allowed_values: ["bad","neutral","good","excellent"]
-    description: "Lightweight reputation tag shown in some dialogue branches."
+TODO: add example
 ```
 
 **Typical conditions**
@@ -522,6 +492,12 @@ time:
   week_days: ["monday","tuesday","wednesday","thursday","friday","saturday","sunday"]
   start_day: "tuesday"         # Day of the week at epoch start
 ```
+### Examples
+
+```yaml
+TODO: add example
+```
+
 
 ### Runtime State
 ```yaml
@@ -631,48 +607,8 @@ items:
 ### Examples
 
 ```yaml
-items:
-  # Consumable
-  - id: "energy_drink"
-    name: "Energy Drink"
-    category: "consumable"
-    value: 5
-    stackable: true
-    consumable: true
-    use_text: "You crack the can and chug the sweet, fizzy boost."
-    on_use:
-      - { type: meter_change, target: player, meter: energy, op: add, value: 25 }
-  
-  # Gift
-  - id: "flowers"
-    name: "Bouquet of Flowers"
-    category: "gift"
-    value: 20
-    stackable: false
-    can_give: true
-    on_give:
-      - { type: meter_change, target: "{owner|recipient}", meter: attraction, op: add, value: 10 }
-  
-  # Key
-  - id: "dorm_key"
-    name: "Dorm Room Key"
-    category: "key"
-    value: 0
-    droppable: false
-    unlocks:
-      location: ["dorm_room"]
-  
-  # Equipment
-  - id: "lucky_charm"
-    name: "Lucky Charm"
-    category: "equipment"
-    value: 15
-    on_get:
-      - { type: meter_change, target: "{owner}", meter: attraction, op: add, value: 10 }
+TODO: add example
 ```
-For item effects engine recognizes the following two macros:
- - `{owner}` - the character who currently owns the item.
- - `{recipient}` - the character who is receiving the item.
 
 
 ### Runtime Inventory Structure
@@ -760,7 +696,7 @@ wardrobe:
       on_lost: [<effect>, ... ]      # OPTIONAL. Effects applied when lost item. See the Effects section.
       on_put_on:  [<effect>, ... ]   # OPTIONAL. Effects applied when the item is put on.
       on_take_off: [<effect>, ... ]  # OPTIONAL. Effects applied when the item is taken off.
-  outfits: [<outfit>, ...]         # Global outfits library
+  outfits:                        # Global outfits library
     - id: "<string>"              # REQUIRED. Outfit ID.
       name: "<string>"            # REQUIRED. Display name.
       description: "<string>"     # OPTIONAL. Author notes.
@@ -793,9 +729,9 @@ If some items occupy the same slot, the last one will be used.
 
 Inventory is a collection of items, clothing items, and outfits that owned by a character or avilable at a location. 
 
-Dropping an item or clothing item means decreaing its counter for a character and increasing the corresponding value at the current location. Getting an item work in opposite way, as well as transferring between characters. 
+Dropping an item or clothing item means decreasing its counter for a character and increasing the corresponding value at the current location. Getting an item work in opposite way, as well as transferring between characters. 
 
-Outfits work in a different way. Dropping an outfit drops corresponding clothing items but the outfit recipe itself remains known for a character. Obtaining an outfit may either give an outfit recipe itself or also give all corresponding items, depending on outfit configuration. 
+Outfits work differently. Dropping an outfit drops corresponding clothing items but the outfit recipe itself remains known for a character. Obtaining an outfit may either give an outfit recipe itself or also give all corresponding items, depending on outfit configuration. 
 
 The internal game state object tracks the same inventory structure for each character and location. 
 
@@ -808,8 +744,8 @@ inventory:
     <str>: <int>
   clothing:                                   # OPTIONAL. Ids of available clothing items with counts
     <str>: <int>
-  outfits:                                    # OPTIONAL. Ids of knows/avialble outfits (recepies)
-    <str>: <int>                              # For characters count is alsways 1 if exists
+  outfits:                                    # OPTIONAL. Ids of known / available outfits (recipes)
+    <str>: <int>                              # For characters count is always 1 if exists
                                               # For locations may be more than 1 if outfit grants items
 ```
 
@@ -940,20 +876,13 @@ using cardinal direction and up/down between floors.
   # --- Inventory ---
   inventory:   <inventory>        # OPTIONAL. Location's inventory. This is not a shop.
   shop: <shop>                    # OPTIONAL. Shop definition.
-
-```
-### Runtime State (excerpt)
-```yaml
-state.location:
-  zone: "<zone_id>"
-  id: "<location_id>"
-  privacy: "<enum>"          # carried into consent checks
 ```
 
-### Example
+### Examples
 ```yaml
 # TODO add examples
 ```
+
 ### Movement
 The **movement system** governs how the player (and companions) travel between locations and zones. 
 Movement consumes **time** , requires **access conditions** to be met, 
@@ -983,6 +912,11 @@ movement:                         # OPTIONAL. Top level node
   methods:                        # REQUIRED if a game uses travel methods. List of travel methods.
     - "<method_name>": <base_time>  # REQUIRED. Unique method name and base time.
 ```
+### Examples
+```yaml
+  TODO: add examples
+```
+
 ---
 ## 13. Characters
 
@@ -993,8 +927,6 @@ Characters are defined with **identity**, **meters**, **consent gates**, **wardr
 
 Characters cannot exist without a valid `id`, `name`, and `age`. 
 All other aspects (meters, outfits, behaviors) are optional but strongly recommended.
-
-
 
 Characters provide the core state the Writer and Checker operate on: they drive interpersonal progression, gating, and narrative consistency.
 
@@ -1098,65 +1030,10 @@ The engine exposes this compact form in:
  - **Character cards** (for the Writer model) — used to naturally steer dialogue.
  - **Checker envelope** — used for enforcement and validation.
 
-### Runtime State (excerpt)
+### Examples
 ```yaml
-state.characters:
-  emma:
-    meters: { trust: 45, attraction: 35, arousal: 10, boldness: 20 }
-    outfit: "casual_day"
-    clothing:
-      top: "white_blouse"
-      bottom: "skirt"
-      underwear_top: "black_silk_bra"
-      underwear_bottom: "black_silk_panties"
-    clothing_state:
-      top: "opened"
-      bottom: "intact"
-      underwear_top: "intact"
-      underwear_bottom: "intact"
-    modifiers: []
-    location: "library"
-```
-### Example
-```yaml
-- id: "emma"
-  name: "Emma Chen"
-  age: 19
-  gender: "female"
-  description: "A shy and conservative literature student, gradually opening up."
-  tags: ["student","shy","conservative"]
+  TODO: add examples
 
-  meters:
-    trust:      { min: 0, max: 100, default: 10 }
-    attraction: { min: 0, max: 100, default: 0 }
-    arousal:    { min: 0, max: 100, default: 0 }
-    boldness:   { min: 0, max: 100, default: 20 }
-
-  gates:
-    "accept_date":
-      when: "meters.emma.trust >= 30"
-      acceptance: "She will accept the date."
-      refusal: "She will not accept the date."
-    "accept_kiss":
-      when_any:
-        - "meters.emma.trust >= 40 and meters.emma.attraction >= 30"
-        - "meters.emma.corruption >= 40" # Example of an alternative path
-      acceptance: "She will accept kiss."
-      refusal: "She will refuse kiss."
-    "accept_sex":
-      when_all:
-        - "meters.emma.trust >= 70"
-        - "meters.emma.attraction >= 70"
-        - "meters.emma.arousal >= 50"
-        - "location.privacy == 'high'"
-      acceptance: "She will accept sex."
-      refusals: "She will not accept sex and will get angry"
-
-  schedule:
-    - when: "time.slot == 'morning'"
-      location: "library"
-    - when: "time.slot == 'night'"
-      location: "dorm_room"
 ```
 ### Authoring Guidelines
 - Define **gates explicitly**: they control intimacy and prevent unsafe AI output.
@@ -1679,11 +1556,6 @@ Nodes are where most author effort goes: they set context for the Writer, define
 
 > Only one of `when`, `when_any`, and `when_all` may be set.
 
-### Runtime State (excerpt)
-```yaml
-state.current_node: "<node_id>"
-```
-
 ### Examples
 
 #### Scene 
@@ -1922,14 +1794,6 @@ Arcs ensure that stories have clear progression, and that endings are unlocked i
       # --- Effects ---
       on_enter:   [ <effect>, ... ]  # Applied once when the stage begins.
       on_advance: [ <effect>, ... ]  # Applied once when leaving stage.
-```
-
-### Runtime State (excerpt)
-```yaml
-state.arcs:
-  emma_corruption:
-    stage: "curious"
-    history: ["innocent","curious"]
 ```
 
 ### Examples
