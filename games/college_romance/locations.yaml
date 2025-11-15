@@ -44,8 +44,7 @@ zones:
             direction: "s"
         inventory:
           items:
-            - id: "textbook_stats"
-              count: 1
+            textbook_stats: 1
       - id: "campus_cafe"
         name: "Bean There Cafe"
         summary: "A student-run cafe with warm lighting and an ever-present indie playlist."
@@ -56,8 +55,7 @@ zones:
             direction: "n"
         inventory:
           items:
-            - id: "coffee_cup"
-              count: 3
+            coffee_cup: 3
 
   - id: "downtown"
     name: "Downtown Riverfront"

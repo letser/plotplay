@@ -197,8 +197,8 @@ class MovementWillingness(SimpleModel):
 class ZoneState:
     """Current zone snapshot."""
     id: str
-    discovered: bool | None = True
-    locked: bool | None = False
+    discovered: bool = True
+    locked: bool = False
 
 
 @dataclass
@@ -206,8 +206,8 @@ class LocationState:
     """Current player location snapshot."""
     id: str
     zone_id: str
-    discovered: bool | None = True
-    locked: bool | None = False
+    discovered: bool = True
+    locked: bool = False
     privacy: LocationPrivacy = LocationPrivacy.LOW
     previous_id: str | None = None
     # Location inventory and shop

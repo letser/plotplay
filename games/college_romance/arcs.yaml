@@ -6,7 +6,7 @@ arcs:
     stages:
       - id: "study_buddies"
         title: "Study Buddies"
-        advance_when: "flags.emma_study_session == true"
+        when: "flags.emma_study_session == true"
         on_enter:
           - type: "meter_change"
             target: "emma"
@@ -15,7 +15,7 @@ arcs:
             value: 5
       - id: "slow_burn"
         title: "Slow Burn"
-        advance_when: "meters.emma.trust >= 55 and meters.emma.attraction >= 45"
+        when: "meters.emma.trust >= 55 and meters.emma.attraction >= 45"
         on_enter:
           - type: "meter_change"
             target: "emma"
@@ -24,7 +24,7 @@ arcs:
             value: 5
       - id: "shared_future"
         title: "Shared Future"
-        advance_when: "flags.emma_final_choice == true"
+        when: "flags.emma_final_choice == true"
         on_enter:
           - type: "unlock"
             endings: ["ending_emma"]
@@ -36,7 +36,7 @@ arcs:
     stages:
       - id: "backstage_pass"
         title: "Backstage Pass"
-        advance_when: "flags.zoe_band_invite == true"
+        when: "flags.zoe_band_invite == true"
         on_enter:
           - type: "meter_change"
             target: "zoe"
@@ -45,7 +45,7 @@ arcs:
             value: 5
       - id: "duet"
         title: "Duet"
-        advance_when: "meters.zoe.attraction >= 55 and meters.zoe.trust >= 45"
+        when: "meters.zoe.attraction >= 55 and meters.zoe.trust >= 45"
         on_enter:
           - type: "meter_change"
             target: "zoe"
@@ -54,7 +54,7 @@ arcs:
             value: 5
       - id: "tour_partner"
         title: "Tour Partner"
-        advance_when: "flags.zoe_final_choice == true"
+        when: "flags.zoe_final_choice == true"
         on_enter:
           - type: "unlock"
             endings: ["ending_zoe"]

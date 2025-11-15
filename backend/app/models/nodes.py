@@ -55,7 +55,7 @@ class Node(DescriptiveModel):
     beats: list[str] = Field(default_factory=list)
 
     # Effects
-    on_entry: EffectsList = Field(default_factory=list)
+    on_enter: EffectsList = Field(default_factory=list)
     on_exit: EffectsList = Field(default_factory=list)
 
     # Choices and transitions

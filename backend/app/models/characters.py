@@ -6,7 +6,6 @@ from dataclasses import dataclass, field
 
 from pydantic import Field, model_validator
 
-from .arcs import ArcState
 from .model import SimpleModel, DescriptiveModel, DSLExpression, RequiredConditionalMixin
 from .meters import Meters, MetersState
 from .inventory import Inventory, InventoryState
@@ -100,10 +99,7 @@ class CharacterState:
     clothing: ClothingState = field(default_factory=ClothingState)
 
     # Effective modifiers (modifier_id -> duration)
-    modifiers: dict[str, int] = field(default_factory=list)
+    modifiers: dict[str, int] = field(default_factory=dict)
 
     # Active gates (gate_id -> (acceptance, refusal))
     gates: dict[str, tuple[str, str]] = field(default_factory=dict)
-
-    # Arcs progression (arc_id -> ArcState)
-    active_arcs: dict[str, ArcState] = field(default_factory=dict)

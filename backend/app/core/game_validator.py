@@ -72,7 +72,10 @@ class GameValidator:
         self.template_meter_ids: set[str] = set(template_meters.keys())
         self.character_meter_map: dict[str, set[str]] = {}
         for char in self.game.characters:
-            char_meter_ids = set(self.template_meter_ids)
+            if char.id == "player":
+                char_meter_ids = set(self.player_meter_ids)
+            else:
+                char_meter_ids = set(self.template_meter_ids)
             if char.meters:
                 char_meter_ids.update(char.meters.keys())
             self.character_meter_map[char.id] = char_meter_ids
@@ -106,6 +109,11 @@ class GameValidator:
         self._validate_actions()
         self._validate_modifiers()
         self._validate_arcs()
+
+        # Logical consistency checks
+        self._validate_node_reachability()
+        self._validate_zone_connectivity()
+        self._validate_outfit_consistency()
 
         if self.errors:
             error_summary = "\n - ".join(self.errors)
@@ -202,6 +210,10 @@ class GameValidator:
             [item.id for item in self.game.items],
             "Items",
         )
+        self._check_duplicates(
+            [zone.id for zone in self.game.zones],
+            "Zones",
+        )
 
     def _validate_start_config(self) -> None:
         """Validates the 'start' block of the game manifest."""
@@ -277,6 +289,10 @@ class GameValidator:
                         self.errors.append(
                             f"[Location: {location.id}] > Connection references unknown location '{link.to}'."
                         )
+                    elif self.location_to_zone.get(link.to) != zone.id:
+                        self.errors.append(
+                            f"[Location: {location.id}] > Connection to '{link.to}' crosses zones (must be in same zone)."
+                        )
                     if link.direction is None:
                         self.errors.append(
                             f"[Location: {location.id}] > Connection must define a valid direction."
@@ -289,21 +305,18 @@ class GameValidator:
     def _validate_characters(self) -> None:
         """Validate character references, wardrobes, schedules, and inventories."""
         for char in self.game.characters:
-            # Wardrobe outfit assignment
+            # Wardrobe - initial clothing assignment
             if char.clothing:
                 outfit_id = char.clothing.outfit
                 if outfit_id and outfit_id not in self.outfit_ids:
                     self.errors.append(
-                        f"[Character: {char.id}] > Outfit '{outfit_id}' is not defined."
+                        f"[Character: {char.id}] > Initial outfit '{outfit_id}' is not defined."
                     )
-                for slot, clothing_id in (char.clothing.items or {}).items():
-                    if slot not in self.character_slots[char.id]:
-                        self.errors.append(
-                            f"[Character: {char.id}] > Clothing slot '{slot}' is not available for this character."
-                        )
+                # clothing.items is now dict[clothing_id, condition]
+                for clothing_id, condition in (char.clothing.items or {}).items():
                     if clothing_id not in self.clothing_ids:
                         self.errors.append(
-                            f"[Character: {char.id}] > Clothing item '{clothing_id}' is not defined."
+                            f"[Character: {char.id}] > Initial clothing item '{clothing_id}' is not defined."
                         )
 
             if char.inventory:
@@ -353,11 +366,16 @@ class GameValidator:
                     self.errors.append(
                         f"{slot_error_prefix} Clothing '{clothing_entry.id}' occupies undefined slot '{slot}'."
                     )
+            for slot in clothing_entry.conceals or []:
+                if slot not in slots:
+                    self.errors.append(
+                        f"{slot_error_prefix} Clothing '{clothing_entry.id}' conceals undefined slot '{slot}'."
+                    )
             self._validate_item_triggers(clothing_entry, effect_prefix)
 
         def _validate_outfit_entry(outfit_entry, clothing_ids: set[str], ref_error_prefix: str, effect_prefix: str) -> None:
             """Validate a single outfit entry: item references and effects."""
-            for clothing_id in outfit_entry.items or []:
+            for clothing_id in outfit_entry.items or {}:
                 if clothing_id not in clothing_ids:
                     self.errors.append(
                         f"{ref_error_prefix} Outfit '{outfit_entry.id}' references unknown clothing '{clothing_id}'."
@@ -410,10 +428,10 @@ class GameValidator:
 
     def _validate_node_triggers(self, target, effect_prefix: str) -> None:
         """Validate triggers for a node or event."""
-        self._validate_effects(target.on_entry, f"{effect_prefix} on_entry")
+        self._validate_effects(target.on_enter, f"{effect_prefix} on_enter")
         self._validate_effects(target.on_exit, f"{effect_prefix} on_exit")
 
-        self._validate_choices(target.choices, f"{effect_prefix}  choices")
+        self._validate_choices(target.choices, f"{effect_prefix} choices")
         self._validate_choices(target.dynamic_choices, f"{effect_prefix} dynamic_choices")
         self._validate_triggers(target.triggers, f"{effect_prefix} triggers")
 
@@ -428,12 +446,17 @@ class GameValidator:
                         f"[Node: {node.id}] > characters_present contains unknown character '{char_id}'."
                     )
 
-            if node.type == NodeType.ENDING and node.ending_id:
-                if node.ending_id in ending_ids:
+            if node.type == NodeType.ENDING:
+                if not node.ending_id:
+                    self.errors.append(
+                        f"[Node: {node.id}] > Ending node must define 'ending_id'."
+                    )
+                elif node.ending_id in ending_ids:
                     self.errors.append(
                         f"[Node: {node.id}] > Ending id '{node.ending_id}' is duplicated across endings."
                     )
-                ending_ids.add(node.ending_id)
+                else:
+                    ending_ids.add(node.ending_id)
 
             self._validate_node_triggers(node, f"Node: {node.id}")
 
@@ -474,7 +497,7 @@ class GameValidator:
                     self.errors.append(
                         f"[Modifier: {modifier.id}] > clamp_meters references unknown meter '{meter_id}'."
                     )
-            self._validate_effects(modifier.on_entry, f"Modifier: {modifier.id} on_entry")
+            self._validate_effects(modifier.on_enter, f"Modifier: {modifier.id} on_enter")
             self._validate_effects(modifier.on_exit, f"Modifier: {modifier.id} on_exit")
 
     def _validate_arcs(self) -> None:
@@ -488,7 +511,125 @@ class GameValidator:
 
             for stage in arc.stages:
                 self._validate_effects(stage.on_enter, f"Arc: {arc.id} stage {stage.id} on_enter")
-                self._validate_effects(stage.on_advance, f"Arc: {arc.id} stage {stage.id} on_advance")
+                self._validate_effects(stage.on_exit, f"Arc: {arc.id} stage {stage.id} on_exit")
+
+    # --------------------------------------------------------------------- #
+    # Logical consistency checks
+    # --------------------------------------------------------------------- #
+
+    def _validate_node_reachability(self) -> None:
+        """Check that all non-ending nodes can be reached from the start node."""
+        # Build adjacency graph from nodes
+        reachable = {self.game.start.node}
+        to_visit = [self.game.start.node]
+
+        # Extract goto effects from all nodes
+        node_edges: dict[str, set[str]] = defaultdict(set)
+        for node in self.game.nodes:
+            targets = self._extract_goto_targets(node.on_enter)
+            targets.update(self._extract_goto_targets(node.on_exit))
+
+            for choice in node.choices or []:
+                targets.update(self._extract_goto_targets(choice.on_select))
+            for choice in node.dynamic_choices or []:
+                targets.update(self._extract_goto_targets(choice.on_select))
+            for trigger in node.triggers or []:
+                targets.update(self._extract_goto_targets(trigger.on_select))
+
+            node_edges[node.id].update(targets)
+
+        # BFS to find all reachable nodes
+        while to_visit:
+            current = to_visit.pop(0)
+            for target in node_edges.get(current, set()):
+                if target not in reachable:
+                    reachable.add(target)
+                    to_visit.append(target)
+
+        # Check for unreachable nodes (excluding endings)
+        for node in self.game.nodes:
+            if node.id not in reachable and node.type != NodeType.ENDING:
+                self.warnings.append(
+                    f"[Node: {node.id}] > Node is unreachable from start node '{self.game.start.node}'."
+                )
+
+    def _validate_zone_connectivity(self) -> None:
+        """Warn if zones are completely isolated (no connections)."""
+        if len(self.zone_ids) <= 1:
+            return  # Single zone games are fine
+
+        connected_zones: set[str] = set()
+        for zone in self.game.zones:
+            if zone.connections:
+                connected_zones.add(zone.id)
+                for conn in zone.connections:
+                    if "all" in (conn.to or []):
+                        connected_zones.update(self.zone_ids)
+                    else:
+                        connected_zones.update(conn.to or [])
+
+        for zone_id in self.zone_ids:
+            if zone_id not in connected_zones:
+                self.warnings.append(
+                    f"[Zone: {zone_id}] > Zone has no connections and may be isolated."
+                )
+
+    def _validate_outfit_consistency(self) -> None:
+        """Check that outfits reference valid clothing items and slots are consistent."""
+        # Get all clothing definitions for slot checking
+        clothing_slots: dict[str, set[str]] = {}
+
+        for clothing in self.game.wardrobe.items or []:
+            clothing_slots[clothing.id] = set(clothing.occupies or [])
+
+        for char in self.game.characters:
+            if char.wardrobe:
+                for clothing in char.wardrobe.items or []:
+                    clothing_slots[clothing.id] = set(clothing.occupies or [])
+
+        # Validate each outfit
+        all_outfits = list(self.game.wardrobe.outfits or [])
+        for char in self.game.characters:
+            if char.wardrobe:
+                all_outfits.extend(char.wardrobe.outfits or [])
+
+        for outfit in all_outfits:
+            occupied_slots: dict[str, list[str]] = defaultdict(list)
+
+            for clothing_id in outfit.items or {}:
+                if clothing_id in clothing_slots:
+                    for slot in clothing_slots[clothing_id]:
+                        occupied_slots[slot].append(clothing_id)
+
+            # Warn about slot conflicts (multiple items in same slot)
+            for slot, items in occupied_slots.items():
+                if len(items) > 1:
+                    self.warnings.append(
+                        f"[Outfit: {outfit.id}] > Multiple clothing items occupy slot '{slot}': {', '.join(items)}. Last one will take precedence."
+                    )
+
+    def _extract_goto_targets(self, effects: Sequence[Any] | None) -> set[str]:
+        """Extract all node IDs referenced in goto effects."""
+        targets = set()
+        for effect in effects or []:
+            effect_type = self._effect_value(effect, "type")
+            if effect_type == "goto":
+                node_id = self._effect_value(effect, "node")
+                if node_id:
+                    targets.add(node_id)
+            elif effect_type == "conditional":
+                targets.update(self._extract_goto_targets(
+                    self._coerce_list(self._effect_value(effect, "then"))
+                ))
+                targets.update(self._extract_goto_targets(
+                    self._coerce_list(self._effect_value(effect, "otherwise"))
+                ))
+            elif effect_type == "random":
+                for choice in self._coerce_list(self._effect_value(effect, "choices")):
+                    targets.update(self._extract_goto_targets(
+                        self._coerce_list(self._effect_value(choice, "effects"))
+                    ))
+        return targets
 
     # --------------------------------------------------------------------- #
     # Effect validation
@@ -653,7 +794,7 @@ class GameValidator:
                 self.errors.append(
                     f"[{context}] > TravelTo references unknown location '{location_id}'."
                 )
-            if not method or method not in self.movement_methods:
+            if method and method not in self.movement_methods:
                 self.errors.append(
                     f"[{context}] > TravelTo uses undefined travel method '{method}'."
                 )
@@ -733,6 +874,11 @@ class GameValidator:
                     self.errors.append(
                         f"[{context}] > Effect references node '{node_id}' which is not an ending."
                     )
+            for char_id in self._coerce_list(self._effect_value(effect, "characters")):
+                if char_id not in self.character_ids:
+                    self.errors.append(
+                        f"[{context}] > Effect references unknown character '{char_id}'."
+                    )
 
         elif effect_type == "conditional":
             self._validate_effects(
@@ -790,26 +936,25 @@ class GameValidator:
             )
 
     def _meter_ids_for_target(self, target: str) -> set[str]:
-        if target == "player":
-            return self.player_meter_ids
         return self.character_meter_map.get(target, set())
 
     def _validate_inventory(self, inventory, context: str) -> None:
-        """Validate inventory items, clothing, and outfits."""
-        for item in inventory.items or []:
-            if item.id not in self.item_ids:
+        """Validate inventory items, clothing, and outfits - now expects dict[str, int]."""
+        # Updated to handle dict structure instead of list
+        for item_id in (inventory.items or {}).keys():
+            if item_id not in self.item_ids:
                 self.errors.append(
-                    f"[{context}] > Inventory references unknown item '{item.id}'."
+                    f"[{context}] > Inventory references unknown item '{item_id}'."
                 )
-        for clothing in inventory.clothing or []:
-            if clothing.id not in self.clothing_ids:
+        for clothing_id in (inventory.clothing or {}).keys():
+            if clothing_id not in self.clothing_ids:
                 self.errors.append(
-                    f"[{context}] > Inventory references unknown clothing '{clothing.id}'."
+                    f"[{context}] > Inventory references unknown clothing '{clothing_id}'."
                 )
-        for outfit in inventory.outfits or []:
-            if outfit.id not in self.outfit_ids:
+        for outfit_id in (inventory.outfits or {}).keys():
+            if outfit_id not in self.outfit_ids:
                 self.errors.append(
-                    f"[{context}] > Inventory references unknown outfit '{outfit.id}'."
+                    f"[{context}] > Inventory references unknown outfit '{outfit_id}'."
                 )
 
     def _validate_inventory_effect_item(self, item_type: str | None, item_id: str | None, context: str) -> None:

@@ -6,7 +6,7 @@ nodes:
     beats:
       - "You spot Alex waiting on the patio, sunlight catching the copper strands in her hair."
       - "She lifts a hand in a tentative wave, the mint jar between you glinting invitingly."
-    on_entry:
+    on_enter:
       - type: "meter_change"
         target: "alex"
         meter: "comfort"
@@ -175,7 +175,7 @@ nodes:
     beats:
       - "\"I love that you notice the little things,\" she says. \"So what keeps you busy when you're not here?\""
       - You trade stories about weekend routines, the conversation loosening every minute.
-    on_entry:
+    on_enter:
       - type: "meter_change"
         target: "alex"
         meter: "comfort"
@@ -199,7 +199,7 @@ nodes:
     beats:
       - "Alex laughs so hard she has to dab foam from the corner of her mouth."
       - "\"Okay, you win,\" she grins. \"Next time I'm letting you handle the latte art.\""
-    on_entry:
+    on_enter:
       - type: "meter_change"
         target: "alex"
         meter: "comfort"
@@ -254,7 +254,7 @@ nodes:
     beats:
       - "Alex's smile widens. \"I'd like that a lot,\" she says, tapping her number into your phone."
       - "\"Text me when you get home? I want to hear how the rest of your night goes.\""
-    on_entry:
+    on_enter:
       - type: "meter_change"
         target: "player"
         meter: "confidence"
@@ -275,7 +275,7 @@ nodes:
     beats:
       - "\"This was really nice,\" Alex says, giving your arm a gentle squeeze."
       - "She heads down the sidewalk with a final wave, leaving the door open but uncertain."
-    on_entry:
+    on_enter:
       - type: "meter_change"
         target: "player"
         meter: "confidence"

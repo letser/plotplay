@@ -71,8 +71,8 @@ class EventPipeline:
                 choices.extend(event.choices)
             if event.beats:
                 narratives.extend(event.beats)
-            if event.on_entry:
-                self.engine.apply_effects(list(event.on_entry))
+            if event.on_enter:
+                self.engine.apply_effects(list(event.on_enter))
 
         return EventResult(choices=choices, narratives=narratives)
 
@@ -211,7 +211,7 @@ class EventPipeline:
             if enter_effects:
                 self.engine.apply_effects(list(enter_effects))
 
-            advance_effects = getattr(stage, "effects_on_advance", getattr(stage, "on_advance", []))
+            advance_effects = getattr(stage, "effects_on_exit", getattr(stage, "on_exit", []))
             if advance_effects:
                 self.engine.apply_effects(list(advance_effects))
 
@@ -243,7 +243,7 @@ class EventPipeline:
                 if is_already_completed and not arc.repeatable:
                     continue
 
-                if evaluator.evaluate(stage.advance_when):
+                if evaluator.evaluate(stage.when):
                     # Check if this is actually a new stage for the arc
                     if current_stage_id != stage.id:
                         # If there was a previous stage, find it and add it to the exited list

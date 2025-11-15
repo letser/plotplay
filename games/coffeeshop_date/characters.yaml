@@ -34,12 +34,14 @@ characters:
       outfits:
         - id: "player_date_casual"
           name: "Smart Casual"
-          items: ["player_top_button_up", "player_bottom_chinos", "player_shoes_leather"]
+          items:
+            player_top_button_up: "intact"
+            player_bottom_chinos: "intact"
+            player_shoes_leather: "intact"
           grant_items: true
     inventory:
       items:
-        - id: "phone"
-          count: 1
+        phone: 1
 
   - id: "alex"
     name: "Alex Ramos"
@@ -125,11 +127,18 @@ characters:
       outfits:
         - id: "alex_cafe_chic"
           name: "Cafe Chic"
-          items: ["alex_top_sweater", "alex_bottom_jeans", "alex_shoes_boots", "alex_accessory_scarf"]
+          items:
+            alex_top_sweater: "intact"
+            alex_bottom_jeans: "intact"
+            alex_shoes_boots: "intact"
+            alex_accessory_scarf: "intact"
           grant_items: true
         - id: "alex_casual_weekend"
           name: "Casual Weekend"
-          items: ["alex_top_tshirt", "alex_bottom_shorts", "alex_shoes_sneakers"]
+          items:
+            alex_top_tshirt: "intact"
+            alex_bottom_shorts: "intact"
+            alex_shoes_sneakers: "intact"
           grant_items: true
     inventory:
-      items: []
+      items: {}

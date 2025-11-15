@@ -173,7 +173,7 @@ def minimal_game(tmp_path: Path) -> Path:
                     "title": "Morning Energy",
                     "when": "meters.player.energy < 50",
                     "cooldown": 5,
-                    "on_entry": [
+                    "on_enter": [
                         {
                             "type": "meter_change",
                             "target": "player",
@@ -187,7 +187,7 @@ def minimal_game(tmp_path: Path) -> Path:
                     "id": "location_event",
                     "title": "Quad Event",
                     "when": "meters.player.energy > 30 and location.id == 'campus_quad'",
-                    "on_entry": [
+                    "on_enter": [
                         {
                             "type": "flag_set",
                             "key": "quad_event_seen",
@@ -221,8 +221,8 @@ def minimal_game(tmp_path: Path) -> Path:
                             "id": "meet",
                             "title": "First Meeting",
                             "description": "Meet someone new",
-                            "advance_when": "visited_node:intro",
-                            "on_advance": [
+                            "when": "visited_node:intro",
+                            "on_exit": [
                                 {
                                     "type": "flag_set",
                                     "key": "arc_stage_meet",
@@ -234,8 +234,8 @@ def minimal_game(tmp_path: Path) -> Path:
                             "id": "bond",
                             "title": "Bonding",
                             "description": "Form a connection",
-                            "advance_when": "met_friend == true",
-                            "on_advance": [
+                            "when": "met_friend == true",
+                            "on_exit": [
                                 {
                                     "type": "flag_set",
                                     "key": "arc_stage_bond",

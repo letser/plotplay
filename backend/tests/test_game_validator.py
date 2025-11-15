@@ -18,7 +18,7 @@ def test_validator_accepts_reference_games():
 def test_validator_rejects_unknown_meter_reference():
     game = load_game("coffeeshop_date")
     broken = game.model_copy(deep=True)
-    broken.nodes[0].on_entry[0]["meter"] = "nonexistent_meter"
+    broken.nodes[0].on_enter[0]["meter"] = "nonexistent_meter"
 
     with pytest.raises(ValueError, match="unknown meter"):
         GameValidator(broken).validate()

@@ -100,7 +100,7 @@ def game_for_effects_test() -> GameDefinition:
                 id="start",
                 type="scene",
                 title="Start",
-                on_entry=[
+                on_enter=[
                     MeterChangeEffect(target="player", meter="energy", op="set", value=50)
                 ]
             )
@@ -294,10 +294,10 @@ class TestNodeTransitions:
         assert state.current_node == "second"
 
     def test_node_entry_effects_execute(self, game_for_effects_test, mock_ai_service):
-        """Test node on_entry effects are executed when entering node."""
+        """Test node on_enter effects are executed when entering node."""
         state_mgr = StateManager(game_for_effects_test)
 
-        # The start node has on_entry effect that sets energy to 50
+        # The start node has on_enter effect that sets energy to 50
         # StateManager initialization should trigger this
         assert state_mgr.state.meters["player"]["energy"] == 50
 

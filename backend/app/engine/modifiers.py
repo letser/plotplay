@@ -160,8 +160,8 @@ class ModifierService:
         state.modifiers[char_id].append({"id": modifier_id, "duration": duration})
 
         # Trigger entry effects
-        if modifier_def.on_entry:
-            self.engine.apply_effects(modifier_def.on_entry)
+        if modifier_def.on_enter:
+            self.engine.apply_effects(modifier_def.on_enter)
 
     def _remove_modifier(self, char_id: str, modifier_id: str, state: GameState) -> None:
         """

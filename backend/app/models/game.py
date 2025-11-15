@@ -2,24 +2,25 @@
 PlotPlay Game Models
 Game Definition
 """
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
+from datetime import datetime
 
 from pydantic import Field, model_validator, PrivateAttr
 
-from .events import Event
-from .model import SimpleModel, DescriptiveModel
 from .actions import Action
-from .arcs import Arc
-from .characters import Character
+from .arcs import Arc, ArcState
+from .characters import Character, CharacterState
+from .economy import Economy
+from .events import Event
+from .flags import Flags, FlagsState
 from .items import Item
-from .locations import Zone, Location, Movement
+from .locations import Zone, Location, Movement, LocationPrivacy, ZoneState, LocationState
 from .meters import MetersTemplate, Meter
-from .nodes import Node
-from .time import Time, TimeHHMM, TimeMode
-from .flags import Flags
+from .model import SimpleModel, DescriptiveModel
 from .modifiers import Modifiers, Modifier
 from .narration import Narration
-from .economy import Economy
+from .nodes import Node
+from .time import Time, TimeHHMM, TimeMode, TimeState
 from .wardrobe import Wardrobe, ClothingItem, Outfit
 
 
@@ -187,3 +188,101 @@ class GameDefinition(SimpleModel):
     @property
     def index(self) -> GameIndex:
         return self._index
+
+
+@dataclass
+class GameState:
+    """Complete game state at a point in time."""
+    # --- Time & calendar ---
+    _time: TimeState = field(default_factory=TimeState)
+
+    # --- Location & presence ---
+    current_location: str | None = None
+    current_zone: str | None = None
+    current_privacy: LocationPrivacy = LocationPrivacy.LOW
+    discovered_zones: set[str] = field(default_factory=set)
+    discovered_locations: set[str] = field(default_factory=set)
+    present_characters: list[str] = field(default_factory=list)
+
+    # --- World snapshots ---
+    zones: dict[str, ZoneState] = field(default_factory=dict)
+    locations: dict[str, LocationState] = field(default_factory=dict)
+
+    # --- Characters ---
+    characters: dict[str, CharacterState] = field(default_factory=dict)
+
+    # --- Flags & arcs ---
+    flags: FlagsState = field(default_factory=dict)
+    arcs: dict[str, ArcState] = field(default_factory=dict)          # arc_id -> ArcState
+
+    # --- Narrative progression ---
+    current_node: str | None = None
+    nodes_history: list[str] = field(default_factory=list)
+    unlocked_endings: list[str] = field(default_factory=list)
+    unlocked_actions: list[str] = field(default_factory=list)
+
+    narrative_history: list[str] = field(default_factory=list)
+    memory_log: list[dict[str, str]] = field(default_factory=list)
+    turn_count: int = 0
+    actions_this_slot: int = 0
+
+    # --- Events & timers ---
+    cooldowns: dict[str, int] = field(default_factory=dict) # event_id -> cooldown
+    events_history: list[str] = field(default_factory=list)
+
+    # --- Shops & merchants (optional helpers) ---
+    shops: list[str] = field(default_factory=list)      # location_id with shop
+    merchants: list[str] = field(default_factory=list)  # npc_id with shop
+
+    # --- Metadata ---
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+    @property
+    def meters(self):
+        return {name: char.meters for name, char in self.characters.items()}
+
+    @property
+    def inventory(self):
+        return {name: char.inventory for name, char in self.characters.items()}
+
+    @property
+    def location_inventory(self):
+        return {name: location.inventory for name, location in self.locations.items()}
+
+    @property
+    def day(self) -> int:
+        return self._time.day
+
+    @day.setter
+    def day(self, value: int):
+        self._time.day = value
+
+    @property
+    def time_hhmm(self) -> str | None:
+        return self._time.time_hhmm
+
+    @time_hhmm.setter
+    def time_hhmm(self, value:str | None):
+        self._time.time_hhmm = value
+
+    @property
+    def weekday(self) -> str | None:
+        return self._time.weekday
+
+    @weekday.setter
+    def weekday(self, value: str):
+        self._time.weekday = value
+
+    @property
+    def time_slot(self) -> str | None:
+        return self._time.slot
+
+    @time_slot.setter
+    def time_slot(self, value: str):
+        self._time.slot = value
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for serialization."""
+        return asdict(self)
+

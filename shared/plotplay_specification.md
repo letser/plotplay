@@ -22,6 +22,7 @@
 18. [Events](#18-events)  
 19. [Arcs & Milestones](#19-arcs--milestones)  
 20. [AI Contracts (Writer & Checker)](#20-ai-contracts-writer--checker)  
+21. [Runtime State](#21-runtime-state)  
 
 ---
 
@@ -206,7 +207,7 @@ includes: [<string>, ...]        # OPTIONAL. List of yaml files to include.
 ### Purpose & Syntax 
 The game engine uses a small, safe, deterministic expression language anywhere the spec accepts a condition 
 (e.g., node `preconditions`, effect `when`, event triggers, outfit `unlock_when`, 
-flag `reveal_when`, arc `advance_when`).
+flag `reveal_when`, arc `when`).
 
 ```
 expr        := or_expr
@@ -402,7 +403,28 @@ which may introduce additional meters for this specific NPC or override meters f
 ### Example (NPC meter)
 
 ```yaml
-TODO: add example
+meters:
+  template:
+    trust:
+      min: 0
+      max: 100
+      default: 20
+      visible: false
+      thresholds:
+        distant: { min: 0, max: 29 }
+        friendly: { min: 30, max: 69 }
+        inner_circle: { min: 70, max: 100 }
+      decay_per_slot: -2
+      delta_cap_per_turn: 15
+    attraction:
+      min: 0
+      max: 100
+      default: 10
+      visible: false
+      hidden_until: "flags.met_emma == true"
+      thresholds:
+        curious: { min: 0, max: 39 }
+        smitten: { min: 40, max: 100 }
 ```
 ---
 
@@ -442,7 +464,24 @@ They can be boolean, number, or string, but should remain simple and stable over
 ### Examples
 
 ```yaml
-TODO: add example
+flags:
+  met_alex:
+    type: "bool"
+    default: false
+    visible: true
+    label: "Met Alex"
+    description: "Set after you talk to Alex in the quad."
+  alex_route_state:
+    type: "string"
+    default: "locked"
+    allowed_values: ["locked", "available", "completed"]
+    reveal_when: "flags.met_alex == true"
+    description: "Tracks where the Alex romance arc currently sits."
+  study_kudos:
+    type: "number"
+    default: 0
+    allowed_values: [0, 1, 2, 3]
+    description: "How many successful tutoring scenes the player completed."
 ```
 
 **Typical conditions**
@@ -495,17 +534,18 @@ time:
 ### Examples
 
 ```yaml
-TODO: add example
-```
-
-
-### Runtime State
-```yaml
-state.time:
-  day: 3                 # narrative day counter
-  slot: "afternoon"      # slot derived from mode
-  time_hhmm: "14:35"     # HH:MM (clock/hybrid only)
-  weekday: "wednesday"   # derived from calendar
+time:
+  mode: "hybrid"
+  slots: ["morning", "afternoon", "evening", "night"]
+  actions_per_slot: 3                 # Three major beats per slot before it auto-advances.
+  minutes_per_action: 45              # Free actions (shop, move) still consume minutes.
+  slot_windows:
+    morning:   { start: "06:00", end: "10:59" }
+    afternoon: { start: "11:00", end: "16:59" }
+    evening:   { start: "17:00", end: "21:29" }
+    night:     { start: "21:30", end: "02:59" }
+  week_days: ["monday","tuesday","wednesday","thursday","friday","saturday","sunday"]
+  start_day: "monday"
 ```
 
 ### Authoring Guidelines
@@ -607,31 +647,47 @@ items:
 ### Examples
 
 ```yaml
-TODO: add example
-```
-
-
-### Runtime Inventory Structure
-
-```yaml
-state:
-  inventory:
-    player:
-      energy_drink: 3           # Non-clothing items
-      flowers: 1
-      dorm_key: 1
-      white_blouse: 1           # Clothing items also in inventory, see the Clothing & Wardrobe section.
-      red_dress: 1
-      black_heels: 1
-      wildflowers: 2
-      lucky_charm: 1
-      blue_jeans: 1
-      black_lace_bra: 1
-    
-    emma:
-      red_dress: 1
-      black_heels: 1
-      wildflowers: 2
+items:
+  - id: "coffee_cup"
+    name: "Campus Cafe Latte"
+    category: "drink"
+    description: "Hazelnut-sweet espresso that restores focus."
+    value: 5
+    stackable: true
+    consumable: true
+    use_text: "You savor the latte; the warmth steadies your nerves."
+    on_use:
+      - type: "meter_change"
+        target: "player"
+        meter: "energy"
+        op: "add"
+        value: 8
+  - id: "backstage_pass"
+    name: "Backstage Pass"
+    category: "event"
+    description: "Lets you access Zoe's show after midnight."
+    value: 20
+    stackable: false
+    droppable: false
+    locked: true
+    unlock_when: "flags.zoe_band_invite == true"
+    can_give: true
+    on_give:
+      - type: "meter_change"
+        target: "zoe"
+        meter: "trust"
+        op: "add"
+        value: 5
+  - id: "study_notes"
+    name: "Annotated Notes"
+    category: "gift"
+    description: "Meticulous notes that make Emma smile."
+    value: 15
+    stackable: false
+    on_get:
+      - type: "flag_set"
+        key: "emma_study_session"
+        value: true
 ```
 
 ### Authoring Notes
@@ -721,7 +777,55 @@ If some items occupy the same slot, the last one will be used.
 
 ### Examples
 ```yaml
-  TODO: add examples
+wardrobe:
+  slots: ["outerwear", "top", "bottom", "feet", "accessory"]
+  items:
+    - id: "denim_jacket"
+      name: "Denim Jacket"
+      value: 60
+      occupies: ["outerwear"]
+      conceals: ["top"]
+      can_open: true
+      look:
+        intact: "A light denim jacket peppered with enamel pins."
+        opened: "The jacket hangs open, showing the shirt beneath."
+    - id: "band_tee"
+      name: "Vintage Band Tee"
+      value: 30
+      occupies: ["top"]
+      look:
+        intact: "A cracked-ink tee tied at the waist."
+        displaced: "The tee rides up, revealing a sliver of stomach."
+    - id: "black_jeans"
+      name: "Black Jeans"
+      value: 40
+      occupies: ["bottom"]
+      look:
+        intact: "Slim black jeans with hidden pockets."
+    - id: "combat_boots"
+      name: "Combat Boots"
+      value: 75
+      occupies: ["feet"]
+      look:
+        intact: "Scarred boots with bright new laces."
+  outfits:
+    - id: "campus_ready"
+      name: "Campus Ready"
+      description: "Default outfit for the player."
+      items:
+        denim_jacket: "intact"
+        band_tee: "intact"
+        black_jeans: "intact"
+        combat_boots: "intact"
+      grant_items: true
+    - id: "showtime"
+      name: "Showtime Layers"
+      items:
+        band_tee: "displaced"
+        black_jeans: "intact"
+        combat_boots: "intact"
+      locked: true
+      unlock_when: "flags.zoe_band_invite == true"
 ```
 ---
 
@@ -880,7 +984,50 @@ using cardinal direction and up/down between floors.
 
 ### Examples
 ```yaml
-# TODO add examples
+zones:
+  - id: "campus"
+    name: "Northbridge Campus"
+    summary: "Dorms, quads, labs, and late-night coffee."
+    privacy: "low"
+    access:
+      discovered: true
+    connections:
+      - to: ["downtown"]
+        methods: ["walk", "bike"]
+        distance: 2.0
+    locations:
+      - id: "campus_quad"
+        name: "Sunlit Quad"
+        summary: "Students weave between club tables and classes."
+        privacy: "low"
+        access:
+          discovered: true
+        connections:
+          - to: "campus_library"
+            description: "Follow the ivy-covered path north."
+            direction: "n"
+          - to: "campus_cafe"
+            description: "Cut south past the lecture hall."
+            direction: "s"
+        inventory:
+          items:
+            campus_flyer: 2
+        shop:
+          name: "Club Merch Table"
+          can_buy: "false"       # Donations only – players can't sell back.
+          inventory:
+            items:
+              sticker_pack: 10
+      - id: "campus_library"
+        name: "Lambert Library"
+        summary: "Stacks of books and glassed-in study rooms."
+        privacy: "medium"
+        connections:
+          - to: "campus_quad"
+            direction: "s"
+        inventory:
+          items:
+            textbook_stats: 1
 ```
 
 ### Movement
@@ -914,7 +1061,21 @@ movement:                         # OPTIONAL. Top level node
 ```
 ### Examples
 ```yaml
-  TODO: add examples
+movement:
+  base_time: 1                       # One action to move within a zone.
+  use_entry_exit: true               # Must enter via zone entrances before exploring.
+  methods:
+    - walk: 1                        # 1 minute per distance unit.
+    - bike: 0.5
+    - rideshare: 0.25
+
+# Zones reference movement methods in their connections:
+zones:
+  - id: "campus"
+    connections:
+      - to: ["downtown"]
+        methods: ["walk", "bike", "rideshare"]
+        distance: 2.0                # -> 2 minutes by bike, 0.5 minutes by rideshare.
 ```
 
 ---
@@ -1032,7 +1193,23 @@ The engine exposes this compact form in:
 
 ### Examples
 ```yaml
-  TODO: add examples
+gates:
+  - id: "accept_study_session"
+    when: "meters.emma.trust >= 30"
+    acceptance: "\"Sure, but no copying answers,\" Emma teases."
+    refusal: "\"Let's keep it casual until we know each other better.\""
+  - id: "share_number"
+    when_all:
+      - "meters.emma.trust >= 45"
+      - "time.slot in ['evening','night']"
+    acceptance: "\"Text me when you get home so I know you made it.\""
+    refusal: "\"Maybe after the midterm? I'm slammed right now.\""
+  - id: "accept_kiss"
+    when_any:
+      - "meters.zoe.attraction >= 50"
+      - "flags.zoe_band_invite == true"
+    acceptance: "Zoe hooks a finger under your chin and closes the distance."
+    refusal: "She presses a palm to your chest. \"Not yet.\""
 
 ```
 ### Authoring Guidelines
@@ -1388,7 +1565,7 @@ but don’t invent hard state changes by themselves.
     <meter_id>: { min: <int>, max: <int> } # e.g., arousal: { max: 60 }
 
   # --- One-shot hooks (optional sugar) ---
-  on_entry: [<effect>, ... ]    # OPTIONAL. Apply once when the modifier becomes active.
+  on_enter: [<effect>, ... ]    # OPTIONAL. Apply once when the modifier becomes active.
   on_exit:  [<effect>, ... ]    # OPTIONAL. Apply once when it ends.
 ```
 > No conditions at all or exactly one of `when`, `when_any`, and `when_all` must be set.
@@ -1433,7 +1610,7 @@ modifiers:
     injured_light:
       group: "status"
       duration: 240
-      on_entry:
+      on_enter:
         - { type: meter_change, target: "player", meter: "energy", op: "subtract", value: 10 }
       on_exit:
         - { type: flag_set, key: "injury_healed", value: true }
@@ -1524,7 +1701,7 @@ Nodes are where most author effort goes: they set context for the Writer, define
   beats: [<string>, ... ]               # OPTIONAL. Bullets for Writer (not shown to players).
 
   # --- Effects ---
-  on_entry: [ <effect>, ... ]           # OPTIONAL. Applied when the node is entered.
+  on_enter: [ <effect>, ... ]           # OPTIONAL. Applied when the node is entered.
   on_exit:  [ <effect>, ... ]           # OPTIONAL. Applied when the node is left.
 
   # --- Actions & choices ---
@@ -1557,6 +1734,7 @@ Nodes are where most author effort goes: they set context for the Writer, define
 > Only one of `when`, `when_any`, and `when_all` may be set.
 
 ### Examples
+
 
 #### Scene 
 ```yaml
@@ -1593,7 +1771,7 @@ Nodes are where most author effort goes: they set context for the Writer, define
   title: "A Happy Ending with Emma"
   ending_id: "emma_good"
   when: "meters.emma.trust >= 80 and meters.emma.attraction >= 80"
-  on_entry:
+  on_enter:
     - { type: flag_set, key: "ending_reached", value: "emma_good" }
   beats:
     - "You and Emma start a genuine relationship."
@@ -1675,7 +1853,7 @@ In case of transition the processing chain terminates and the engine jumps to th
   beats: [<string>, ... ]               # OPTIONAL. Bullets for Writer (not shown to players).
 
   # --- Effects ---
-  on_entry: [ <effect>, ... ]           # OPTIONAL. Applied when the node is entered.
+  on_enter: [ <effect>, ... ]           # OPTIONAL. Applied when the node is entered.
   on_exit:  [ <effect>, ... ]           # OPTIONAL. Applied when the node is left.
 
   # --- Actions & choices ---
@@ -1720,7 +1898,7 @@ In case of transition the processing chain terminates and the engine jumps to th
 - id: "library_meet"
   type: "event"
   title: "Chance Meeting in Library"
-  when: "state.location.id == 'library' and meters.emma.trust >= 20"
+  when: "location.id == 'library' and meters.emma.trust >= 20"
   beats: ["Emma waves shyly from behind a book."]
   choices:
     - id: "chat"
@@ -1735,7 +1913,7 @@ In case of transition the processing chain terminates and the engine jumps to th
 - id: "rumor_spread"
   type: "event"
   title: "Rumor at the Courtyard"
-  when: "state.location.zone == 'campus'"
+  when: "location.zone == 'campus'"
   probability: 30
   cooldown: 720     # 12h before next chance
   beats: ["You overhear whispers of your name among the students."]
@@ -1785,15 +1963,15 @@ Arcs ensure that stories have clear progression, and that endings are unlocked i
       title: "<string>"              # REQUIRED. Stage name.
       description: "<string>"        # OPTIONAL. Author note.
 
-      # --- Advancement ---
-      advance_when: "<expr>"         # REQUIRED. DSL condition. Checked each turn.
-      advance_when_all: "<expr>"     # REQUIRED. DSL condition. Checked each turn.
-      advance_when_any: "<expr>"     # REQUIRED. DSL condition. Checked each turn.
+      # --- Conditions to enter the stage ---
+      when: "<expr>"         # REQUIRED. DSL condition. Checked each turn.
+      when_all: "<expr>"     # REQUIRED. DSL condition. Checked each turn.
+      when_any: "<expr>"     # REQUIRED. DSL condition. Checked each turn.
       once_per_game: <bool>                   # OPTIONAL. Default true. Fires once.
 
       # --- Effects ---
       on_enter:   [ <effect>, ... ]  # Applied once when the stage begins.
-      on_advance: [ <effect>, ... ]  # Applied once when leaving stage.
+      on_exit: [ <effect>, ... ]     # Applied once when leaving stage.
 ```
 
 ### Examples
@@ -1807,22 +1985,22 @@ Arcs ensure that stories have clear progression, and that endings are unlocked i
   stages:
     - id: "acquaintance"
       title: "Just Met"
-      advance_when: "flags.emma_met == true"
+      when: "flags.emma_met == true"
       on_enter:
         - { type: meter_change, target: "emma", meter: "trust", op: "add", value: 5 }
 
     - id: "dating"
       title: "Dating"
-      advance_when: "meters.emma.trust >= 50 and flags.first_kiss == true"
-      on_advance:
+      when: "meters.emma.trust >= 50 and flags.first_kiss == true"
+      on_exit:
         - { type: unlock_ending, ending: "emma_good" }
 
     - id: "in_love"
       title: "In Love"
-      advance_when: "meters.emma.trust >= 80 and meters.emma.attraction >= 80"
+      when: "meters.emma.trust >= 80 and meters.emma.attraction >= 80"
       on_enter:
         - { type: flag_set, key: "emma_in_love", value: true }
-      on_advance:
+      on_exit:
         - { type: unlock_ending, ending: "emma_best" }
 ```
 
@@ -1836,30 +2014,30 @@ Arcs ensure that stories have clear progression, and that endings are unlocked i
   stages:
     - id: "innocent"
       title: "Innocent"
-      advance_when: "meters.emma.corruption < 20"
+      when: "meters.emma.corruption < 20"
 
     - id: "curious"
       title: "Curious"
-      advance_when: "20 <= meters.emma.corruption and meters.emma.corruption < 40"
+      when: "20 <= meters.emma.corruption and meters.emma.corruption < 40"
 
     - id: "experimenting"
       title: "Experimenting"
-      advance_when: "40 <= meters.emma.corruption and meters.emma.corruption < 70"
+      when: "40 <= meters.emma.corruption and meters.emma.corruption < 70"
       on_enter:
         - { type: unlock_outfit, character: "emma", outfit: "bold_outfit" }
 
     - id: "corrupted"
       title: "Corrupted"
-      advance_when: "meters.emma.corruption >= 70"
+      when: "meters.emma.corruption >= 70"
       on_enter:
         - { type: unlock_ending, ending: "emma_corrupted" }
 
 ```
 ### Authoring Guidelines
 - Always order stages so they evaluate from lowest to highest.
-- Keep `advance_when` expressions simple (use flags/meters).
+- Keep `when` expressions simple (use flags/meters).
 - Use `on_enter` effects for immediate narrative unlocks.
-- Use `on_advance` effects for one-off triggers (new choices, outfits, endings).
+- Use `on_exit` effects for one-off triggers (new choices, outfits, endings).
 - Mark arcs as **non-repeatable** unless designed for loops.
 - Each arc should normally have **at least one ending unlock**.
 
@@ -1989,3 +2167,96 @@ card:
   gates: { allow: ["accept_flirting"], deny: ["accept_kiss"] }
   refusals: { low_trust: "Not yet.", wrong_place: "Not here." }
 ```
+
+---
+
+## 21. Runtime State
+
+### Snapshot overview
+
+The engine keeps a single `GameState` dataclass (see `app/core/state_manager.py`) for the active session.  
+This object is the canonical, mutation-safe snapshot that feeds **ConditionEvaluator**, all engine services,
+and the Writer/Checker envelopes. It flattens the author-defined data into runtime-friendly shapes and
+tracks every outcome the Checker or authored effects apply.
+
+### Time, location & discovery
+- `day`, `time_slot`, `time_hhmm`, `weekday`, and the embedded `time: TimeState` mirror the configured clock.
+- `location_current` / `zone_current` (aliases `current_location` / `current_zone`) identify where the player stands.
+- `location_previous` lets movement describe "where you came from".
+- `location_privacy` (alias `current_privacy`) stores the resolved `LocationPrivacy` enum for the present location.
+- `discovered_locations` and `discovered_zones` are sets of IDs the player has revealed. 
+- `zones` / `locations` map IDs to `ZoneState` / `LocationState` snapshots (locked/discovered booleans, privacy, local inventory/shop data).
+
+### Characters, meters & inventory
+- `characters` holds `CharacterState` objects (runtime meters, inventory, gate cache, per-character arc state).
+- `present_chars` (alias `present_characters`) is the ordered list of NPC IDs currently on scene (the player is implied).
+- `meters` is a dict of `char_id -> { meter_id: value }` used for fast math and UI.
+- `flags` is the resolved `FlagsState` dict defined in the manifest.
+- `inventory` stores `owner_id -> { item_id: count }` for every actor. Clothing pieces and outfits share the same namespace, so `"campus_ready": 1` simply means the outfit recipe is owned.
+- `location_inventory` mirrors the same structure but keyed by `location_id`.
+
+```json
+"inventory": {
+  "player": { "coffee_cup": 1, "denim_jacket": 1, "campus_ready": 1 },
+  "emma": { "textbook_stats": 1 }
+},
+"location_inventory": {
+  "campus_library": { "textbook_stats": 1 }
+}
+```
+
+### Wardrobe, outfits & modifiers
+- `clothing` (per-character within `characters` dict) tracks which clothing items a character is wearing and their current conditions. The structure is **item-based** rather than slot-based, allowing the engine to derive slot occupancy from item definitions:
+  - `outfit`: The ID of the currently equipped outfit (if any). When an outfit is equipped, it populates the `items` dict with the outfit's clothing items.
+  - `items`: Maps clothing item IDs to their current condition (`"intact"`, `"opened"`, `"displaced"`, or `"removed"`).
+
+  The engine derives slot occupancy by looking up each item's `occupies` field in the clothing item definition. For example, if `"denim_jacket"` occupies `["outerwear"]` and `"band_tee"` occupies `["top"]`, the engine knows which slots are filled without storing slot-to-item mappings in state. When an item is `"removed"`, it remains in the `items` dict (allowing re-wearing) but is not considered when determining slot occupancy for concealment rules.
+
+- `modifiers` is `owner_id -> {"<modifier_id>": <duration_in_minutes>, ...}`.
+
+```json
+"characters": {
+  "player": {
+    "clothing": {
+      "outfit": "campus_ready",
+      "items": {
+        "denim_jacket": "intact",
+        "band_tee": "displaced",
+        "black_jeans": "intact"
+      }
+    },
+    "modifiers": { "well_rested": 120 }
+  },
+  "emma": {
+    "clothing": {
+      "outfit": null,
+      "items": {
+        "sundress": "intact"
+      }
+    },
+    "modifiers": {}
+  }
+}
+```
+
+### Arcs, milestones & progression
+- `arcs` maps `arc_id -> ArcState(stage, history)` so repeatable arcs can replay.
+- `active_arcs` caches `arc_id -> stage_id` for quick lookups, while `arc_history` exposes the chronological trail per arc.
+- `completed_milestones` flattens milestone IDs that fired outside of a still-active arc (handy for events).
+- `current_node`, `visited_nodes`, `unlocked_actions`, and `unlocked_endings` collectively reflect narrative progress and which UI actions should appear.
+- `discovered_locations` / `discovered_zones` (above) gate navigation menus.
+
+### Events, cooldowns & logging
+- `cooldowns` keeps `event_id -> turns remaining` to throttle re-entry.
+- `events_history` is a chronological list of event IDs already fired.
+- `turn_count` counts the total turns the player has taken; `actions_this_slot` tracks per-slot action consumption for the time service.
+- `narrative_history` stores the recent prose (used for recap/memory prompts).
+- `memory_log` is a list of dicts such as `{ "text": "Emma lent you her notes.", "characters": ["emma"], "day": 2 }` and powers the character memories UI.
+
+### Metadata & helpers
+- `shops` / `merchants` are optional caches of location IDs and NPC IDs that expose shop menus for faster lookups.
+- `created_at` / `updated_at` are UTC timestamps set when the save slot is created and last modified.
+- `to_dict()` returns a serialization-ready copy for debug APIs (sets remain sets; FastAPI’s encoder turns them into lists).
+
+Together these fields represent the full runtime contract for the engine and the AI agents.  
+Any new system should either extend the manifest schemas or add a new, well-defined namespace inside `GameState` so the Writer/Checker context stays deterministic.

@@ -41,10 +41,14 @@ characters:
       outfits:
         - id: "player_campus_ready"
           name: "Campus Ready"
-          items: ["player_outer_denim", "player_top_graphic", "player_bottom_black_jeans", "player_shoes_sneakers"]
+          items:
+            player_outer_denim: "intact"
+            player_top_graphic: "intact"
+            player_bottom_black_jeans: "intact"
+            player_shoes_sneakers: "intact"
           grant_items: true
     inventory:
-      items: []
+      items: {}
 
   - id: "emma"
     name: "Emma Chen"
@@ -110,7 +114,10 @@ characters:
       outfits:
         - id: "emma_study_chic"
           name: "Study Chic"
-          items: ["emma_top_cable", "emma_bottom_slacks", "emma_shoes_loafers"]
+          items:
+            emma_top_cable: "intact"
+            emma_bottom_slacks: "intact"
+            emma_shoes_loafers: "intact"
           grant_items: true
     schedule:
       - when: "time.slot == 'morning'"
@@ -125,8 +132,7 @@ characters:
         location: "campus_cafe"
     inventory:
       items:
-        - id: "textbook_stats"
-          count: 1
+        textbook_stats: 1
 
   - id: "zoe"
     name: "Zoe Martinez"
@@ -197,7 +203,11 @@ characters:
       outfits:
         - id: "zoe_stage_wear"
           name: "Stage Wear"
-          items: ["zoe_top_bandtee", "zoe_bottom_ripped_jeans", "zoe_shoes_boots", "zoe_accessory_bandana"]
+          items:
+            zoe_top_bandtee: "intact"
+            zoe_bottom_ripped_jeans: "intact"
+            zoe_shoes_boots: "intact"
+            zoe_accessory_bandana: "intact"
           grant_items: true
     schedule:
       - when: "time.slot == 'morning'"
@@ -214,5 +224,4 @@ characters:
         location: "downtown_city_rooftop"
     inventory:
       items:
-        - id: "guitar_pick"
-          count: 1
+        guitar_pick: 1

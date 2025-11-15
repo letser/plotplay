@@ -202,14 +202,14 @@ class EffectResolver:
         if effect.key in self.engine.state_manager.state.flags:
             self.engine.state_manager.state.flags[effect.key] = effect.value
 
-    def apply_goto_node(self, effect: GotoNodeEffect) -> None:
+    def apply_goto_node(self, effect: GotoEffect) -> None:
         if effect.node in self.engine.nodes_map:
             self.engine.state_manager.state.current_node = effect.node
-            # Apply on_entry effects of the new node
+            # Apply on_enter effects of the new node
             new_node = self.engine.nodes_map[effect.node]
-            if hasattr(new_node, 'on_entry') and new_node.on_entry:
-                self.engine.logger.info(f"Applying on_entry effects for node '{effect.node}'")
-                self.apply_effects(list(new_node.on_entry))
+            if hasattr(new_node, 'on_enter') and new_node.on_enter:
+                self.engine.logger.info(f"Applying on_enter effects for node '{effect.node}'")
+                self.apply_effects(list(new_node.on_enter))
 
     def apply_advance_time(self, effect: AdvanceTimeEffect) -> None:
         self.engine.logger.info("Applying AdvanceTimeEffect: %s minutes.", effect.minutes)

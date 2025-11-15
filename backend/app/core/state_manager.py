@@ -2,74 +2,16 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field, asdict
+import copy
 from datetime import UTC, datetime
 
-from app.models.effects import AnyEffect
-from app.models.game import GameDefinition
-from app.models.inventory import Inventory, InventoryState
-from app.models.locations import LocationPrivacy, ZoneState, LocationState
-from app.models.time import TimeMode, TimeState
-from models.characters import CharacterState
-from models.flags import FlagsState
-
-
-@dataclass
-class GameState:
-    """Complete game state at a point in time."""
-    # Current time
-    time: TimeState = field(default_factory=TimeState)
-
-    # Snapshots of the player and all characters, also list of present characters
-    player: CharacterState | None = None
-    characters: dict[str, CharacterState] = field(default_factory=dict)
-    present_characters: list[str] = field(default_factory=list)
-
-    # Snapshots of all zones and locations, current zone and location
-    zones: dict[str, ZoneState] = field(default_factory=dict)
-    locations: dict[str, LocationState] = field(default_factory=dict)
-
-    # Discovered locations and zones
-    discovered_zones: set[str] = field(default_factory=set)
-    discovered_locations: set[str] = field(default_factory=set)
-
-    # Current zone, location, privacy
-    current_zone: str | None = None
-    current_location: str | None = None
-    current_privacy: LocationPrivacy = LocationPrivacy.LOW
-
-    # Global game flags
-    flags: FlagsState = field(default_factory=dict)
-
-    # Shops and merchants - lists of locations and characters with shops
-    shops: list[str] = field(default_factory=list)
-    merchants: list[str] = field(default_factory=list)
-
-    # Nodes progression
-    current_node: str | None = None
-    visited_nodes: list[str] = field(default_factory=list)
-    unlocked_endings: list[str] = field(default_factory=list)
-    unlocked_actions: list[str] = field(default_factory=list)
-
-
-    # Active events with cooldowns and events history
-    cooldowns: dict[str, int] = field(default_factory=dict)
-    events_history: list[str] = field(default_factory=list)
-
-
-    # General game stats
-    narrative_history: list[str] = field(default_factory=list)
-    memory_log: list[dict] = field(default_factory=list)
-    turn_count: int = 0
-    actions_this_slot: int = 0
-
-    created_at: datetime | None = None
-    updated_at: datetime | None = None
-
-
-    def to_dict(self) -> dict:
-        """Convert to dictionary for serialization."""
-        return asdict(self)
+from app.models.game import GameDefinition, GameState
+from app.models.locations import ZoneState, LocationState
+from app.models.time import TimeMode
+from app.models.arcs import ArcState
+from app.models.characters import CharacterState
+from app.models.inventory import InventoryState
+from app.models.wardrobe import ClothingState
 
 
 class StateManager:
@@ -79,26 +21,25 @@ class StateManager:
         self.game_def = game_def
         self.index = game_def.index
         self.state = GameState()
-        self._initialize_state()
+        self._init_state()
 
     # ------------------------------------------------------------------ #
     # Initialization helpers
     # ------------------------------------------------------------------ #
-    def _initialize_state(self) -> None:
+    def _init_state(self) -> None:
         self._init_time()
+        self._init_flags()
         self._init_locations()
-        self._initialize_location_inventories(state)
-        self._initialize_flags(state)
-        self._initialize_characters(state)
-        self._initialize_arcs(state)
+        self._init_characters()
+        self._init_arcs()
 
-        state.current_node = self.game_def.start.node
-        if state.current_node:
-            state.visited_nodes.append(state.current_node)
+        # Set starting node as current one and push it into the history
+        self.state.current_node = self.game_def.start.node
+        self.state.nodes_history.append(self.state.current_node)
 
         now = datetime.now(UTC)
-        state.created_at = now
-        state.updated_at = now
+        self.state.created_at = now
+        self.state.updated_at = now
 
     def _init_time(self) -> None:
         start = self.game_def.start
@@ -114,10 +55,17 @@ class StateManager:
 
         self.state.weekday = self.calculate_weekday()
 
+    def _init_flags(self) -> None:
+        if self.game_def.flags:
+            self.state.flags = {
+                flag_id: flag_def.default
+                for flag_id, flag_def in self.game_def.flags.items()
+            }
+
     def _init_locations(self) -> None:
         """Initialize location and zone data, set initial location."""
 
-        # Build lists of snapshots for all zones and locations
+        # Build states for all zones and locations
         for zone in self.game_def.zones:
             zone_state = ZoneState(id=zone.id)
             zone_state.discovered = zone.access.discovered if zone.access else True
@@ -132,6 +80,13 @@ class StateManager:
                 location_state.locked = location.access.locked if location.access else False
                 if location_state.discovered:
                     self.state.discovered_locations.add(location.id)
+                # Init inventory
+                if location.inventory:
+                    location_state.inventory = InventoryState(**copy.deepcopy(location.inventory.model_dump()))
+                # Init shop
+                if location.shop:
+                    location_state.shop = InventoryState(**copy.deepcopy(location.shop.inventory.model_dump()))
+
                 self.state.locations[location.id] = location_state
 
         # Set the start zone and location
@@ -139,48 +94,23 @@ class StateManager:
         self.state.current_zone = self.index.location_to_zone[self.state.current_location]
         self.state.current_privacy = self.index.locations[self.state.current_location].privacy
 
+    def _init_characters(self) -> None:
+        """
+        Initialize characters.
+        Populate meters, inventory, clothing, shop, locked state
+        """
+        # Prebuild player and npc meters from global defaults
+        meters_def = self.game_def.meters
 
-    def _initialize_location_inventories(self, state: GameState) -> None:
-        """Initialize inventories for all locations that have them defined."""
-        for zone in self.game_def.zones:
-            for location in zone.locations:
-                if location.inventory:
-                    loc_inv = {}
-                    # Initialize items from a location's inventory definition
-                    if location.inventory.items:
-                        for inv_item in location.inventory.items:
-                            if inv_item.discovered:
-                                loc_inv[inv_item.id] = inv_item.count
-                    if location.inventory.clothing:
-                        for inv_item in location.inventory.clothing:
-                            if inv_item.discovered:
-                                loc_inv[inv_item.id] = inv_item.count
-                    if location.inventory.outfits:
-                        for inv_item in location.inventory.outfits:
-                            if inv_item.discovered:
-                                loc_inv[inv_item.id] = inv_item.count
-
-                    if loc_inv:
-                        state.location_inventory[location.id] = loc_inv
-
-    def _initialize_flags(self, state: GameState) -> None:
-        if self.game_def.flags:
-            state.flags = {
-                flag_id: flag_def.default
-                for flag_id, flag_def in self.game_def.flags.items()
-            }
-
-    def _initialize_characters(self, state: GameState) -> None:
-        meters_config = self.game_def.meters
         player_defaults = {
             meter_id: meter.default
-            for meter_id, meter in (meters_config.player or {}).items()
-        } if meters_config and meters_config.player else {}
+            for meter_id, meter in (meters_def.player or {}).items()
+        } if meters_def and meters_def.player else {}
 
         template_defaults = {
             meter_id: meter.default
-            for meter_id, meter in (meters_config.template or {}).items()
-        } if meters_config and meters_config.template else {}
+            for meter_id, meter in (meters_def.template or {}).items()
+        } if meters_def and meters_def.template else {}
 
         # Auto-add money meter if economy is enabled
         if self.game_def.economy and self.game_def.economy.enabled:
@@ -190,98 +120,51 @@ class StateManager:
         for character in self.game_def.characters:
             char_state = CharacterState()
 
-            baseline = {}
-            if character.id == "player":
-                baseline.update(player_defaults)
-            else:
-                baseline.update(template_defaults)
+            char_state.locked = character.locked
 
+            # Take meters from globals and apply local overrides
+            baseline = (player_defaults if character.id == "player" else template_defaults).copy()
             if character.meters:
-                for meter_id, meter_def in character.meters.items():
-                    baseline[meter_id] = meter_def.default
-
+                baseline.update({meter_id: meter_def.default for meter_id, meter_def in character.meters.items()})
             char_state.meters = baseline
-            state.characters[character.id] = char_state
-            state.meters[character.id] = char_state.meters
 
-            char_state.inventory = self._inventory_to_counts(character.inventory)
-            state.inventory[character.id] = char_state.inventory
+            # Init inventory
+            if character.inventory:
+                char_state.inventory = InventoryState(**copy.deepcopy(character.inventory.model_dump()))
 
-            outfit_id = character.clothing.outfit if character.clothing else None
-            char_state.outfit = outfit_id
-            state.outfits_equipped[character.id] = outfit_id
+            # Init shop
+            if character.shop:
+                char_state.shop = InventoryState(**copy.deepcopy(character.shop.inventory.model_dump()))
 
-            clothing_slots: dict[str, str] = {}
-            if character.clothing and character.clothing.items:
-                clothing_slots.update(character.clothing.items)
+            # Clothing
+            clothing_state = char_state.clothing
+            if character.clothing:
+                clothing_state = ClothingState(**copy.deepcopy(character.clothing.model_dump()))
 
-            if outfit_id:
-                outfit = self.index.outfits.get(outfit_id)
-                if outfit:
-                    if not outfit.locked:
-                        unlocked = state.unlocked_outfits.setdefault(character.id, [])
-                        if outfit.id not in unlocked:
-                            unlocked.append(outfit.id)
-                    if outfit.grant_items:
-                        for clothing_id in outfit.items:
-                            char_state.inventory[clothing_id] = char_state.inventory.get(clothing_id, 0) + 1
-                    if not clothing_slots:
-                        for clothing_id in outfit.items:
-                            clothing_item = self.index.clothing.get(clothing_id)
-                            if clothing_item and clothing_item.occupies:
-                                slot = clothing_item.occupies[0]
-                                clothing_slots.setdefault(slot, clothing_id)
+            if clothing_state.outfit:
+                # if the outfit is set but not in inventory - add it
+                if clothing_state.outfit not in char_state.inventory.outfits:
+                    char_state.inventory.outfits[clothing_state.outfit] = 1
+                # if outfit is set replace clothing items with outfit items
+                outfit_def = self.index.outfits.get(clothing_state.outfit)
+                if outfit_def and outfit_def.grant_items:
+                    clothing_state.items = outfit_def.items.copy()
 
-            char_state.clothing = clothing_slots
-            char_state.clothing_state = {slot: "intact" for slot in clothing_slots}
-            state.clothing_states[character.id] = char_state.clothing_state
+            # If clothing items are not in inventory - add them
+            for item in clothing_state.items:
+                if item not in char_state.inventory.clothing:
+                    char_state.inventory.clothing[item] = 1
 
-            char_state.modifiers = []
-            state.modifiers[character.id] = char_state.modifiers
+            char_state.clothing = clothing_state
 
-        # Global wardrobe unlocks (player defaults to global wardrobe)
-        if self.game_def.wardrobe and self.game_def.wardrobe.outfits:
-            unlocked = state.unlocked_outfits.setdefault("player", [])
-            for outfit in self.game_def.wardrobe.outfits:
-                if not outfit.locked and outfit.id not in unlocked:
-                    unlocked.append(outfit.id)
+            self.state.characters[character.id] = char_state
 
-        state.present_chars = ["player"] if "player" in state.characters else []
-
-    def _initialize_arcs(self, state: GameState) -> None:
-        for arc in self.game_def.arcs:
-            if not arc.stages:
-                continue
-            initial_stage = arc.stages[0].id
-            arc_state = ArcState(stage=initial_stage, history=[initial_stage])
-            state.arcs[arc.id] = arc_state
-            state.active_arcs[arc.id] = initial_stage
-            state.arc_history[arc.id] = arc_state.history
-
-    # ------------------------------------------------------------------ #
-    # Utility helpers
-    # ------------------------------------------------------------------ #
-    def _inventory_to_counts(self, inventory: Inventory | None) -> dict[str, int]:
-        """Flatten Inventory objects into id -> count mappings."""
-        counts: dict[str, int] = {}
-        if not inventory:
-            return counts
-
-        for item in inventory.items or []:
-            counts[item.id] = counts.get(item.id, 0) + (item.count or 1)
-        for clothing in inventory.clothing or []:
-            counts[clothing.id] = counts.get(clothing.id, 0) + (clothing.count or 1)
-        for outfit in inventory.outfits or []:
-            counts[outfit.id] = counts.get(outfit.id, 0) + (outfit.count or 1)
-        return counts
-
-    # ------------------------------------------------------------------ #
-    # Public API
-    # ------------------------------------------------------------------ #
-    def apply_effects(self, effects: list[AnyEffect]) -> None:
-        """Apply a list of effects to the current state (placeholder)."""
-        for effect in effects:
-            print(f"Applying effect: {effect.type}")
+    def _init_arcs(self) -> None:
+        """
+        Initialize arcs.
+        Initially all arcs have no progression, so set the stage to None.
+        """
+        self.state.arcs = {arc.id: ArcState(id=arc.id, stage=None) for arc in self.game_def.arcs}
 
     def calculate_weekday(self) -> str | None:
         """Calculate the current weekday based on time configuration."""
@@ -294,6 +177,6 @@ class StateManager:
             return None
 
         start_index = week_days.index(start_day)
-        offset = (self.state.time.day - 1) % len(week_days)
+        offset = (self.state.day - 1) % len(week_days)
         weekday = week_days[(start_index + offset) % len(week_days)]
         return str(weekday)

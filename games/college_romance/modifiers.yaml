@@ -10,7 +10,7 @@ modifiers:
       dialogue_style: "slower, yawning between sentences."
       clamp_meters:
         charm: { min: 0, max: 80 }
-      on_entry:
+      on_enter:
         - type: "meter_change"
           target: "player"
           meter: "mind"
@@ -30,7 +30,7 @@ modifiers:
       priority: 6
       mixins: ["eyes bright", "animated gestures"]
       dialogue_style: "words come quickly, enthusiasm spilling over."
-      on_entry:
+      on_enter:
         - type: "meter_change"
           target: "player"
           meter: "charm"

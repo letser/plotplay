@@ -75,7 +75,7 @@ nodes:
     beats:
       - "The kiosk prints a receipt template: downtown location-based shop should sell snacks and drink tokens."
       - "Confirm purchases update money and inventory, then try selling items back."
-    on_entry:
+    on_enter:
       - type: "flag_set"
         key: "market_briefing_viewed"
         value: true
@@ -93,7 +93,7 @@ nodes:
     beats:
       - "Mara's mobile cart stocks safety gear and maps in the suburbs. She's only around during daylight slots."
       - "Purchase the high-visibility vest to unlock the industrial walkthrough."
-    on_entry:
+    on_enter:
       - type: "flag_set"
         key: "vendor_briefing_viewed"
         value: true

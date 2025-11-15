@@ -29,10 +29,8 @@ zones:
             direction: "e"
         inventory:
           items:
-            - id: "vanilla_latte"
-              count: 2
-            - id: "spiced_matcha"
-              count: 2
+            vanilla_latte: 2
+            spiced_matcha: 2
       - id: "cafe_table"
         name: "Corner Table"
         summary: "A tucked-away table with soft light and chalk doodles on the brick wall."
@@ -42,6 +40,6 @@ zones:
             description: "Return to the counter."
             direction: "w"
         inventory:
-          items: []
+          items: {}
     entrances: ["cafe_patio"]
     exits: ["cafe_patio"]

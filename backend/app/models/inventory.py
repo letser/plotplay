@@ -13,8 +13,8 @@ class InventoryItem(SimpleModel):
     id: str
     count: int = 1
     value: float | None = None
-    infinite: bool | None  = False
-    discovered: bool | None = True
+    infinite: bool = False
+    discovered: bool = True
     discovered_when: DSLExpression | None = None
 
 

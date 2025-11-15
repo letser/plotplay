@@ -39,7 +39,7 @@ nodes:
     beats:
       - "Emma sits under the sycamore, highlighters scattered, lips moving as she recites formulas."
       - "Her eyes brighten when she spots you, relief softening the stress lines in her forehead."
-    on_entry:
+    on_enter:
       - type: "flag_set"
         key: "met_emma"
         value: true
@@ -90,7 +90,7 @@ nodes:
     beats:
       - "Zoe balances three mismatched mugs in one hand, sliding a latte toward you with a smirk."
       - "\"You're the stats wizard, right? Come to rescue the caffeine-starved masses?\""
-    on_entry:
+    on_enter:
       - type: "flag_set"
         key: "met_zoe"
         value: true
@@ -160,7 +160,7 @@ nodes:
     characters_present: ["emma"]
     beats:
       - "Stacks of books create a fort around your table. Emma shares colored tabs, you trade mnemonics."
-    on_entry:
+    on_enter:
       - type: "flag_set"
         key: "emma_study_session"
         value: true
@@ -202,7 +202,7 @@ nodes:
     characters_present: ["zoe"]
     beats:
       - "Zoe drapes her guitar strap over your shoulders. \"Sing the chorus and I'll owe you forever.\""
-    on_entry:
+    on_enter:
       - type: "meter_change"
         target: "zoe"
         meter: "attraction"
@@ -240,7 +240,7 @@ nodes:
     beats:
       - "The sun sets behind the dorms, texts buzzing in quick succession."
       - "Emma suggests a moonlit walk before curfew. Zoe sends the basement venue address."
-    on_entry:
+    on_enter:
       - type: "flag_set"
         key: "evening_choice_made"
         value: false
@@ -283,7 +283,7 @@ nodes:
     beats:
       - "The campus is hushed, fountain lights reflecting in Emma's glasses."
       - "She falls into stride beside you, breath fogging in the cool air."
-    on_entry:
+    on_enter:
       - type: "meter_change"
         target: "emma"
         meter: "trust"
@@ -324,7 +324,7 @@ nodes:
     beats:
       - "The basement thrums with bass. Zoe's grin is all mischief when she spots you in the crowd."
       - "Sweat-slick walls vibrate as she pulls you toward the backstage staircase."
-    on_entry:
+    on_enter:
       - type: "meter_change"
         target: "zoe"
         meter: "attraction"
