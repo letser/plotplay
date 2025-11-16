@@ -3,7 +3,7 @@ events:
     type: "event"
     title: "Emma Waves You Over"
     characters_present: ["emma"]
-    when: "state.location.id == 'campus_quad' and time.slot == 'afternoon' and flags.met_emma == false"
+    when: "location.id == 'campus_quad' and time.slot == 'afternoon' and not flags.met_emma"
     probability: 100
     cooldown: 1
     once_per_game: true
@@ -28,7 +28,7 @@ events:
     type: "event"
     title: "Pop-Up Gig Invitation"
     characters_present: ["zoe"]
-    when: "state.location.id == 'campus_cafe' and time.slot == 'evening' and flags.met_zoe == true and flags.zoe_band_invite == false"
+    when: "location.id == 'campus_cafe' and time.slot == 'evening' and flags.met_zoe and not flags.zoe_band_invite"
     probability: 60
     cooldown: 2
     beats:

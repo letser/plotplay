@@ -225,6 +225,7 @@ class GameState:
     memory_log: list[dict[str, str]] = field(default_factory=list)
     turn_count: int = 0
     actions_this_slot: int = 0
+    rng_seed: int = 0  # Deterministic random seed (derived from turn_count + state hash)
 
     # --- Events & timers ---
     cooldowns: dict[str, int] = field(default_factory=dict) # event_id -> cooldown

@@ -6,7 +6,7 @@ arcs:
     stages:
       - id: "study_buddies"
         title: "Study Buddies"
-        when: "flags.emma_study_session == true"
+        when: "flags.emma_study_session"
         on_enter:
           - type: "meter_change"
             target: "emma"
@@ -24,7 +24,7 @@ arcs:
             value: 5
       - id: "shared_future"
         title: "Shared Future"
-        when: "flags.emma_final_choice == true"
+        when: "flags.emma_final_choice"
         on_enter:
           - type: "unlock"
             endings: ["ending_emma"]
@@ -36,7 +36,7 @@ arcs:
     stages:
       - id: "backstage_pass"
         title: "Backstage Pass"
-        when: "flags.zoe_band_invite == true"
+        when: "flags.zoe_band_invite"
         on_enter:
           - type: "meter_change"
             target: "zoe"
@@ -54,7 +54,7 @@ arcs:
             value: 5
       - id: "tour_partner"
         title: "Tour Partner"
-        when: "flags.zoe_final_choice == true"
+        when: "flags.zoe_final_choice"
         on_enter:
           - type: "unlock"
             endings: ["ending_zoe"]

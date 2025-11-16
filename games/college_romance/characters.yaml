@@ -124,11 +124,11 @@ characters:
         location: "campus_quad"
       - when_all:
           - "time.slot == 'afternoon'"
-          - "flags.met_emma == true"
+          - "flags.met_emma"
         location: "campus_library"
       - when_all:
           - "time.slot == 'evening'"
-          - "flags.met_emma == true"
+          - "flags.met_emma"
         location: "campus_cafe"
     inventory:
       items:
@@ -153,7 +153,7 @@ characters:
       - id: "invite_backstage"
         when_any:
           - "meters.zoe.trust >= 30"
-          - "flags.zoe_band_invite == true"
+          - "flags.zoe_band_invite"
         acceptance: "\"Come by the venue. I want you to hear the new bridge.\""
         refusal: "\"The set's messy tonight. Rain check?\""
       - id: "accept_date"
@@ -165,7 +165,7 @@ characters:
       - id: "accept_kiss"
         when_any:
           - "meters.zoe.attraction >= 45"
-          - "flags.zoe_band_invite == true"
+          - "flags.zoe_band_invite"
         acceptance: "She hooks a finger under your chin, grin widening before she closes the distance."
         refusal: "She presses a palm to your chest. \"Tease.\""
     clothing:
@@ -216,11 +216,11 @@ characters:
         location: "campus_cafe"
       - when_all:
           - "time.slot == 'evening'"
-          - "flags.met_zoe == true"
+          - "flags.met_zoe"
         location: "downtown_music_venue"
       - when_all:
           - "time.slot == 'night'"
-          - "flags.met_zoe == true"
+          - "flags.met_zoe"
         location: "downtown_city_rooftop"
     inventory:
       items:

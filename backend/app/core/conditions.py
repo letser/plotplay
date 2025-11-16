@@ -7,9 +7,11 @@ from __future__ import annotations
 import ast
 import operator
 import random
-from typing import Any, Iterable
+from typing import Any, TYPE_CHECKING
 
-from app.core.state_manager import GameState
+if TYPE_CHECKING:
+    from app.core.state_manager import StateManager
+    from app.models.game import GameIndex
 
 
 class ConditionEvaluator:
@@ -39,22 +41,28 @@ class ConditionEvaluator:
 
     def __init__(
         self,
-        game_state: GameState,
-        rng_seed: int | None = None,
-        *,
-        gates: dict[str, dict[str, bool]] | None = None,
+        state_manager: StateManager,
+        index: GameIndex,
         extra_context: dict[str, Any] | None = None,
     ) -> None:
-        self.game_state = game_state
-        self.gates = gates or {}
+        """
+        Initialize evaluator with dependencies injected by StateManager.
+
+        Args:
+            state_manager: Provides state and DSL context
+            index: Provides game definition lookups
+            extra_context: Optional context overrides/extensions
+        """
+        self.state_manager = state_manager
+        self.index = index
         self.extra_context = extra_context or {}
-        self.rng = random.Random(rng_seed) if rng_seed is not None else random.Random()
-        self.context: dict[str, Any] | None = None
+        self.rng = random.Random(state_manager.state.rng_seed)
+        self._eval_context: dict[str, Any] | None = None
 
     # --------------------------------------------------------------------- #
     # Public API
     # --------------------------------------------------------------------- #
-    def evaluate(self, expression: str | None, *, refresh: bool = True) -> bool:
+    def evaluate(self, expression: str | None) -> bool:
         """
         Evaluate a single DSL expression.
         Empty/`always` conditions return True, `never`/`false` return False.
@@ -68,12 +76,12 @@ class ConditionEvaluator:
         if trimmed.lower() in {"false", "never"}:
             return False
 
-        value = self.evaluate_value(expression, refresh=refresh, default=False)
+        value = self.evaluate_value(expression, default=False)
         if isinstance(value, bool):
             return value
         return bool(value)
 
-    def evaluate_all(self, expressions: Iterable[str | None] | None) -> bool:
+    def evaluate_all(self, expressions: list[str | None] | None) -> bool:
         """
         Evaluate a list of expressions in logical AND mode (all must be true).
         An empty or None collection is treated as satisfied.
@@ -85,13 +93,12 @@ class ConditionEvaluator:
         if not expr_list:
             return True
 
-        self._refresh_context()
         for expr in expr_list:
-            if not self.evaluate(expr, refresh=False):
+            if not self.evaluate(expr):
                 return False
         return True
 
-    def evaluate_any(self, expressions: Iterable[str | None] | None) -> bool:
+    def evaluate_any(self, expressions: list[str | None] | None) -> bool:
         """
         Evaluate a list of expressions in logical OR mode (any must be true).
         An empty or None collection is treated as unsatisfied.
@@ -103,9 +110,8 @@ class ConditionEvaluator:
         if not expr_list:
             return False
 
-        self._refresh_context()
         for expr in expr_list:
-            if self.evaluate(expr, refresh=False):
+            if self.evaluate(expr):
                 return True
         return False
 
@@ -113,8 +119,8 @@ class ConditionEvaluator:
         self,
         *,
         when: str | None = None,
-        when_all: Iterable[str | None] | None = None,
-        when_any: Iterable[str | None] | None = None,
+        when_all: list[str | None] | None = None,
+        when_any: list[str | None] | None = None,
     ) -> bool:
         """
         Convenience helper for evaluating the spec's (when, when_all, when_any) trio.
@@ -131,7 +137,6 @@ class ConditionEvaluator:
         self,
         expression: str | None,
         *,
-        refresh: bool = True,
         default: Any = None,
     ) -> Any:
         """
@@ -150,8 +155,9 @@ class ConditionEvaluator:
         if lowered in {"false", "never"}:
             return False
 
-        if refresh or self.context is None:
-            self._refresh_context()
+        # Build context if not already built
+        if self._eval_context is None:
+            self._eval_context = self._build_evaluation_context()
 
         try:
             tree = ast.parse(trimmed, mode="eval")
@@ -160,56 +166,45 @@ class ConditionEvaluator:
             return default
 
     # --------------------------------------------------------------------- #
-    # Context construction & helpers
+    # Context construction
     # --------------------------------------------------------------------- #
-    def _refresh_context(self) -> None:
-        self.context = self._build_context()
+    def _build_evaluation_context(self) -> dict[str, Any]:
+        """Build complete evaluation context (data + functions)."""
+        # Get data context from StateManager
+        context = self.state_manager.get_dsl_context().copy()
 
-    def _build_context(self) -> dict[str, Any]:
-        """Construct the evaluation context described in the specification."""
-        modifiers = self._normalize_modifiers(self.game_state.modifiers)
-        arcs = {
-            arc_id: {
-                "stage": arc_state.stage,
-                "history": list(arc_state.history),
-            }
-            for arc_id, arc_state in (self.game_state.arcs or {}).items()
-        }
+        # Merge extra context (e.g., gate values, temporary vars)
+        context.update(self.extra_context)
 
-        context: dict[str, Any] = {
-            # Time & calendar
-            "time": {
-                "day": self.game_state.day,
-                "slot": self.game_state.time_slot,
-                "time_hhmm": self.game_state.time_hhmm,
-                "weekday": self.game_state.weekday,
-            },
-            # Location
-            "location": {
-                "id": self.game_state.location_current,
-                "zone": self.game_state.zone_current,
-                "privacy": self._get_location_privacy(),
-            },
-            # Characters & presence
-            "characters": list((self.game_state.meters or {}).keys()),
-            "present": list(self.game_state.present_chars or []),
-            # State namespaces
-            "meters": self.game_state.meters or {},
-            "flags": self.game_state.flags or {},
-            "inventory": self.game_state.inventory or {},
-            "modifiers": modifiers,
-            "clothing": self.game_state.clothing_states or {},
-            "gates": self.gates,
-            "arcs": arcs,
-            # Built-in functions (§3.6)
-            "has": self._has_item,
+        # Add function bindings
+        context.update({
+            # Inventory functions
+            "has": self._has,
+            "has_item": self._has_item,
+            "has_clothing": self._has_clothing,
+            "has_outfit": self._has_outfit,
+
+            # Outfit functions
+            "knows_outfit": self._knows_outfit,
+            "can_wear_outfit": self._can_wear_outfit,
+            "wears_outfit": self._wears_outfit,
+
+            # Clothing functions
+            "wears": self._wears,
+
+            # Presence & discovery
             "npc_present": self._npc_present,
+            "discovered": self._discovered,
+            "unlocked": self._unlocked,
+
+            # Utility functions
             "rand": self._rand,
             "min": min,
             "max": max,
             "abs": abs,
             "clamp": lambda x, lo, hi: max(lo, min(x, hi)),
             "get": self._safe_get,
+
             # Boolean helpers
             "true": True,
             "True": True,
@@ -217,42 +212,100 @@ class ConditionEvaluator:
             "False": False,
             "null": None,
             "None": None,
-        }
+        })
 
-        # Allow callers to extend/override context if needed
-        context.update(self.extra_context)
         return context
 
-    def _normalize_modifiers(self, modifiers: dict[str, Any] | None) -> dict[str, list[str]]:
-        """Return modifiers as dict[target_id] -> list[modifier_id]."""
-        if not modifiers:
-            return {}
+    # --------------------------------------------------------------------- #
+    # Built-in Functions
+    # --------------------------------------------------------------------- #
 
-        normalised: dict[str, list[str]] = {}
-        for owner, entries in modifiers.items():
-            ids: list[str] = []
-            if isinstance(entries, list):
-                for entry in entries:
-                    if isinstance(entry, str):
-                        ids.append(entry)
-                    elif isinstance(entry, dict) and entry.get("id"):
-                        ids.append(entry["id"])
-            normalised[owner] = ids
-        return normalised
+    # === Inventory Functions ===
 
-    def _has_item(self, item_id: str, owner: str = "player") -> bool:
-        """Default helper to test inventory possession."""
-        inventory = self.game_state.inventory or {}
-        owner_inventory = inventory.get(owner, {})
-        if not isinstance(owner_inventory, dict):
+    def _has(self, owner: str, item_id: str) -> bool:
+        """Check all inventory categories for item."""
+        inv = self._eval_context.get("inventory", {}).get(owner, {})
+        return (
+            inv.get("items", {}).get(item_id, 0) > 0 or
+            inv.get("clothing", {}).get(item_id, 0) > 0 or
+            inv.get("outfits", {}).get(item_id, 0) > 0
+        )
+
+    def _has_item(self, owner: str, item_id: str) -> bool:
+        """Check items inventory only."""
+        return self._eval_context.get("inventory", {}).get(owner, {}).get("items", {}).get(item_id, 0) > 0
+
+    def _has_clothing(self, owner: str, item_id: str) -> bool:
+        """Check clothing inventory only."""
+        return self._eval_context.get("inventory", {}).get(owner, {}).get("clothing", {}).get(item_id, 0) > 0
+
+    def _has_outfit(self, owner: str, outfit_id: str) -> bool:
+        """Check outfit inventory only."""
+        return self._eval_context.get("inventory", {}).get(owner, {}).get("outfits", {}).get(outfit_id, 0) > 0
+
+    # === Outfit Functions ===
+
+    def _knows_outfit(self, owner: str, outfit_id: str) -> bool:
+        """Check if outfit recipe is known/unlocked."""
+        # For now, check if outfit exists in index
+        # Can be extended to check character-specific unlocks
+        return outfit_id in self.index.outfits
+
+    def _can_wear_outfit(self, owner: str, outfit_id: str) -> bool:
+        """Check if character has all items needed to wear outfit."""
+        # Look up outfit definition from index
+        outfit_def = self.index.outfits.get(outfit_id)
+        if not outfit_def:
             return False
-        return owner_inventory.get(item_id, 0) > 0
+
+        # Check if character has each required clothing item
+        owner_clothing_inv = self._eval_context.get("inventory", {}).get(owner, {}).get("clothing", {})
+
+        for clothing_id in outfit_def.items.keys():
+            if owner_clothing_inv.get(clothing_id, 0) <= 0:
+                return False  # Missing a required item
+
+        return True
+
+    def _wears_outfit(self, owner: str, outfit_id: str) -> bool:
+        """Check if currently wearing outfit."""
+        return self._eval_context.get("clothing", {}).get(owner, {}).get("outfit") == outfit_id
+
+    # === Clothing Functions ===
+
+    def _wears(self, owner: str, item_id: str) -> bool:
+        """Check if currently wearing clothing item (not removed)."""
+        items = self._eval_context.get("clothing", {}).get(owner, {}).get("items", {})
+        condition = items.get(item_id)
+        return condition is not None and condition != "removed"
+
+    # === Presence & Discovery ===
 
     def _npc_present(self, npc_id: str) -> bool:
-        return npc_id in (self.game_state.present_chars or [])
+        """Check if NPC is in current location."""
+        return npc_id in self._eval_context.get("present", [])
+
+    def _discovered(self, zone_or_location_id: str) -> bool:
+        """Check if zone or location is discovered."""
+        discovered = self._eval_context.get("discovered", {})
+        return (
+            zone_or_location_id in discovered.get("zones", set()) or
+            zone_or_location_id in discovered.get("locations", set())
+        )
+
+    def _unlocked(self, category: str, id: str) -> bool:
+        """Check if item is unlocked."""
+        unlocked = self._eval_context.get("unlocked", {})
+        if category == "ending":
+            return id in unlocked.get("endings", [])
+        elif category == "action":
+            return id in unlocked.get("actions", [])
+        return False
+
+    # === Utility Functions ===
 
     def _rand(self, probability: Any) -> bool:
-        """Deterministic Bernoulli helper used by rand()."""
+        """Deterministic Bernoulli helper using state-seeded RNG."""
         try:
             p = float(probability)
         except (TypeError, ValueError):
@@ -263,17 +316,9 @@ class ConditionEvaluator:
             return True
         return self.rng.random() < p
 
-    def _get_location_privacy(self) -> str | None:
-        """Return location privacy as a lowercase string."""
-        privacy = getattr(self.game_state, "location_privacy", None)
-        return getattr(privacy, "value", privacy)
-
     def _safe_get(self, path: str, default: Any = None) -> Any:
         """Implementation of get('path', default) helper from the spec."""
-        if self.context is None:
-            self._refresh_context()
-
-        value: Any = self.context
+        value: Any = self._eval_context
         for key in path.split("."):
             if isinstance(value, dict):
                 value = value.get(key)
@@ -293,7 +338,7 @@ class ConditionEvaluator:
             return node.value
 
         if isinstance(node, ast.Name):
-            return self.context.get(node.id) if self.context else None
+            return self._eval_context.get(node.id) if self._eval_context else None
 
         if isinstance(node, ast.Attribute):
             value = self._eval_node(node.value)
@@ -363,9 +408,9 @@ class ConditionEvaluator:
             return op(operand)
 
         if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
-            if self.context is None:
-                self._refresh_context()
-            func = self.context.get(node.func.id)
+            if self._eval_context is None:
+                return False
+            func = self._eval_context.get(node.func.id)
             if callable(func):
                 args = [self._eval_node(arg) for arg in node.args]
                 try:

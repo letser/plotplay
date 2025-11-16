@@ -64,7 +64,7 @@ zones:
     access:
       discovered: false
       hidden_until_discovered: true
-      discovered_when: "flags.met_zoe == true or flags.met_emma == true"
+      discovered_when: "flags.met_zoe or flags.met_emma"
     connections:
       - to: ["campus"]
         methods: ["walk", "bike"]

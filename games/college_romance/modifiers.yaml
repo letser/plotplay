@@ -25,8 +25,8 @@ modifiers:
     - id: "inspired"
       group: "mood"
       when_any:
-        - "flags.zoe_band_invite == true"
-        - "flags.emma_study_session == true"
+        - "flags.zoe_band_invite"
+        - "flags.emma_study_session"
       priority: 6
       mixins: ["eyes bright", "animated gestures"]
       dialogue_style: "words come quickly, enthusiasm spilling over."

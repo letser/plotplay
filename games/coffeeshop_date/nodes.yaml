@@ -228,7 +228,7 @@ nodes:
         prompt: "Suggest meeting again for the night market this weekend."
         when_any:
           - "meters.alex.interest >= 60"
-          - "flags.shared_laugh == true"
+          - "flags.shared_laugh"
         on_select:
           - type: "meter_change"
             target: "alex"

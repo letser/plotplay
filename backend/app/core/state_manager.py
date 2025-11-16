@@ -180,3 +180,111 @@ class StateManager:
         offset = (self.state.day - 1) % len(week_days)
         weekday = week_days[(start_index + offset) % len(week_days)]
         return str(weekday)
+
+    # ------------------------------------------------------------------ #
+    # DSL Context & Evaluator Factory
+    # ------------------------------------------------------------------ #
+    def get_dsl_context(self) -> dict:
+        """
+        Build DSL evaluation context from current state (data only, no functions).
+        This provides the variable namespace for condition expressions.
+
+        Returns:
+            Dictionary with all DSL-accessible state data
+        """
+        # Simple globals
+        context = {
+            "time": {
+                "day": self.state.day,
+                "slot": self.state.time_slot,
+                "time_hhmm": self.state.time_hhmm,
+                "weekday": self.state.weekday,
+            },
+            "location": {
+                "id": self.state.current_location,
+                "zone": self.state.current_zone,
+                "privacy": self.state.current_privacy.value if self.state.current_privacy else "low",
+            },
+            "node": {
+                "id": self.state.current_node,
+            },
+            "turn": self.state.turn_count,
+        }
+
+        # Flatten character-scoped data
+        context["meters"] = {}
+        context["gates"] = {}
+        context["modifiers"] = {}
+        context["inventory"] = {}
+        context["clothing"] = {}
+
+        for char_id, char_state in self.state.characters.items():
+            # Meters
+            context["meters"][char_id] = dict(char_state.meters)
+
+            # Gates (active gates only - tuple unpacked to dict)
+            context["gates"][char_id] = {
+                gate_id: True for gate_id in char_state.gates.keys()
+            }
+
+            # Modifiers (active modifier IDs)
+            context["modifiers"][char_id] = list(char_state.modifiers.keys())
+
+            # Inventory (by category)
+            context["inventory"][char_id] = {
+                "items": dict(char_state.inventory.items),
+                "clothing": dict(char_state.inventory.clothing),
+                "outfits": dict(char_state.inventory.outfits),
+            }
+
+            # Clothing state
+            context["clothing"][char_id] = {
+                "outfit": char_state.clothing.outfit,
+                "items": dict(char_state.clothing.items),
+            }
+
+        # Global state
+        context["flags"] = dict(self.state.flags)
+
+        # Arcs
+        context["arcs"] = {
+            arc_id: {
+                "stage": arc_state.stage,
+                "history": list(arc_state.history),
+            }
+            for arc_id, arc_state in self.state.arcs.items()
+        }
+
+        # Discovery & unlocks
+        context["discovered"] = {
+            "zones": set(self.state.discovered_zones),
+            "locations": set(self.state.discovered_locations),
+        }
+        context["unlocked"] = {
+            "endings": list(self.state.unlocked_endings),
+            "actions": list(self.state.unlocked_actions),
+        }
+
+        # Character lists
+        context["characters"] = list(self.state.characters.keys())
+        context["present"] = list(self.state.present_characters)
+
+        return context
+
+    def create_evaluator(self, extra_context: dict | None = None):
+        """
+        Factory method to create a ConditionEvaluator with proper dependencies.
+
+        Args:
+            extra_context: Optional additional context to merge (e.g., computed gates)
+
+        Returns:
+            Fully configured ConditionEvaluator
+        """
+        from app.core.conditions import ConditionEvaluator
+
+        return ConditionEvaluator(
+            state_manager=self,
+            index=self.index,
+            extra_context=extra_context
+        )

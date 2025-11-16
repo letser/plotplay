@@ -250,16 +250,44 @@ arg            := expr
 - For dynamic paths, use `get("flags.route_locked", false)`.
 
 ### Built-in Functions
-- `has(<player or npc_id>, <item_id>)` → bool (player inventory)
-- `has_clothing(<player or npc_id>, <item_id>)` → bool (clothing inventory)
-- `has_outfit(<player or npc_id>, <outfit_id>)` → bool (clothing inventory)
-- `wears_clothing(<player or npc_id>, <item_id>)` → bool (clothing inventory)
-- `wears_outfit(<player or npc_id>, <outfit_id>)` → bool (clothing inventory)
-- `npc_present(<npc_id>)` → bool (NPC currently in same location)
-- `rand(p)` → bool (Bernoulli; `0.0 ≤ p ≤ 1.0`; seeded per turn)
-- `min(a,b)`, `max(a,b)`, `abs(x)`
-- `clamp(x, lo, hi)`
-- `get(path_string, default)` → safe lookup (e.g., `get("meters.emma.trust", 0)`)
+
+#### Inventory Functions
+- `has(owner, item_id)` → bool — check all inventory categories (items, clothing, outfits)
+  - Example: `has("player", "flowers")`
+- `has_item(owner, item_id)` → bool — check items inventory only
+  - Example: `has_item("player", "coffee_cup")`
+- `has_clothing(owner, item_id)` → bool — check clothing inventory only
+  - Example: `has_clothing("player", "red_dress")`
+- `has_outfit(owner, outfit_id)` → bool — check if outfit exists in inventory (tangible item)
+  - Example: `has_outfit("player", "evening_gown")`
+
+#### Outfit Functions
+- `knows_outfit(owner, outfit_id)` → bool — check if outfit recipe is known/unlocked
+  - Example: `knows_outfit("player", "sexy_lingerie")`
+- `can_wear_outfit(owner, outfit_id)` → bool — check if character has all required clothing items
+  - Example: `can_wear_outfit("player", "formal_attire")`
+- `wears_outfit(owner, outfit_id)` → bool — check if currently wearing outfit
+  - Example: `wears_outfit("player", "campus_ready")`
+
+#### Clothing Functions
+- `wears(owner, item_id)` → bool — check if currently wearing clothing item (condition != "removed")
+  - Example: `wears("player", "jacket")`
+
+#### Presence & Discovery
+- `npc_present(npc_id)` → bool — check if NPC is in current location
+  - Example: `npc_present("emma")`
+- `discovered(zone_or_location_id)` → bool — check if zone or location is discovered
+  - Example: `discovered("library")`
+- `unlocked(category, id)` → bool — check if ending/action/etc is unlocked
+  - Example: `unlocked("ending", "good_ending")`
+
+#### Utility Functions
+- `rand(p)` → bool — random with probability 0.0-1.0 (deterministic per turn)
+  - Example: `rand(0.25)`
+- `min(a, b)`, `max(a, b)`, `abs(x)` — math functions
+- `clamp(x, lo, hi)` → number — clamp value between bounds
+- `get(path_string, default)` → any — safe nested lookup
+  - Example: `get("meters.emma.trust", 0)`
 
 ### Constraints & Safety
 - No assignments, no user-defined functions, no I/O, no imports, no eval.
@@ -271,8 +299,10 @@ arg            := expr
 ```yaml
 "meters.emma.trust >= 50 and gates.emma.accept_date"
 "time.slot in ['evening','night'] and rand(0.25)"
-"has('flowers') and location.privacy in ['medium','high']"
-"arcs.emma_corruption.stage in ['experimenting','corrupted']"
+"has('player', 'flowers') and location.privacy in ['medium','high']"
+"arcs.emma_romance.stage == 'dating'"
+"can_wear_outfit('player', 'formal_attire') and location.privacy == 'high'"
+"wears('emma', 'sundress') and npc_present('emma')"
 "get('flags.protection_available', false) == true"
 ```
 
@@ -287,55 +317,60 @@ The following variables and namespaces are available:
 - `time.time_hhmm` (string) — "HH:MM" in clock/hybrid modes
 - `time.weekday` (string) — e.g., "monday"
 
-#### Location
-- `location.zone` (string) — zone id
-- `location.id` (string) — location id
-- `location.privacy` (enum) — none | low | medium | high
+#### Location & Navigation
+- `location.id` (string) — current location id
+- `location.zone` (string) — current zone id
+- `location.privacy` (string) — "low" | "medium" | "high"
+- `node.id` (string) — current node id
+- `turn` (int) — total turn count
 
 #### Characters & Presence
-- `characters` (list of ids) — NPC ids known in game
-- `present` (list of ids) — NPC ids present in current location
-  - Prefer `npc_present('emma')` for clarity.
+- `characters` (list[string]) — all character ids in game
+- `present` (list[string]) — character ids in current location
+  - Prefer `npc_present('emma')` for clarity
 
 #### Meters
-- `meters.<player or npc_id>.<meter_id>` (number)
-  - Example: `meters.emma.trust`, `meters.player.energy`
+- `meters.<char_id>.<meter_id>` (int|float) — character meter values
+  - Example: `meters.emma.trust >= 50`, `meters.player.energy > 20`
 
 #### Flags
-- `flags.<flag_key>` — boolean/number/string (as defined)
-  - Example: `flags.first_kiss == true`
+- `flags.<flag_id>` (bool|int|float|string) — global game flags
+  - Example: `flags.first_kiss == true`, `flags.route == "romance"`
 
 #### Modifiers (active)
-- `modifiers.player` (list[string]) — active modifier ids
-- `modifiers.<npc_id>` (list[string])
-  - Often checked via gates or effects rather than here.
+- `modifiers.<char_id>` (list[string]) — active modifier IDs for character
+  - Example: `"well_rested" in modifiers.player`
 
-#### Inventory
-- `inventory.player.<item_id>` (int count)
-- `inventory.<npc_id>.<item_id>` (int count)
-  - Prefer `has('flowers')` for player possession checks.
+#### Inventory (by category)
+- `inventory.<char_id>.items.<item_id>` (int) — item count
+- `inventory.<char_id>.clothing.<item_id>` (int) — clothing item count
+- `inventory.<char_id>.outfits.<outfit_id>` (int) — outfit count
+  - Prefer `has()`, `has_item()`, `has_clothing()`, `has_outfit()` functions
 
-#### Clothing (runtime state)
-- `clothing.<player or npc_id>.slots.<slot>` — `"intact" | "displaced" | "opened" | "removed"`
-- `clothing.<player or npc_id>.outfit` — current outfit id
+#### Clothing State (what's being worn)
+- `clothing.<char_id>.outfit` (string|null) — currently equipped outfit ID
+- `clothing.<char_id>.items.<item_id>` (string) — item condition
+  - Condition: `"intact"` | `"opened"` | `"displaced"` | `"removed"`
+  - Example: `clothing.player.items.jacket == "removed"`
+  - Prefer `wears()` and `wears_outfit()` functions
 
 #### Gates (consent/behavior)
-- `gates.<npc_id>.<gate_id>` (bool)
-  - Gate values are derived from meters/flags/privacy; use this instead of re-implementing checks.
-  - Example: `gates.emma.accept_kiss`
+- `gates.<char_id>.<gate_id>` (bool) — active behavior gates
+  - Gate values are derived from meters/flags/privacy
+  - Example: `gates.emma.accept_kiss == true`
 
 #### Arcs
-- `arcs.<arc_id>.stage` (string) — current stage id
-- `arcs.<arc_id>.history` (list[string]) — prior stages
+- `arcs.<arc_id>.stage` (string|null) — current stage ID
+- `arcs.<arc_id>.history` (list[string]) — completed stage IDs
+  - Example: `arcs.emma_romance.stage == "dating"`
+  - Example: `"first_kiss" in arcs.emma_romance.history`
 
-#### Macros
- - `'always'` resolves to boolean truth   
- - `{owner}` - Item owner 
- - `{character}` - Current character in modifier context
- - `{target}` - Effect target
- - `{location}` - Current location
- - `{zone}` - Current zone
- - `{privacy}` - Current privacy level
+#### Discovery & Unlocks
+- `discovered.zones` (set[string]) — discovered zone IDs
+- `discovered.locations` (set[string]) — discovered location IDs
+- `unlocked.endings` (list[string]) — unlocked ending IDs
+- `unlocked.actions` (list[string]) — unlocked action IDs
+  - Prefer `discovered()` and `unlocked()` functions
 
 ### Authoring Guidelines
 - Prefer checking **gates** (`gates.emma.accept_kiss`) over raw meter math.
@@ -1056,6 +1091,7 @@ movement:                         # OPTIONAL. Top level node
                                     # If true, arrive to zone's entry locations and
                                     # must reach the zone's exit location to travel out of a zone.
 
+  base_unit: <str>                # REQUIRED. Base unit for distances, km, miles, etc. 
   methods:                        # REQUIRED if a game uses travel methods. List of travel methods.
     - "<method_name>": <base_time>  # REQUIRED. Unique method name and base time.
 ```
@@ -1064,6 +1100,7 @@ movement:                         # OPTIONAL. Top level node
 movement:
   base_time: 1                       # One action to move within a zone.
   use_entry_exit: true               # Must enter via zone entrances before exploring.
+  base_unit: "km"                    # Distance is measured in kilometers.
   methods:
     - walk: 1                        # 1 minute per distance unit.
     - bike: 0.5

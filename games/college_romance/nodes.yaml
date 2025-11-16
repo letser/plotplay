@@ -136,14 +136,14 @@ nodes:
       - id: "study_with_emma"
         prompt: "Head to the library to follow up with Emma."
         when_any:
-          - "flags.met_emma == true"
-          - "flags.emma_study_session == true"
+          - "flags.met_emma"
+          - "flags.emma_study_session"
         on_select:
           - type: "goto"
             node: "library_session"
       - id: "drop_by_rehearsal"
         prompt: "Swing by the cafe during Zoe's rehearsal break."
-        when: "flags.met_zoe == true"
+        when: "flags.met_zoe"
         on_select:
           - type: "goto"
             node: "rehearsal_break"
@@ -247,7 +247,7 @@ nodes:
     choices:
       - id: "choose_emma"
         prompt: "Text Emma and plan a quiet walk."
-        when: "flags.met_emma == true"
+        when: "flags.met_emma"
         on_select:
           - type: "flag_set"
             key: "evening_choice_made"
@@ -257,8 +257,8 @@ nodes:
       - id: "choose_zoe"
         prompt: "Head downtown to catch Zoe's set."
         when_any:
-          - "flags.met_zoe == true"
-          - "flags.zoe_band_invite == true"
+          - "flags.met_zoe"
+          - "flags.zoe_band_invite"
         on_select:
           - type: "flag_set"
             key: "evening_choice_made"
@@ -374,11 +374,11 @@ nodes:
       - "Back in your dorm, the night settles into a comfortable hush."
       - "Two different futures glow on your phone screen."
     triggers:
-      - when: "flags.emma_final_choice == true"
+      - when: "flags.emma_final_choice"
         on_select:
           - type: "goto"
             node: "ending_emma"
-      - when: "flags.zoe_final_choice == true"
+      - when: "flags.zoe_final_choice"
         on_select:
           - type: "goto"
             node: "ending_zoe"

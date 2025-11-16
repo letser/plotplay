@@ -43,13 +43,13 @@ nodes:
     dynamic_choices:
       - id: "hub_evening_event"
         prompt: "Observe the evening plaza busker (event check)."
-        when: "flags.evening_busker_unlocked == true"
+        when: "flags.evening_busker_unlocked"
         on_select:
           - type: "goto"
             node: "evening_busker_scene"
       - id: "hub_final_checks"
         prompt: "Trigger the warehouse sign-off."
-        when: "flags.safety_clearance_ready == true"
+        when: "flags.safety_clearance_ready"
         on_select:
           - type: "goto"
             node: "industrial_ending"
