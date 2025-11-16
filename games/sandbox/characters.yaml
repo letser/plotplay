@@ -14,24 +14,11 @@ characters:
         min: 0
         max: 100
         default: 100
-    outfits:
-      - id: "casual_outfit"
-        name: "Casual Clothes"
-        description: "Comfortable jeans and a t-shirt."
-        pieces:
-          - slot: "top"
-            name: "T-Shirt"
-            description: "A plain cotton t-shirt."
-          - slot: "bottom"
-            name: "Jeans"
-            description: "Well-worn denim jeans."
-          - slot: "feet"
-            name: "Sneakers"
-            description: "Comfortable walking shoes."
+    clothing:
+      outfit: "casual_outfit"
     inventory:
       items:
-        - id: "phone"
-          count: 1
+        phone: 1
 
   - id: "mara_vendor"
     name: "Mara Chen"
@@ -44,6 +31,16 @@ characters:
       core_traits: "resourceful, upbeat, observant"
       quirks: "names each travel method after a pastry"
       values: "preparation, community, clear signage"
+    meters:
+      mood:
+        min: 0
+        max: 100
+        default: 70
+        visible: false
+        thresholds:
+          grumpy: { min: 0, max: 39 }
+          neutral: { min: 40, max: 69 }
+          cheerful: { min: 70, max: 100 }
     schedule:
       - when_any:
           - "time.slot == 'morning'"
@@ -54,15 +51,98 @@ characters:
         location: "suburbs_park_entrance"
     inventory:
       items:
-        - id: "city_map"
-          count: 3
-        - id: "hi_vis_vest"
-          count: 1
+        city_map: 3
+        hi_vis_vest: 1
     shop:
       name: "Mara's Mobile Cart"
       inventory:
         items:
-          - id: "city_map"
-            count: 5
-          - id: "hi_vis_vest"
-            count: 2
+          city_map: 5
+          hi_vis_vest: 2
+          energy_snack: 3
+
+  - id: "alex_local"
+    name: "Alex Rivera"
+    pronouns: ["they", "them"]
+    age: 28
+    gender: "non-binary"
+    dialogue_style: "Friendly, casual, with a warm sense of humor."
+    appearance: "Alex has short dark hair, an easy smile, and often wears comfortable streetwear."
+    personality:
+      core_traits: "friendly, easygoing, curious"
+      quirks: "always knows the best local spots"
+      values: "community, authenticity, good coffee"
+
+    meters:
+      trust:
+        min: 0
+        max: 100
+        default: 20
+        visible: false
+        thresholds:
+          stranger: { min: 0, max: 29 }
+          acquaintance: { min: 30, max: 59 }
+          friend: { min: 60, max: 100 }
+
+      interest:
+        min: 0
+        max: 100
+        default: 10
+        visible: false
+        thresholds:
+          indifferent: { min: 0, max: 29 }
+          curious: { min: 30, max: 59 }
+          engaged: { min: 60, max: 100 }
+
+    gates:
+      - id: "accept_coffee_chat"
+        when: "meters.alex_local.trust >= 20"
+        acceptance: "Alex smiles warmly. 'I've got a few minutes. Let's grab a seat.'"
+        refusal: "Alex checks their watch. 'Sorry, running late today. Catch you later?'"
+
+      - id: "share_contact"
+        when: "meters.alex_local.trust >= 50"
+        acceptance: "'Here's my number. Text me sometime!' Alex taps their phone."
+        refusal: "'Let's chat here for now, yeah? Still getting to know folks.'"
+
+      - id: "invite_to_event"
+        when_all:
+          - "meters.alex_local.trust >= 60"
+          - "meters.alex_local.interest >= 40"
+        acceptance: "'I'd love to! When and where?' Alex's eyes light up."
+        refusal: "'That sounds fun, but I'm pretty swamped this week. Maybe another time?'"
+
+      - id: "share_local_knowledge"
+        when: "meters.alex_local.trust >= 40"
+        acceptance: "'Oh, I know all the shortcuts around here. Want me to show you?'"
+        refusal: "'Still exploring myself, honestly. Let's discover together!'"
+
+    schedule:
+      - when: "time.slot == 'morning'"
+        location: "downtown_plaza"
+      - when: "time.slot == 'afternoon'"
+        location: "suburbs_park_entrance"
+      - when: "time.slot == 'evening'"
+        location: "downtown_cafe"
+      - when: "time.slot == 'night'"
+        location: "downtown_plaza"
+
+    movement:
+      willing_locations:
+        - location: "downtown_cafe"
+          when: "meters.alex_local.trust >= 30"
+        - location: "suburbs_park_entrance"
+          when: "meters.alex_local.trust >= 40"
+        - location: "downtown_plaza"
+          when: "always"
+
+      willing_zones:
+        - zone: "downtown"
+          when: "always"
+        - zone: "suburbs"
+          when: "meters.alex_local.trust >= 50"
+        - zone: "industrial"
+          when: "meters.alex_local.trust >= 70"
+
+    clothing:
+      outfit: "casual_outfit"

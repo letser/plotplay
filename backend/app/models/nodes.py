@@ -12,6 +12,7 @@ from pydantic import Field, model_validator
 
 from .model import SimpleModel, DescriptiveModel, DSLExpression, OptionalConditionalMixin
 from .narration import Narration
+from .time import TimeDurations
 
 if TYPE_CHECKING:
     from .effects import EffectsList
@@ -42,6 +43,8 @@ class NodeChoice(NodeTrigger):
     """Player choice in a node."""
     id: str
     prompt: str
+    time_category: str | None = None
+    time_cost: int | None = None
 
 class Node(DescriptiveModel):
     """Story node definition."""
@@ -62,6 +65,9 @@ class Node(DescriptiveModel):
     choices: list[NodeChoice] = Field(default_factory=list)
     dynamic_choices: list[NodeChoice] = Field(default_factory=list)
     triggers: list[NodeTrigger] = Field(default_factory=list)
+
+    # Durations
+    time_behavior: TimeDurations | None = None
 
     # Ending specific
     ending_id: str | None = None

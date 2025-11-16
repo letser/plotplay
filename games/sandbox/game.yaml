@@ -30,15 +30,31 @@ meters:
       icon: "⚡"
 
 time:
-  mode: "hybrid"
+  slots_enabled: true
   slots: ["morning", "afternoon", "evening", "night"]
-  actions_per_slot: 10
-  minutes_per_action: 15
   slot_windows:
     morning: { start: "06:00", end: "11:59" }
     afternoon: { start: "12:00", end: "17:59" }
     evening: { start: "18:00", end: "21:59" }
     night: { start: "22:00", end: "05:59" }
+
+  categories:
+    instant: 0          # Quick dialogue
+    trivial: 2          # Brief interaction
+    quick: 5            # Short action
+    standard: 15        # Default activity
+    significant: 30     # Meaningful activity
+    major: 60           # Major time passage
+
+  defaults:
+    conversation: "instant"
+    choice: "quick"
+    movement: "standard"
+    default: "trivial"
+    cap_per_visit: 30
+
+  week_days: ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+  start_day: "monday"
 
 economy:
   enabled: true
@@ -47,13 +63,116 @@ economy:
   currency_name: "dollars"
   currency_symbol: "$"
 
+wardrobe:
+  slots: ["outerwear", "top", "bottom", "feet", "accessory"]
+  items:
+    - id: "light_jacket"
+      name: "Light Jacket"
+      value: 45
+      occupies: ["outerwear"]
+      conceals: ["top"]
+      can_open: true
+      look:
+        intact: "A practical zip-up jacket with multiple pockets"
+        opened: "The jacket hangs open, showing the shirt beneath"
+        removed: "Jacket tucked under arm or in bag"
+
+    - id: "casual_shirt"
+      name: "Casual Shirt"
+      value: 20
+      occupies: ["top"]
+      look:
+        intact: "Comfortable everyday shirt in a neutral color"
+        displaced: "Shirt slightly rumpled and untucked"
+
+    - id: "jeans"
+      name: "Jeans"
+      value: 35
+      occupies: ["bottom"]
+      look:
+        intact: "Well-worn jeans with faded knees"
+
+    - id: "sneakers"
+      name: "Sneakers"
+      value: 50
+      occupies: ["feet"]
+      look:
+        intact: "Comfortable walking shoes with good tread"
+
+    - id: "hi_vis_vest_wearable"
+      name: "Hi-Vis Safety Vest"
+      value: 15
+      occupies: ["accessory"]
+      look:
+        intact: "Bright reflective vest for industrial safety"
+        removed: "Safety vest folded in hand"
+      on_put_on:
+        - type: flag_set
+          key: "wearing_safety_gear"
+          value: true
+      on_take_off:
+        - type: flag_set
+          key: "wearing_safety_gear"
+          value: false
+
+    - id: "rain_jacket"
+      name: "Rain Jacket"
+      value: 60
+      locked: true
+      unlock_when: "flags.market_briefing_viewed"
+      occupies: ["outerwear"]
+      conceals: ["top"]
+      can_open: true
+      look:
+        intact: "Water-resistant jacket perfect for rainy days"
+        opened: "Rain jacket unzipped and flapping"
+
+  outfits:
+    - id: "casual_outfit"
+      name: "Casual Outfit"
+      description: "Basic everyday wear for exploring the city"
+      items:
+        light_jacket: intact
+        casual_shirt: intact
+        jeans: intact
+        sneakers: intact
+      grant_items: true
+
+    - id: "industrial_outfit"
+      name: "Industrial Site Outfit"
+      description: "Outfit with proper safety gear for warehouse access"
+      items:
+        casual_shirt: intact
+        jeans: intact
+        sneakers: intact
+        hi_vis_vest_wearable: intact
+      locked: true
+      unlock_when: "inventory.player.items.hi_vis_vest > 0"
+
+    - id: "rainy_day_outfit"
+      name: "Rainy Day Outfit"
+      description: "Stay dry while exploring"
+      items:
+        rain_jacket: intact
+        casual_shirt: intact
+        jeans: intact
+        sneakers: intact
+      locked: true
+      unlock_when: "flags.market_briefing_viewed"
+
 movement:
-  base_time: 2
   use_entry_exit: true
+  base_unit: "km"
   methods:
-    - walk: 5
-    - bike: 3
-    - car: 1
+    - name: "walk"
+      active: true
+      time_cost: 20        # 20 minutes per km
+    - name: "bike"
+      active: true
+      time_cost: 10        # 10 minutes per km
+    - name: "car"
+      active: false        # Passive transport
+      speed: 40            # 40 km/h
 
 flags:
   market_briefing_viewed:
@@ -79,6 +198,202 @@ flags:
   safety_clearance_ready:
     type: "bool"
     label: "Industrial clearance ready"
+    default: false
+    visible: false
+  vendor_purchases:
+    type: "number"
+    label: "Number of purchases from Mara"
+    default: 0
+    visible: false
+
+  # Clothing & wardrobe flags
+  wearing_safety_gear:
+    type: "bool"
+    default: false
+    visible: false
+
+  # Action-related flags
+  checked_phone_recently:
+    type: "bool"
+    default: false
+    visible: false
+  knows_shortcuts:
+    type: "bool"
+    default: false
+    visible: false
+  used_coffee_token:
+    type: "bool"
+    default: false
+    visible: false
+  used_shortcut:
+    type: "bool"
+    default: false
+    visible: false
+  shared_knowledge:
+    type: "bool"
+    default: false
+    visible: false
+
+  # Modifier-related flags
+  felt_caffeine_rush:
+    type: "bool"
+    default: false
+    visible: false
+  clothes_dried:
+    type: "bool"
+    default: false
+    visible: false
+  has_injury:
+    type: "bool"
+    default: false
+    visible: false
+  injury_healed:
+    type: "bool"
+    default: false
+    visible: false
+
+  # Arc: city_explorer
+  exploration_started:
+    type: "bool"
+    default: false
+    visible: false
+  explorer_recognized:
+    type: "bool"
+    default: false
+    visible: false
+  city_expert_achieved:
+    type: "bool"
+    default: false
+    visible: false
+  ready_for_new_adventures:
+    type: "bool"
+    default: false
+    visible: false
+
+  # Arc: vendor_friendship
+  mara_met:
+    type: "bool"
+    default: false
+    visible: false
+  mara_recognizes_you:
+    type: "bool"
+    default: false
+    visible: false
+  mara_friendship_unlocked:
+    type: "bool"
+    default: false
+    visible: false
+  mara_best_friend:
+    type: "bool"
+    default: false
+    visible: false
+  lasting_friendship:
+    type: "bool"
+    default: false
+    visible: false
+
+  # Arc: industrial_access
+  industrial_cleared:
+    type: "bool"
+    default: false
+    visible: false
+  industrial_full_access:
+    type: "bool"
+    default: false
+    visible: false
+
+  # Priority 2 demo node flags
+  weather:
+    type: "string"
+    default: ""
+    visible: false
+  enjoyed_sunshine:
+    type: "bool"
+    default: false
+    visible: false
+  bad_weather_mood:
+    type: "bool"
+    default: false
+    visible: false
+  entered_advanced_demo:
+    type: "bool"
+    default: false
+    visible: false
+  completed_advanced_demo:
+    type: "bool"
+    default: false
+    visible: false
+  used_time_cost_choice:
+    type: "bool"
+    default: false
+    visible: false
+  used_time_category_choice:
+    type: "bool"
+    default: false
+    visible: false
+  high_energy_trigger_fired:
+    type: "bool"
+    default: false
+    visible: false
+
+  # Priority 3 demo node flags
+  # Unlock/lock demo flags
+  test_item_unlocked:
+    type: "bool"
+    default: false
+    visible: false
+  secret_action_unlocked:
+    type: "bool"
+    default: false
+    visible: false
+  secret_garden_unlocked:
+    type: "bool"
+    default: false
+    visible: false
+  secret_ending_unlocked:
+    type: "bool"
+    default: false
+    visible: false
+
+  # Privacy demo flags
+  checked_privacy:
+    type: "bool"
+    default: false
+    visible: false
+  privacy_level_shown:
+    type: "bool"
+    default: false
+    visible: false
+
+  # Dynamic choices demo flags
+  demo_flag_a:
+    type: "bool"
+    default: false
+    visible: false
+  demo_flag_b:
+    type: "bool"
+    default: false
+    visible: false
+  used_dynamic_choice_a:
+    type: "bool"
+    default: false
+    visible: false
+  used_dynamic_choice_b:
+    type: "bool"
+    default: false
+    visible: false
+  used_dynamic_choice_c:
+    type: "bool"
+    default: false
+    visible: false
+  used_combo_dynamic_choice:
+    type: "bool"
+    default: false
+    visible: false
+
+  # Secret action flag (from actions.yaml)
+  used_secret_action:
+    type: "bool"
     default: false
     visible: false
 

@@ -1,1 +1,190 @@
-arcs: []
+arcs:
+    # Arc 1: City Explorer - Track exploration progress through zones
+    - id: "city_explorer"
+      title: "City Explorer"
+      description: "Discover all the city has to offer"
+      character: "player"
+      category: "exploration"
+      repeatable: false
+      stages:
+          # Stage 1: Just arrived
+          - id: "newcomer"
+            title: "New in Town"
+            description: "Just starting to explore the city"
+            when: "always"
+            on_enter:
+                - type: flag_set
+                  key: "exploration_started"
+                  value: true
+
+          # Stage 2: Getting oriented
+          - id: "curious_explorer"
+            title: "Getting Oriented"
+            description: "Learning about the city's key locations"
+            when_all:
+                - "flags.market_briefing_viewed"
+                - "flags.vendor_briefing_viewed"
+            on_enter:
+                - type: unlock
+                  actions: ["review_map"]
+                - type: meter_change
+                  target: player
+                  meter: energy
+                  op: add
+                  value: 5
+
+          # Stage 3: Active explorer
+          - id: "active_explorer"
+            title: "Active Explorer"
+            description: "Engaging with the city's events and people"
+            when_all:
+                - "flags.park_encounter_logged"
+                - "flags.evening_busker_unlocked"
+            on_enter:
+                - type: unlock
+                  actions: ["use_shortcut", "share_discovery"]
+                - type: flag_set
+                  key: "explorer_recognized"
+                  value: true
+
+          # Stage 4: City expert
+          - id: "city_expert"
+            title: "City Expert"
+            description: "Knows the city inside and out"
+            when_all:
+                - "flags.park_encounter_logged"
+                - "flags.evening_busker_unlocked"
+                - "flags.safety_clearance_ready"
+                - "flags.knows_shortcuts"
+            on_enter:
+                - type: meter_change
+                  target: player
+                  meter: energy
+                  op: add
+                  value: 10
+                - type: unlock
+                  endings: ["explorer_ending"]
+                - type: flag_set
+                  key: "city_expert_achieved"
+                  value: true
+            on_exit:
+                - type: flag_set
+                  key: "ready_for_new_adventures"
+                  value: true
+
+    # Arc 2: Vendor Friendship - Build relationship with Mara
+    - id: "vendor_friendship"
+      title: "Friendship with Mara"
+      description: "Develop a relationship with the mobile vendor"
+      character: "mara_vendor"
+      category: "social"
+      repeatable: false
+      stages:
+          # Stage 1: First contact
+          - id: "first_meeting"
+            title: "First Meeting"
+            description: "Just met Mara the vendor"
+            when: "flags.vendor_briefing_viewed"
+            on_enter:
+                - type: flag_set
+                  key: "mara_met"
+                  value: true
+
+          # Stage 2: Regular customer
+          - id: "regular_customer"
+            title: "Regular Customer"
+            description: "Mara starts to recognize you"
+            when: "flags.vendor_purchases >= 2"
+            on_enter:
+                - type: flag_set
+                  key: "mara_recognizes_you"
+                  value: true
+                - type: meter_change
+                  target: mara_vendor
+                  meter: mood
+                  op: add
+                  value: 10
+
+          # Stage 3: Friendly acquaintance
+          - id: "friendly_acquaintance"
+            title: "Friendly Acquaintance"
+            description: "Mara greets you warmly"
+            when_all:
+                - "flags.vendor_purchases >= 4"
+                - "meters.mara_vendor.mood >= 75"
+            on_enter:
+                - type: flag_set
+                  key: "mara_friendship_unlocked"
+                  value: true
+                - type: unlock
+                  items: ["friendship_token"]
+
+          # Stage 4: Trusted friend
+          - id: "trusted_friend"
+            title: "Trusted Friend"
+            description: "Mara considers you a friend"
+            when_all:
+                - "flags.vendor_purchases >= 6"
+                - "meters.mara_vendor.mood >= 85"
+                - "flags.shared_knowledge"
+            on_enter:
+                - type: flag_set
+                  key: "mara_best_friend"
+                  value: true
+                - type: unlock
+                  endings: ["vendor_friend_ending"]
+                - type: meter_change
+                  target: player
+                  meter: energy
+                  op: add
+                  value: 15
+            on_exit:
+                - type: flag_set
+                  key: "lasting_friendship"
+                  value: true
+
+    # Arc 3: Industrial Access - Unlock industrial zone content
+    - id: "industrial_access"
+      title: "Industrial Zone Access"
+      description: "Gain full access to the industrial district"
+      character: "player"
+      category: "progression"
+      repeatable: false
+      stages:
+          # Stage 1: Restricted access
+          - id: "restricted"
+            title: "Restricted Access"
+            description: "Industrial zone is largely off-limits"
+            when: "always"
+
+          # Stage 2: Safety clearance obtained
+          - id: "cleared"
+            title: "Safety Clearance"
+            description: "Obtained necessary safety equipment"
+            when: "flags.safety_clearance_ready"
+            on_enter:
+                - type: flag_set
+                  key: "industrial_cleared"
+                  value: true
+                - type: unlock
+                  locations: ["warehouse_interior"]
+
+          # Stage 3: Full access
+          - id: "full_access"
+            title: "Full Industrial Access"
+            description: "Complete access to industrial facilities"
+            when_all:
+                - "flags.safety_clearance_ready"
+                - "inventory.player.items.warehouse_pass > 0"
+                - "inventory.player.items.hi_vis_vest > 0"
+            on_enter:
+                - type: flag_set
+                  key: "industrial_full_access"
+                  value: true
+                - type: unlock
+                  endings: ["industrial_expert_ending"]
+                - type: meter_change
+                  target: player
+                  meter: energy
+                  op: add
+                  value: 5

@@ -45,6 +45,9 @@ class Modifier(OptionalConditionalMixin, DescriptiveModel):
     # Meter clamping
     clamp_meters: dict[str, MeterClamp] | None = Field(default_factory=dict)
 
+    # Time modification
+    time_multiplier: float | None = None
+
     # Events
     on_enter: EffectsList = Field(default_factory=list)
     on_exit: EffectsList = Field(default_factory=list)

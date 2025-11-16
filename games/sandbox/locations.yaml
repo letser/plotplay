@@ -78,14 +78,29 @@ zones:
           - to: "downtown_highway_ramp"
             description: "Walk north to the highway ramp."
             direction: "n"
+          - to: "downtown_cafe"
+            description: "Walk west to the cozy cafe."
+            direction: "w"
         shop:
           name: "Downtown Marketplace Kiosk"
           inventory:
             items:
-              - id: "coffee_token"
-                count: 6
-              - id: "energy_snack"
-                count: 8
+              coffee_token: 6
+              energy_snack: 8
+
+      # Coffee shop location
+      - id: "downtown_cafe"
+        name: "The Daily Grind Cafe"
+        summary: "A cozy neighborhood coffee shop with warm lighting."
+        description: "Comfortable chairs and small tables fill the space. The aroma of fresh coffee beans mingles with the sound of quiet conversation. Local art hangs on exposed brick walls."
+        privacy: "medium"
+        connections:
+          - to: "downtown_shops"
+            description: "Walk east back to the shopping district."
+            direction: "e"
+          - to: "downtown_plaza"
+            description: "Walk northeast to the plaza."
+            direction: "ne"
 
   # Suburbs zone - residential area
   - id: "suburbs"
@@ -186,6 +201,20 @@ zones:
             description: "Walk south to the main street."
             direction: "s"
 
+      # Secret location (unlocked via unlock effect)
+      - id: "secret_garden"
+        name: "Secret Garden"
+        summary: "A hidden garden only accessible to those who discover it."
+        description: "A secluded garden hidden behind tall hedges. Flowers bloom in wild profusion, and a small fountain bubbles peacefully. Few people know this place exists."
+        privacy: "high"
+        access:
+          discovered: false
+          locked: true
+        connections:
+          - to: "suburbs_park"
+            description: "Return to the park through the hidden gate."
+            direction: "s"
+
   # Industrial zone - vehicle-oriented area
   - id: "industrial"
     name: "Industrial District"
@@ -266,6 +295,24 @@ zones:
             direction: "e"
           - to: "industrial_gate_south"
             description: "Walk east then south to the south gate."
+            direction: "e"
+          - to: "warehouse_interior"
+            description: "Enter the secure interior section."
+            direction: "w"
+
+      # Secure interior facility (unlocked by arc)
+      - id: "warehouse_interior"
+        name: "Warehouse Interior Section"
+        summary: "The restricted inner section of the warehouse complex."
+        description: "High shelves packed with industrial supplies line the walls. Climate control hums in the background. This area requires special clearance to access."
+        privacy: "high"
+        access:
+          discovered: false
+          locked: true
+          unlock_when: "flags.industrial_cleared"
+        connections:
+          - to: "industrial_warehouse"
+            description: "Return to the main warehouse area."
             direction: "e"
 
       # Vehicle exit point

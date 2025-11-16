@@ -20,11 +20,11 @@ from .model import SimpleModel, DescriptiveModel
 from .modifiers import Modifiers, Modifier
 from .narration import Narration
 from .nodes import Node
-from .time import Time, TimeHHMM, TimeMode, TimeState
+from .time import Time, TimeHHMM, TimeState
 from .wardrobe import Wardrobe, ClothingItem, Outfit
 
 
-class MetaConfig(DescriptiveModel):
+class Meta(DescriptiveModel):
     """Game metadata"""
     id: str
     title: str
@@ -39,7 +39,6 @@ class GameStart(SimpleModel):
     node: str
     location: str
     day: int | None = 1
-    slot: str | None = None
     time: TimeHHMM | None = "00:00"
 
 
@@ -114,7 +113,7 @@ class GameDefinition(SimpleModel):
     that the game engine will work with.
     """
     # Game meta and narration
-    meta: MetaConfig
+    meta: Meta
     narration: Narration = Field(default_factory=Narration)
     rng_seed: int | str | None = None
 
@@ -153,19 +152,6 @@ class GameDefinition(SimpleModel):
 
     @model_validator(mode='after')
     def validate_start_requirements(self):
-        """Ensure the start slot aligns with the configured time mode."""
-        time_mode = self.time.mode
-        slots = self.time.slots or []
-
-        if time_mode in (TimeMode.SLOTS, TimeMode.HYBRID):
-            if not self.start.slot:
-                raise ValueError(
-                    "start.slot must be defined when time mode is 'slots' or 'hybrid'."
-                )
-            if slots and self.start.slot not in slots:
-                raise ValueError(
-                    f"start.slot '{self.start_slot}' is not defined in time.slots."
-                )
 
         # Auto-inject money meter definition when economy is enabled
         if self.economy and self.economy.enabled:
@@ -194,7 +180,7 @@ class GameDefinition(SimpleModel):
 class GameState:
     """Complete game state at a point in time."""
     # --- Time & calendar ---
-    _time: TimeState = field(default_factory=TimeState)
+    time: TimeState = field(default_factory=TimeState)
 
     # --- Location & presence ---
     current_location: str | None = None
@@ -253,35 +239,35 @@ class GameState:
 
     @property
     def day(self) -> int:
-        return self._time.day
+        return self.time.day
 
     @day.setter
     def day(self, value: int):
-        self._time.day = value
+        self.time.day = value
 
     @property
     def time_hhmm(self) -> str | None:
-        return self._time.time_hhmm
+        return self.time.time_hhmm
 
     @time_hhmm.setter
     def time_hhmm(self, value:str | None):
-        self._time.time_hhmm = value
+        self.time.time_hhmm = value
 
     @property
     def weekday(self) -> str | None:
-        return self._time.weekday
+        return self.time.weekday
 
     @weekday.setter
     def weekday(self, value: str):
-        self._time.weekday = value
+        self.time.weekday = value
 
     @property
     def time_slot(self) -> str | None:
-        return self._time.slot
+        return self.time.slot
 
     @time_slot.setter
     def time_slot(self, value: str):
-        self._time.slot = value
+        self.time.slot = value
 
     def to_dict(self) -> dict:
         """Convert to dictionary for serialization."""

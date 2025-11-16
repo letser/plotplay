@@ -305,7 +305,7 @@ def wardrobe_game():
     """Game fixture with complete wardrobe system for clothing tests."""
     from app.models.wardrobe import Wardrobe, ClothingItem, Outfit, ClothingLook
     from app.models.characters import Character, ClothingConfig
-    from app.models.game import GameDefinition, MetaConfig, GameStart
+    from app.models.game import GameDefinition, Meta, GameStart
     from app.models.time import Time
     from app.models.locations import Zone, Location
     from app.models.nodes import Node
@@ -376,7 +376,7 @@ def wardrobe_game():
 
     # Create game definition
     game = GameDefinition(
-        meta=MetaConfig(
+        meta=Meta(
             id="wardrobe_test",
             title="Wardrobe Test Game",
             version="1.0.0"

@@ -5,7 +5,7 @@ import pytest
 
 from app.core.game_loader import GameLoader
 from app.core.game_engine import GameEngine
-from app.models.game import GameDefinition, MetaConfig, GameStart
+from app.models.game import GameDefinition, Meta, GameStart
 from app.models.time import Time
 from app.models.meters import MetersTemplate, Meter
 from app.models.modifiers import Modifiers, Modifier
@@ -89,7 +89,7 @@ def engine_with_modifiers(monkeypatch, mock_ai_service, use_real_ai):
     )
 
     game = GameDefinition(
-        meta=MetaConfig(
+        meta=Meta(
             id="modifier_test",
             title="Modifier Test",
             version="1.0.0"

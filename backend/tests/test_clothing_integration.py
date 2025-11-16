@@ -15,7 +15,7 @@ Tests verify:
 """
 import pytest
 from app.core.game_engine import GameEngine
-from app.models.game import GameDefinition, MetaConfig, GameStart
+from app.models.game import GameDefinition, Meta, GameStart
 from app.models.characters import Character
 from app.models.wardrobe import (
     Wardrobe, ClothingItem, ClothingLook, ClothingCondition, Outfit
@@ -30,7 +30,7 @@ from app.models.locations import Zone, Location
 def minimal_game() -> GameDefinition:
     """Create a minimal game without wardrobe for edge case testing."""
     game = GameDefinition(
-        meta=MetaConfig(
+        meta=Meta(
             id="minimal_test",
             title="Minimal Test Game",
             version="1.0.0"

@@ -9,9 +9,7 @@ from app.core.conditions import ConditionEvaluator
 from app.models.effects import (
     AnyEffect,
     AdvanceTimeEffect,
-    AdvanceTimeSlotEffect,
     ApplyModifierEffect,
-    ClothingChangeEffect,
     ClothingPutOnEffect,
     ClothingTakeOffEffect,
     ClothingStateEffect,
@@ -21,7 +19,6 @@ from app.models.effects import (
     GotoEffect,
     InventoryAddEffect,
     InventoryRemoveEffect,
-    InventoryChangeEffect,
     InventoryPurchaseEffect,
     InventorySellEffect,
     InventoryGiveEffect,
@@ -121,8 +118,6 @@ class EffectResolver:
                     self._apply_move(effect)
                 case TravelToEffect():
                     self._apply_travel_to(effect)
-                case AdvanceTimeSlotEffect():
-                    self._apply_advance_time_slot(effect)
                 case LockEffect():
                     self._apply_lock(effect)
                 case ApplyModifierEffect() | RemoveModifierEffect():
@@ -696,11 +691,6 @@ class EffectResolver:
             method=effect.method,
             with_characters=effect.with_characters or []
         )
-
-    def _apply_advance_time_slot(self, effect: AdvanceTimeSlotEffect) -> None:
-        """Handle advance_time_slot effect: advance time by slots."""
-        time_info = self.engine.time.advance_slot(effect.slots)
-        self.engine.time.apply_meter_dynamics(time_info)
 
     def _apply_lock(self, effect: LockEffect) -> None:
         """Handle lock effect: lock items/clothing/locations/actions."""

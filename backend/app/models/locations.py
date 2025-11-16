@@ -99,17 +99,35 @@ class Location(DescriptiveModel):
 class TravelMethod(SimpleModel):
     """Travel method definition."""
     name: str
-    base_time: int
+    active: bool = True
+    time_cost: int | None = None
+    speed: int | None = None
+    category: str | None = None
 
     @model_validator(mode='after')
     def validate_method(self):
-        if self.base_time <= 0:
-            raise ValueError("Travel method 'base_time' must be positive.")
+        # Exactly one of time_cost, speed, or category must be set
+        fields_set = sum([
+            self.time_cost is not None,
+            self.speed is not None,
+            self.category is not None
+        ])
+        if fields_set != 1:
+            raise ValueError(
+                f"Travel method '{self.name}' must have exactly one of: time_cost, speed, or category."
+            )
+
+        # Validate positive values
+        if self.time_cost is not None and self.time_cost <= 0:
+            raise ValueError(f"Travel method '{self.name}' time_cost must be positive.")
+        if self.speed is not None and self.speed <= 0:
+            raise ValueError(f"Travel method '{self.name}' speed must be positive.")
+
         return self
 
 
 class Movement(SimpleModel):
-    base_time: int | None = 1
+    base_unit: str | None = None
     use_entry_exit: bool = False
     methods: list[TravelMethod] = Field(default_factory=list)
 
@@ -127,12 +145,17 @@ class Movement(SimpleModel):
             normalized = []
             for item in value:
                 if isinstance(item, dict):
-                    if len(item) != 1:
+                    # If dict already has 'name' key, it's in new format - pass through
+                    if "name" in item:
+                        normalized.append(item)
+                    # Otherwise, expect old single-key format
+                    elif len(item) != 1:
                         raise ValueError(
                             "Each travel method mapping must contain exactly one entry."
                         )
-                    (k, v), = item.items()
-                    normalized.append({"name": k, "base_time": v})
+                    else:
+                        (k, v), = item.items()
+                        normalized.append({"name": k, "base_time": v})
                 else:
                     normalized.append(item)
             return normalized
@@ -141,8 +164,8 @@ class Movement(SimpleModel):
 
     @model_validator(mode='after')
     def validate_base_time(self):
-        if self.base_time is not None and self.base_time < 0:
-            raise ValueError("Movement 'base_time' must be zero or positive.")
+        # base_time field was removed in v3 time system - validator no longer needed
+        # Validation now happens in TravelMethod.validate_method()
         return self
 
 
@@ -164,10 +187,25 @@ class Zone(DescriptiveModel):
     access: LocationAccess = Field(default_factory=LocationAccess)
     connections: list[ZoneConnection] = Field(default_factory=list)
 
+    # Local movement time (within zone)
+    time_cost: int | None = None        # Minutes to move between locations
+    time_category: str | None = None    # Time category from time.categories
+
     locations: list[Location] = Field(default_factory=list)
 
     entrances: list[str] = Field(default_factory=list)
     exits: list[str] = Field(default_factory=list)
+
+    @model_validator(mode='after')
+    def validate_time_fields(self):
+        """Ensure at most one of time_cost or time_category is set."""
+        if self.time_cost is not None and self.time_category is not None:
+            raise ValueError(
+                f"Zone '{self.id}' cannot have both time_cost and time_category. Use only one."
+            )
+        if self.time_cost is not None and self.time_cost < 0:
+            raise ValueError(f"Zone '{self.id}' time_cost must be non-negative.")
+        return self
 
 
 class ZoneMovementWillingness(OptionalConditionalMixin, SimpleModel):

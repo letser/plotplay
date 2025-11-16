@@ -51,3 +51,22 @@ items:
     consumable: false
     icon: "🎫"
     value: 0
+
+  - id: "friendship_token"
+    name: "Friendship Token"
+    description: "A small handmade token from Mara - a sign of true friendship."
+    stackable: false
+    droppable: false
+    consumable: false
+    icon: "🪙"
+    value: 0
+
+  - id: "test_locked_item"
+    name: "Test Locked Item"
+    description: "An item for testing unlock/lock mechanics. Starts locked."
+    locked: true
+    stackable: false
+    droppable: true
+    consumable: false
+    icon: "🔒"
+    value: 5

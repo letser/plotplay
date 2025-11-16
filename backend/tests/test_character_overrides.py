@@ -24,7 +24,7 @@ from app.models.wardrobe import Wardrobe, ClothingItem, Outfit, ClothingLook
 @pytest.fixture
 def game_with_overrides() -> GameDefinition:
     """Create a minimal game with character meter and wardrobe overrides."""
-    from app.models.game import GameDefinition, MetaConfig, GameStart
+    from app.models.game import GameDefinition, Meta, GameStart
     from app.models.locations import Zone, Location
     from app.models.nodes import Node
     from app.models.characters import Character, ClothingConfig
@@ -160,7 +160,7 @@ def game_with_overrides() -> GameDefinition:
     )
 
     game_def = GameDefinition(
-        meta=MetaConfig(
+        meta=Meta(
             id="test_overrides",
             title="Character Overrides Test",
             version="1.0.0"

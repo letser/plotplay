@@ -11,7 +11,7 @@ Tests the following systems working together according to specification:
 import pytest
 from app.core.game_loader import GameLoader
 from app.core.state_manager import StateManager
-from app.models.game import GameDefinition, MetaConfig, GameStart
+from app.models.game import GameDefinition, Meta, GameStart
 from app.models.locations import Zone, Location
 from app.models.nodes import Node, NodeChoice
 from app.models.characters import Character
@@ -34,7 +34,7 @@ def game_for_effects_test() -> GameDefinition:
     from app.models.items import Item
 
     game = GameDefinition(
-        meta=MetaConfig(
+        meta=Meta(
             id="effects_test",
             title="Effects Test Game",
             version="1.0.0"
@@ -330,7 +330,7 @@ class TestModifierSystem:
         )
 
         game = GameDefinition(
-            meta=MetaConfig(
+            meta=Meta(
                 id="modifier_test",
                 title="Modifier Test",
                 version="1.0.0"

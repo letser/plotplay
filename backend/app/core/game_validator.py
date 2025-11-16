@@ -8,7 +8,6 @@ from typing import Any, Iterable, Sequence
 
 from app.models.game import GameDefinition
 from app.models.nodes import NodeType
-from app.models.time import TimeMode
 
 
 class GameValidator:
@@ -90,6 +89,9 @@ class GameValidator:
             else set()
         )
 
+        # Time categories
+        self.time_categories: set[str] = set(self.game.time.categories.keys()) if self.game.time.categories else set()
+
     # --------------------------------------------------------------------- #
     # Public API
     # --------------------------------------------------------------------- #
@@ -100,6 +102,7 @@ class GameValidator:
         Raises a ValueError if any critical errors are found.
         """
         self._validate_start_config()
+        self._validate_time()
         self._validate_uniqueness()
         self._validate_zones_and_locations()
         self._validate_characters()
@@ -240,25 +243,68 @@ class GameValidator:
                 f"[Start] > Start location '{start_location}' is not assigned to any zone."
             )
 
-        time_mode = self.game.time.mode
-        if time_mode in (TimeMode.SLOTS, TimeMode.HYBRID):
-            slots = set(self.game.time.slots or [])
-            if not self.game.start.slot:
-                self.errors.append(
-                    "[Start] > Time mode requires start.slot to be defined."
-                )
-            elif slots and self.game.start.slot not in slots:
-                self.errors.append(
-                    f"[Start] > Start slot '{self.game.start.slot}' is not defined in time.slots."
-                )
-        elif self.game.start.slot and time_mode == TimeMode.CLOCK:
-            self.warnings.append(
-                "[Start] > start.slot is ignored in clock mode; consider removing it."
+        # Validate time configuration
+        if not self.game.start.time:
+            self.errors.append(
+                "[Start] > start.time must be defined (HH:MM format)."
             )
+
+    def _validate_time(self) -> None:
+        """Validates time system configuration."""
+        time_config = self.game.time
+
+        # Validate that time categories are defined
+        if not time_config.categories:
+            self.errors.append("[Time] > time.categories must be defined and non-empty.")
+            return
+
+        # Validate that defaults reference valid categories
+        if time_config.defaults:
+            defaults = time_config.defaults
+            if defaults.conversation and defaults.conversation not in self.time_categories:
+                self.errors.append(
+                    f"[Time] > defaults.conversation '{defaults.conversation}' is not a defined category."
+                )
+            if defaults.choice and defaults.choice not in self.time_categories:
+                self.errors.append(
+                    f"[Time] > defaults.choice '{defaults.choice}' is not a defined category."
+                )
+            if defaults.movement and defaults.movement not in self.time_categories:
+                self.errors.append(
+                    f"[Time] > defaults.movement '{defaults.movement}' is not a defined category."
+                )
+            if defaults.default and defaults.default not in self.time_categories:
+                self.errors.append(
+                    f"[Time] > defaults.default '{defaults.default}' is not a defined category."
+                )
+            if defaults.cap_per_visit is not None and defaults.cap_per_visit < 0:
+                self.errors.append(
+                    f"[Time] > defaults.cap_per_visit must be non-negative."
+                )
+
+        # Validate category values are non-negative
+        for category, minutes in time_config.categories.items():
+            if minutes < 0:
+                self.errors.append(
+                    f"[Time] > Category '{category}' has negative minutes: {minutes}."
+                )
+
+        # Validate travel methods reference valid categories
+        for method in self.game.movement.methods:
+            if method.category and method.category not in self.time_categories:
+                self.errors.append(
+                    f"[Movement] > Method '{method.name}' references undefined category '{method.category}'."
+                )
 
     def _validate_zones_and_locations(self) -> None:
         """Validate zone-level and location-level references."""
         for zone in self.game.zones:
+            # Validate zone time configuration
+            if zone.time_category and zone.time_category not in self.time_categories:
+                self.errors.append(
+                    f"[Zone: {zone.id}] > time_category '{zone.time_category}' is not a defined category."
+                )
+
             for entrance in zone.entrances or []:
                 if entrance not in self.zone_locations.get(zone.id, set()):
                     self.errors.append(
@@ -348,11 +394,17 @@ class GameValidator:
                         )
 
     def _validate_item_triggers(self, target, effect_prefix: str) -> None:
-        """Validate triggers for a single clothing item or outfit."""
-        self._validate_effects(target.on_get, f"{effect_prefix} on_get")
-        self._validate_effects(target.on_lost, f"{effect_prefix} on_lost")
-        self._validate_effects(target.on_put_on, f"{effect_prefix} on_put_on")
-        self._validate_effects(target.on_take_off, f"{effect_prefix} on_take_off")
+        """Validate triggers for items, clothing, and outfits."""
+        # All items/clothing/outfits can have on_get and on_lost
+        if hasattr(target, 'on_get'):
+            self._validate_effects(target.on_get, f"{effect_prefix} on_get")
+        if hasattr(target, 'on_lost'):
+            self._validate_effects(target.on_lost, f"{effect_prefix} on_lost")
+        # Only clothing and outfits have on_put_on and on_take_off
+        if hasattr(target, 'on_put_on'):
+            self._validate_effects(target.on_put_on, f"{effect_prefix} on_put_on")
+        if hasattr(target, 'on_take_off'):
+            self._validate_effects(target.on_take_off, f"{effect_prefix} on_take_off")
 
     def _validate_items_and_wardrobe(self) -> None:
         """Validate item effects, wardrobe definitions, and outfits."""
@@ -446,6 +498,26 @@ class GameValidator:
                         f"[Node: {node.id}] > characters_present contains unknown character '{char_id}'."
                     )
 
+            # Validate time_behavior
+            if node.time_behavior:
+                tb = node.time_behavior
+                if tb.conversation and tb.conversation not in self.time_categories:
+                    self.errors.append(
+                        f"[Node: {node.id}] > time_behavior.conversation '{tb.conversation}' is not a defined category."
+                    )
+                if tb.choice and tb.choice not in self.time_categories:
+                    self.errors.append(
+                        f"[Node: {node.id}] > time_behavior.choice '{tb.choice}' is not a defined category."
+                    )
+                if tb.default and tb.default not in self.time_categories:
+                    self.errors.append(
+                        f"[Node: {node.id}] > time_behavior.default '{tb.default}' is not a defined category."
+                    )
+                if tb.cap_per_visit is not None and tb.cap_per_visit < 0:
+                    self.errors.append(
+                        f"[Node: {node.id}] > time_behavior.cap_per_visit must be non-negative."
+                    )
+
             if node.type == NodeType.ENDING:
                 if not node.ending_id:
                     self.errors.append(
@@ -497,6 +569,14 @@ class GameValidator:
                     self.errors.append(
                         f"[Modifier: {modifier.id}] > clamp_meters references unknown meter '{meter_id}'."
                     )
+
+            # Validate time_multiplier
+            if modifier.time_multiplier is not None:
+                if modifier.time_multiplier < 0.5 or modifier.time_multiplier > 2.0:
+                    self.errors.append(
+                        f"[Modifier: {modifier.id}] > time_multiplier must be between 0.5 and 2.0 (got {modifier.time_multiplier})."
+                    )
+
             self._validate_effects(modifier.on_enter, f"Modifier: {modifier.id} on_enter")
             self._validate_effects(modifier.on_exit, f"Modifier: {modifier.id} on_exit")
 
@@ -647,6 +727,20 @@ class GameValidator:
                     f"[{context}] > Choice '{choice.id}' must define on_select effects."
                 )
             self._validate_effects(choice.on_select, f"{context} > {choice.id} on_select")
+
+            # Validate time fields
+            if choice.time_cost is not None and choice.time_category is not None:
+                self.errors.append(
+                    f"[{context}] > Choice '{choice.id}' cannot have both time_cost and time_category."
+                )
+            if choice.time_category and choice.time_category not in self.time_categories:
+                self.errors.append(
+                    f"[{context}] > Choice '{choice.id}' time_category '{choice.time_category}' is not a defined category."
+                )
+            if choice.time_cost is not None and choice.time_cost < 0:
+                self.errors.append(
+                    f"[{context}] > Choice '{choice.id}' time_cost must be non-negative."
+                )
 
     def _validate_triggers(self, triggers, context: str) -> None:
         if not triggers:
@@ -809,13 +903,6 @@ class GameValidator:
             if not isinstance(minutes, (int, float)) or minutes <= 0:
                 self.errors.append(
                     f"[{context}] > AdvanceTime.minutes must be positive."
-                )
-
-        elif effect_type == "advance_time_slot":
-            slots = self._effect_value(effect, "slots")
-            if not isinstance(slots, int) or slots <= 0:
-                self.errors.append(
-                    f"[{context}] > AdvanceTimeSlot.slots must be a positive integer."
                 )
 
         elif effect_type == "goto":

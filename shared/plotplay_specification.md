@@ -142,12 +142,10 @@ rng_seed: "<int|auto>"           # OPTIONAL. Allows fixing random seed to reprod
 
 # --- Game starting point ---
 start:                           # REQUIRED. Game starting point. See corresponding sections for details about fields.
-  location: "<location_id>"           # Starting location 
+  location: "<location_id>"           # Starting location
   node: "<node_id>"                   # Starting node.
   day: 1                              # Starting day.
-  slot: "<string>"                    # # REQUIRED for slots/hybrid. Starting slot.
-  time: "08:00".                      # OPTIONAL Starting time, "HH:MM". 
-                                      # The default is "00:00" for clock/hybrid modes. 
+  time: "08:00"                       # OPTIONAL. Starting time, "HH:MM". Default: "00:00" 
 
 # --- Global state variables ---
 meters:                          # OPTIONAL. Game meters definitions. See the Meters section.                          
@@ -313,8 +311,8 @@ The following variables and namespaces are available:
 
 #### Time & Calendar
 - `time.day` (int) — narrative day counter (≥1)
-- `time.slot` (string) — current slot (e.g., "morning")
-- `time.time_hhmm` (string) — "HH:MM" in clock/hybrid modes
+- `time.slot` (string) — current slot (e.g., "morning"), derived from current_minutes
+- `time.time_hhmm` (string) — "HH:MM" format (always available)
 - `time.weekday` (string) — e.g., "monday"
 
 #### Location & Navigation
@@ -529,67 +527,348 @@ flags:
 ---
 ## 6. Time & Calendar
 
-### Definition & template
+### Core Philosophy
 
-The **time system** governs pacing, scheduling, and event triggers. It supports three modes:
-- **Slots** — day divided into named parts (morning, afternoon, evening, night).
-- **Clock** — continuous minute-based time (HH:MM).
-- **Hybrid** — both: slots exist, but minutes are tracked within them.
+The time system satisfies four major principles:
 
-In the `clock/hybrid` mode, the `minutes_per_action` parameter defines the amount of time taken by one single action, 
-so each action can advance time properly. Once time moves into another slot window, the engine automatically advances slot as well.  
+1. **Unified logic** — The engine has a single, consistent method of advancing time, regardless of user input, narrative structure, or game mode.
+2. **Predictability for authors** — Authors use simple, reliable tools to control pacing without micromanaging minutes everywhere.
+3. **Natural narrative feel** — Simple conversations should not advance time like major activities. Travel, significant actions, and long events consume realistic amounts of time.
+4. **AI-compatible** — Writer/Checker interaction should not create unpredictable time skips. Any AI-generated hinting remains optional and clamped by rules.
 
-In the `slots` mode the engine automatically advances slots after `actions_per_slot` action.
+### Unified Time Model
 
-Once the last slot passed, the engine advances to the next day.
+The engine always tracks time in **minutes** as the atomic unit:
 
-Time advances through **actions**, **movement**, **effects**, and **sleep**,
-and is referenced by **events**, **schedules**, and **arcs**.
+```python
+time.current_minutes: int  # 0–1439 (minutes since start of day)
+time.day: int              # Days elapsed since game start
+time.weekday: str          # Optional day of week
+```
+
+All actions, choices, movements, and modifiers reduce to adding minutes to this value.
+
+**Slots** are a UI/semantic layer derived from `current_minutes` and predefined window ranges:
 
 ```yaml
-# Time and Calendar definition
-# In game manifest (top level)
+slot_windows:
+  morning:   { start: "06:00", end: "11:59" }
+  afternoon: { start: "12:00", end: "17:59" }
+  evening:   { start: "18:00", end: "21:59" }
+  night:     { start: "22:00", end: "05:59" }
+```
 
+- **Clock mode UI**: shows HH:MM only
+- **Slot mode UI**: shows HH:MM + active slot
+- **Engine behavior is identical in both**
+
+### Time Categories and Defaults
+
+Instead of hardcoding minutes per action, games define **named time categories** and **default values**:
+
+```yaml
 time:
-  mode: "slots|clock|hybrid"                         # REQUIRED. "slots" | "clock" | "hybrid"
+  categories: {<str: <int>, ...}  # REQUIRED. Named durations in minutes for actions/choices/movements. 
 
-  slots: ["morning","afternoon","evening","night"]   # REQUIRED for slots/hybrid
-  actions_per_slot: <int>                            # OPTIONAL for slots. Auto-advance after N actions. Default: ∞
-  minutes_per_action: <int>                          # REQUIRED for clock/hybrid. E.g., 30
-  slot_windows:                # REQUIRED for hybrid. Map slots → HH:MM ranges.
+  defaults:                       # REQUIRED. Assigned duration for standard actions.
+    conversation: <str>             # Default for chat turns
+    choice: <str>                   # Default for choices
+    movement: <str>                 # Default for local movement
+    default: <str>                  # Fallback for unspecified actions
+    cap_per_visit: <int>>           # Max minutes accumulated per node visit
+
+  # Calendar (optional)
+  week_days: ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+  start_day: "monday"           # Day of the week at epoch start
+
+  slots_enabled: true           # REQUIRED. Whether to show slot mode UI
+  slot_windows:                 # REQUIRED if slots_enabled is true. Define slot windows
+    <slot: str>: { start: <hh:mm str>, end: <hh:mm str> }
+    morning:   { start: "06:00", end: "11:59" }
+    afternoon: { start: "12:00", end: "17:59" }
+    evening:   { start: "18:00", end: "21:59" }
+    night:     { start: "22:00", end: "05:59" }
+```
+
+Each category maps to a minute value. The table is configurable per game.
+
+### Time Resolution Priority
+
+Every time an action happens, the engine resolves a category using the following priority:
+
+1. **Explicit override** — A choice/action/movement specifies: `time_cost: 20`
+2. **Category override** — A choice/action/movement specifies: `time_category: "quick"`
+3. **Contextual fallback** — The engine picks based on context:
+   - Context-level setting (choice, action, etc.)
+   - Node-level override
+   - Global default from `time.defaults`
+
+### Node-Level Time Behavior
+
+Nodes may override time behavior for actions within that node:
+
+```yaml
+nodes:
+  - id: "library_study"
+    type: "scene"
+    time_behavior:              # OPTIONAL override block
+      conversation: "instant"   # Override for this node
+      choice: "quick"           # Override for this node
+      default: "trivial"        # Fallback for unspecified actions
+      cap_per_visit: 30         # Max minutes accumulated in this node visit
+```
+
+### Visit Cap
+
+Prevents infinite chat loops from consuming abnormal time:
+
+```python
+minutes = min(action_cost, max(0, cap - time_spent_in_node))
+```
+
+- The cap is **per-node per-visit**, and resets on entering a new node
+- The visit cap applies only to **conversation turns and default actions**
+- **Explicit choice/action time costs bypass the cap**, as they represent significant narrative moments
+
+### Choices and Actions
+
+Every choice/action supports:
+
+```yaml
+choices:
+  - id: "kiss"
+    prompt: "Kiss her"
+    time_category: "significant"
+    # OR
+    time_cost: 25
+    on_select: [...]
+```
+> Note: `time_category` and `time_cost` are mutually exclusive.
+ 
+If unspecified:
+- Use node's `time_behavior.choice`
+- Else global default `time.defaults.choice`
+
+### Movement and Travel
+
+#### Local Movement (within zone)
+
+Local movement between locations in the same zone uses a fixed time cost:
+
+```yaml
+zones:
+  - id: "campus"
+    name: "University Campus"
+    time_cost: 10              # OPTIONAL. Minutes to travel between locations in this zone
+    # OR
+    time_category: "standard"  # OPTIONAL. Time category for travel
+```
+
+> Note: exactly one of `time_cost` or `time_category` may be set per zone. If neither is set, uses `time.defaults.movement`.
+
+#### Zone Travel (between zones)
+
+Each travel method defines either `time_cost` per base unit, `speed` (base units per hour), or `category`:
+
+```yaml
+movement:
+  methods:
+    walk:
+      active: true        # Means method is active (performed by player), so time modifiers affect time cost
+      time_cost: 20       # per base unit (e.g., 20 minutes per km)
+    run:
+      active: true
+      category: "quick"   # per base unit, taken from the category
+    bus:
+      active: false       # Means method is passive, so time modifiers do NOT affect time cost
+      speed: 50           # base units per hour (e.g., 50 km per hour)
+    train:
+      active: false
+      speed: 100
+```
+
+> Note: exactly one of `time_cost` / `speed` / `category` is required per method.
+
+Travel time calculation:
+
+```python
+# If time_cost is specified:
+minutes = distance * time_cost
+
+# If speed is specified:
+minutes = (distance / speed) * 60
+
+# If category is specified:
+minutes = distance * category_table[category]
+```
+
+### Time Modifiers (Buffs/Debuffs)
+
+Active modifiers may alter time cost via `time_multiplier`:
+
+```yaml
+modifiers:
+  library:
+    - id: "energetic"
+      group: "mood"
+      when: "meters.player.energy >= 70"
+      time_multiplier: 0.9     # Actions complete 10% faster
+
+    - id: "sleepy"
+      group: "mood"
+      when: "meters.player.energy <= 35"
+      time_multiplier: 1.2     # Actions take 20% longer
+```
+
+**Mechanics:**
+
+1. All active modifiers stack multiplicatively
+2. The final multiplier is clamped: `0.5 <= multiplier <= 2.0`
+3. The result is rounded to the nearest minute
+
+**Modifiers apply to:**
+
+- Conversation turns
+- Choices and actions
+- Local movement
+- Inter-zone travel **if travel method is `active: true`** (performed by characters themselves)
+
+**Use cases:**
+
+- Fatigue slows actions
+- Caffeine speeds tasks
+- Magic or tech items alter time efficiency
+- Weather or terrain affects movement/travel cost
+
+### Time Advancement Pipeline
+
+Every turn, the engine performs:
+
+1. Determine context type:
+   - chat-only
+   - choice selected
+   - global action
+   - movement inside zone
+   - travel between zones
+
+2. Determine effective category (per priority rules above)
+
+3. Convert category to base minutes
+
+4. Apply modifiers (multipliers, clamps)
+
+5. Apply visit cap (for conversation/default actions only)
+
+6. Add derived minutes to `time.current_minutes`
+
+7. Recalculate:
+   - HH:MM
+   - active slot
+   - day/week rollover
+
+This guarantees a single, predictable, extensible method of updating time.
+
+### Day Rollover
+
+When time reaches or exceeds 1440 minutes (midnight):
+
+```python
+if time.current_minutes >= 1440:
+    # Trigger day-end effects BEFORE normalizing
+    trigger_day_end_effects()
+
+    # Normalize time
+    time.current_minutes -= 1440
+    time.day += 1
+    time.weekday = next_day_of_week
+
+    # Trigger new-day effects AFTER normalizing
+    trigger_day_start_effects()
+```
+
+### AI Narrative Hinting
+
+AI-generated text **must NOT directly dictate** exact minutes.
+
+But it **may suggest** time categories or qualitative hints like:
+- "This takes a while…"
+- "Time passes quickly…"
+- "After a long study session…"
+
+The **Checker** scans narrative for time-related phrases and proposes:
+
+```yaml
+time_hint:
+  category: "significant"
+  confidence: 0.82
+```
+
+The engine applies **only if**:
+- The current context allows it
+- No explicit author category exists
+- Within the node visit cap
+
+If the hint conflicts with author-defined rules, **the author wins**. The hint is advisory, not authoritative.
+
+### Example Configuration
+
+```yaml
+time:
+  categories:
+    instant: 0
+    trivial: 2
+    quick: 5
+    standard: 15
+    significant: 30
+    major: 60
+
+  defaults:
+    conversation: "instant"
+    choice: "quick"
+    movement: "standard"
+    default: "trivial"
+    cap_per_visit: 30
+
+  week_days: ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+  start_day: "monday"
+
+  slot_windows:
     morning:   { start: "06:00", end: "11:59" }
     afternoon: { start: "12:00", end: "17:59" }
     evening:   { start: "18:00", end: "21:59" }
     night:     { start: "22:00", end: "05:59" }
 
-  # --- Calendar (optional) ---
-  week_days: ["monday","tuesday","wednesday","thursday","friday","saturday","sunday"]
-  start_day: "tuesday"         # Day of the week at epoch start
-```
-### Examples
-
-```yaml
-time:
-  mode: "hybrid"
-  slots: ["morning", "afternoon", "evening", "night"]
-  actions_per_slot: 3                 # Three major beats per slot before it auto-advances.
-  minutes_per_action: 45              # Free actions (shop, move) still consume minutes.
-  slot_windows:
-    morning:   { start: "06:00", end: "10:59" }
-    afternoon: { start: "11:00", end: "16:59" }
-    evening:   { start: "17:00", end: "21:29" }
-    night:     { start: "21:30", end: "02:59" }
-  week_days: ["monday","tuesday","wednesday","thursday","friday","saturday","sunday"]
-  start_day: "monday"
+movement:
+  methods:
+    walk:
+      active: true
+      time_cost: 20
+    bus:
+      active: false
+      speed: 50
 ```
 
 ### Authoring Guidelines
 
-- Use **hybrid mode** by default: slot-friendly authoring + precise event triggers.
-- Keep slot names short and consistent (`morning`, not `early_morning`).
-- For events and schedules, rely on `time.slot`, `time.hhmm`, or `time.weekday`.
-- Always define a **starting slot/time** in `start`.
-- Test pacing: ensure players can rest to recover meters before exhaustion.
+Authors now think in terms of:
+
+- **What type of action is this?** → Assign a category
+- **Does this scene need conversational pacing?** → Override `conversation` category or apply a cap
+- **Does this choice represent a long activity?** → Set `significant` or explicit minutes
+- **Does travel feel too fast/slow?** → Adjust travel method categories
+- **Do I want fatigue or buffs to affect pacing?** → Use modifiers with `time_multiplier`
+
+This eliminates the need to juggle turns, slots, or actions per slot. Everything reduces to a single conceptual layer: **action → category → minutes**.
+
+### Benefits
+
+1. **Zero chat inflation** — Simple chatter costs 0–2 minutes
+2. **Travel & movement naturally balanced** — Distance × category cost = smooth pacing
+3. **Everything uses the same formula** — No exceptions, no special handling
+4. **AI safely enhances pacing** — Optional hinting without losing control
+5. **Modifiers add depth** — Gameplay systems (fatigue, mood, buffs) interact with pacing
+6. **Simpler spec, simpler engine, richer gameplay** — A rare combination of simplicity and expressive power
+
 ---
 
 ## 7. Economy system
@@ -961,6 +1240,12 @@ If there are no connections provides then it is possible to travel between any z
     locked: <bool>                         # OPTIONAL. Default false.
     unlocked_when: "<expr>"                # OPTIONAL. Expression DSL. If true, then unlocked.
 
+  # --- Local movement time ---
+  time_cost: <int>                      # OPTIONAL. Minutes to move between locations in this zone.
+  # OR
+  time_category: "<string>"             # OPTIONAL. Time category for local movement (from time.categories).
+  # Note: Exactly one of time_cost or time_category may be set. If neither is set, uses time.defaults.movement.
+
   # --- Transport & travel ---
   connections:                          # OPTIONAL. Travel routes between zones.
     - to: ["<zone_id>|all", ...]          # REQUIRED. Connects to specified zones, shortcut 'all' means all zones. 
@@ -1066,53 +1351,58 @@ zones:
 ```
 
 ### Movement
-The **movement system** governs how the player (and companions) travel between locations and zones. 
-Movement consumes **time** , requires **access conditions** to be met, 
+The **movement system** governs how the player (and companions) travel between locations and zones.
+Movement consumes **time** (in minutes), requires **access conditions** to be met,
 and checks **NPC consent** when traveling with companions.
-- **Local**: moving between locations inside the same zone consumes **base_time**:
-  - in `time/hybrid` modes `base_time` means minutes for one movement;
-  - in the `slots` mode `base_time` means number of actions for movement;
-  - `base_time = 0` means immediate movement which does not consume time or actions. 
-- **Zone travel**: moving between different zones consumes time based on distance and travel method:
-  - Definition of methods provides own `base_time` for each method which means time to travel one unit of distance;
-  - Connections between zones define `distance` and available travel methods;
-  - The final travel time is calculated as `base_time * distance` for each method;
-  - For `slots` mode base time is the number of actions for movement.
+
+- **Local movement**: moving between locations inside the same zone consumes time based on zone configuration (see **Time & Calendar** section for details on `time_cost` and `time_category`).
+- **Zone travel**: moving between different zones consumes time based on distance and travel method. Each method defines either `time_cost`, `speed`, or `category` (see **Time & Calendar** section).
 - **Companions**: NPC willingness depends on trust/attraction/gates and defined for each character.
 
 ```yaml
-
 # Movement system definition
-# Place as a top level movement node 
-movement:                         # OPTIONAL. Top level node 
-  base_time: <int>                # OPTIONAL. Base time for local travel.
-                                    # Minutes/actions consumed for one movement.
-  use_entry_exit: <bool>          # OPTIONAL. Default false. 
+# Place as a top level movement node
+movement:                         # OPTIONAL. Top level node
+  use_entry_exit: <bool>          # OPTIONAL. Default false.
                                     # If true, arrive to zone's entry locations and
                                     # must reach the zone's exit location to travel out of a zone.
 
-  base_unit: <str>                # REQUIRED. Base unit for distances, km, miles, etc. 
-  methods:                        # REQUIRED if a game uses travel methods. List of travel methods.
-    - "<method_name>": <base_time>  # REQUIRED. Unique method name and base time.
+  base_unit: <str>                # REQUIRED if using zone travel. Base unit for distances (km, miles, etc.)
+  methods:                        # REQUIRED if using zone travel. Travel method definitions.
+    <method_name>:
+      active: <bool>              # REQUIRED. If true, time modifiers affect travel time.
+      time_cost: <int>            # Minutes per base_unit (mutually exclusive with speed/category)
+      # OR
+      speed: <int>                # Base units per hour (mutually exclusive with time_cost/category)
+      # OR
+      category: <str>             # Time category per base_unit (mutually exclusive with time_cost/speed)
 ```
+
 ### Examples
+
 ```yaml
 movement:
-  base_time: 1                       # One action to move within a zone.
   use_entry_exit: true               # Must enter via zone entrances before exploring.
   base_unit: "km"                    # Distance is measured in kilometers.
   methods:
-    - walk: 1                        # 1 minute per distance unit.
-    - bike: 0.5
-    - rideshare: 0.25
+    walk:
+      active: true                   # Player-powered, affected by modifiers
+      time_cost: 20                  # 20 minutes per km
+    bike:
+      active: true
+      category: "quick"              # Uses time.categories.quick per km
+    rideshare:
+      active: false                  # Passive transport, not affected by modifiers
+      speed: 50                      # 50 km/h
 
-# Zones reference movement methods in their connections:
+# Zones can override local movement time:
 zones:
   - id: "campus"
+    time_category: "standard"        # Uses time.categories.standard for local movement
     connections:
       - to: ["downtown"]
         methods: ["walk", "bike", "rideshare"]
-        distance: 2.0                # -> 2 minutes by bike, 0.5 minutes by rideshare.
+        distance: 2.0                # 2 km -> 40 min walking, or 2.4 min by rideshare
 ```
 
 ---
@@ -1438,15 +1728,10 @@ Changes a flag value.
   method: "<method_id>"                 # REQUIRED. Method to travel with. 
   with_characters: ["<npc_id>", ...]    # OPTIONAL.   
 
-# Time advancement
+# Time advancement (advances time by specified minutes; slots auto-update)
 - type: advance_time
   # ... common fields
   minutes: <int>                        # REQUIRED. Minutes to advance.
-
-# Time advancement for slot mode
-- type: advance_time_slot
-  # ... common fields
-  slots: <int>                          # REQUIRED.
 ```
 
 #### Flow control
@@ -1601,6 +1886,11 @@ but don’t invent hard state changes by themselves.
   clamp_meters:                 # OPTIONAL. Enforce temporary boundaries on meters while active.
     <meter_id>: { min: <int>, max: <int> } # e.g., arousal: { max: 60 }
 
+  time_multiplier: <float>      # OPTIONAL. Time cost multiplier (0.5 - 2.0). Affects conversation, choices, actions, and active movement.
+                                #  < 1.0 = faster (e.g., 0.9 = 10% faster)
+                                #  > 1.0 = slower (e.g., 1.2 = 20% slower)
+                                #  See Time & Calendar section for details on how modifiers stack and apply.
+
   # --- One-shot hooks (optional sugar) ---
   on_enter: [<effect>, ... ]    # OPTIONAL. Apply once when the modifier becomes active.
   on_exit:  [<effect>, ... ]    # OPTIONAL. Apply once when it ends.
@@ -1721,9 +2011,9 @@ Nodes are where most author effort goes: they set context for the Writer, define
 - **ending** — Terminal node; resolves the story and stops play.
 
 ```yaml
-# Node template 
+# Node template
 # Place under the 'nodes' root node
-- id:                                   # REQUIRED. Unique node id 
+- id:                                   # REQUIRED. Unique node id
   type: "scene|hub|encounter|ending"    # REQUIRED. scene | hub | encounter | ending
   title: "<string>"                     # REQUIRED. Display name in UI/logs.
   description: "<string>"               # OPTIONAL. Author notes.
@@ -1737,17 +2027,28 @@ Nodes are where most author effort goes: they set context for the Writer, define
 
   beats: [<string>, ... ]               # OPTIONAL. Bullets for Writer (not shown to players).
 
+  # --- Time behavior ---
+  time_behavior:                        # OPTIONAL. Override time costs for actions in this node.
+    conversation: "<string>"            # OPTIONAL. Time category for chat turns (from time.categories).
+    choice: "<string>"                  # OPTIONAL. Time category for choices (from time.categories).
+    default: "<string>"                 # OPTIONAL. Fallback category for unspecified actions.
+    cap_per_visit: <int>                # OPTIONAL. Max minutes accumulated per node visit (default: 30).
+
   # --- Effects ---
   on_enter: [ <effect>, ... ]           # OPTIONAL. Applied when the node is entered.
   on_exit:  [ <effect>, ... ]           # OPTIONAL. Applied when the node is left.
 
   # --- Actions & choices ---
   choices:                              # OPTIONAL. Pre-authored menu buttons. Always visible
-    - id: "<string>"                    # REQUIRED. Unique id 
+    - id: "<string>"                    # REQUIRED. Unique id
       prompt: "<string>"                # REQUIRED. Shown to player.
       when: "<expr>"                    # OPTIONAL. Choice disabled if false.
       when_all: ["<expr>", ... ]        #   Expression DSL; all must be true to activate transition.
       when_any: ["<expr>", ... ]        #   Expression DSL; any must be true to activate transition.
+      time_cost: <int>                  # OPTIONAL. Explicit minutes consumed by this choice.
+      # OR
+      time_category: "<string>"         # OPTIONAL. Time category (from time.categories).
+      # Note: If neither is set, uses node's time_behavior.choice or time.defaults.choice.
       on_select: [ <effect>, ... ]      # REQUIRED. Effects applied when the choice is chosen.
 
   dynamic_choices:                      # OPTIONAL. Pre-authored menu buttons. Appear only when conditions become true.
@@ -1755,6 +2056,10 @@ Nodes are where most author effort goes: they set context for the Writer, define
       when: "<expr>"                    # OPTIONAL. Choice disabled if false.
       when_all: ["<expr>", ... ]        #   Expression DSL; all must be true to activate transition.
       when_any: ["<expr>", ... ]        #   Expression DSL; any must be true to activate transition.
+      time_cost: <int>                  # OPTIONAL. Explicit minutes consumed by this choice.
+      # OR
+      time_category: "<string>"         # OPTIONAL. Time category (from time.categories).
+      # Note: If neither is set, uses node's time_behavior.choice or time.defaults.choice.
       on_select: [ <effect>, ... ]      # REQUIRED. Effects applied when the choice is chosen.
 
   # --- Triggers ---

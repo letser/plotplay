@@ -168,14 +168,9 @@ class TravelToEffect(Effect):
     with_characters: list[str] = Field(default_factory=list)
 
 class AdvanceTimeEffect(Effect):
-    """Advance game time."""
+    """Advance game time by minutes."""
     type: Literal["advance_time"] = "advance_time"
     minutes: int
-
-class AdvanceTimeSlotEffect(Effect):
-    """Advance game time."""
-    type: Literal["advance_time_slot"] = "advance_time_slot"
-    slots: int
 
 # Modifiers
 
@@ -248,7 +243,7 @@ AnyEffect = Annotated[
     InventoryPurchaseEffect, InventorySellEffect, InventoryGiveEffect,
     ClothingPutOnEffect, ClothingTakeOffEffect,ClothingStateEffect, ClothingSlotStateEffect,
     OutfitPutOnEffect, OutfitTakeOffEffect,
-    MoveEffect, MoveToEffect, TravelToEffect, AdvanceTimeEffect, AdvanceTimeSlotEffect,
+    MoveEffect, MoveToEffect, TravelToEffect, AdvanceTimeEffect,
     ApplyModifierEffect, RemoveModifierEffect, UnlockEffect, LockEffect,
     GotoEffect, ConditionalEffect, RandomEffect
 ],

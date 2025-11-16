@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 
 from app.models.game import GameDefinition, GameState
 from app.models.locations import ZoneState, LocationState
-from app.models.time import TimeMode
+from app.models.time import TimeState
 from app.models.arcs import ArcState
 from app.models.characters import CharacterState
 from app.models.inventory import InventoryState
@@ -45,15 +45,17 @@ class StateManager:
         start = self.game_def.start
         time_config = self.game_def.time
 
-        self.state.day = start.day or 1
-        self.state.time_slot = start.slot
+        time_state = TimeState(
+            slots=time_config.slots,
+            slot_windows=time_config.slot_windows,
+            week_days=time_config.week_days,
+            start_day=time_config.start_day,
+        )
 
-        if time_config.mode in (TimeMode.CLOCK, TimeMode.HYBRID):
-            self.state.time_hhmm = start.time or "00:00"
-        else:
-            self.state.time_hhmm = start.time
+        time_state.day = start.day or 1
+        time_state.time_hhmm = start.time or "00:00"
 
-        self.state.weekday = self.calculate_weekday()
+        self.state.time = time_state
 
     def _init_flags(self) -> None:
         if self.game_def.flags:
@@ -165,21 +167,6 @@ class StateManager:
         Initially all arcs have no progression, so set the stage to None.
         """
         self.state.arcs = {arc.id: ArcState(id=arc.id, stage=None) for arc in self.game_def.arcs}
-
-    def calculate_weekday(self) -> str | None:
-        """Calculate the current weekday based on time configuration."""
-        week_days = list(self.game_def.time.week_days or [])
-        if not week_days:
-            return None
-
-        start_day = self.game_def.time.start_day
-        if start_day not in week_days:
-            return None
-
-        start_index = week_days.index(start_day)
-        offset = (self.state.day - 1) % len(week_days)
-        weekday = week_days[(start_index + offset) % len(week_days)]
-        return str(weekday)
 
     # ------------------------------------------------------------------ #
     # DSL Context & Evaluator Factory

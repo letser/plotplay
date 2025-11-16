@@ -105,15 +105,31 @@ flags:
     visible: false
 
 time:
-  mode: "hybrid"
+  slots_enabled: true
   slots: ["morning", "afternoon", "evening", "night"]
-  actions_per_slot: 3
-  minutes_per_action: 45
   slot_windows:
     morning: { start: "06:00", end: "10:59" }
     afternoon: { start: "11:00", end: "16:59" }
     evening: { start: "17:00", end: "21:59" }
     night: { start: "22:00", end: "02:59" }
+
+  categories:
+    instant: 0          # Quick dialogue
+    trivial: 2          # Brief interaction
+    quick: 5            # Short action (pickup item, quick question)
+    standard: 15        # Default activity (attend class, eat)
+    significant: 30     # Meaningful activity (study session, work)
+    major: 60           # Major time passage (sleep, long event)
+
+  defaults:
+    conversation: "instant"   # Chat doesn't advance time much
+    choice: "quick"           # Default choice time
+    movement: "standard"      # Walking around campus
+    default: "trivial"        # Fallback
+    cap_per_visit: 30         # Max 30 min of chat per scene
+
+  week_days: ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+  start_day: "monday"
 
 economy:
   enabled: true
@@ -123,11 +139,15 @@ economy:
   currency_symbol: "$"
 
 movement:
-  base_time: 1
   use_entry_exit: false
+  base_unit: "km"
   methods:
-    - walk: 1
-    - bike: 1
+    - name: "walk"
+      active: true
+      time_cost: 20        # 20 minutes per km
+    - name: "bike"
+      active: true
+      category: "quick"    # Faster, uses 'quick' category (5 min per km)
 
 includes:
   - "items.yaml"

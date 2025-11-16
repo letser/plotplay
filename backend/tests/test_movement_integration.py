@@ -9,7 +9,7 @@ Tests verify:
 """
 import pytest
 from app.core.game_engine import GameEngine
-from app.models.game import GameDefinition, MetaConfig, GameStart
+from app.models.game import GameDefinition, Meta, GameStart
 from app.models.time import Time
 from app.models.locations import (
     Zone, Location, LocationConnection, LocalDirection,
@@ -25,7 +25,7 @@ from app.models.nodes import Node
 def game_with_movement() -> GameDefinition:
     """Create a game with multiple locations and zones for movement testing."""
     game = GameDefinition(
-        meta=MetaConfig(
+        meta=Meta(
             id="movement_test",
             title="Movement Test Game",
             version="1.0.0"
@@ -317,7 +317,7 @@ def game_with_zone_travel() -> GameDefinition:
     from app.models.locations import ZoneConnection
 
     game = GameDefinition(
-        meta=MetaConfig(
+        meta=Meta(
             id="zone_travel_test",
             title="Zone Travel Test Game",
             version="1.0.0"

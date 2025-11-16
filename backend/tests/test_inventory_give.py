@@ -2,7 +2,7 @@
 
 import pytest
 from app.core.game_engine import GameEngine
-from app.models.game import GameDefinition, MetaConfig, GameStart
+from app.models.game import GameDefinition, Meta, GameStart
 from app.models.characters import Character
 from app.models.items import Item
 from app.models.nodes import Node
@@ -16,7 +16,7 @@ from app.models.effects import InventoryGiveEffect, InventoryChangeEffect, FlagS
 def game_with_items() -> GameDefinition:
     """Create a game with items for give testing."""
     game = GameDefinition(
-        meta=MetaConfig(
+        meta=Meta(
             id="give_test",
             title="Give Test Game",
             version="1.0.0"

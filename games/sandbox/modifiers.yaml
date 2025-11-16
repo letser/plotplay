@@ -1,1 +1,89 @@
-modifiers: {}
+modifiers:
+    # Stacking rules define how multiple modifiers in the same group interact
+    stacking:
+        intoxication: "highest"  # Only the strongest intoxication effect applies
+        emotional: "all"         # All emotional states can coexist
+        status: "all"            # Multiple status effects can stack
+
+    # Modifier library
+    library:
+        # Status modifier: Caffeinated (from energy snacks or coffee)
+        - id: "caffeinated"
+          group: "status"
+          duration: 60  # Lasts 60 minutes
+          when: "meters.player.energy > 80"
+          mixins: ["alert gaze", "energetic movements"]
+          time_multiplier: 0.9  # 10% faster actions
+          clamp_meters:
+              energy: { min: 60, max: 100 }  # Can't drop below 60 while caffeinated
+          on_enter:
+              - type: flag_set
+                key: "felt_caffeine_rush"
+                value: true
+
+        # Status modifier: Tired (auto-activates when energy is low)
+        - id: "tired"
+          group: "status"
+          when: "meters.player.energy < 30"
+          mixins: ["drooping eyelids", "sluggish movements"]
+          dialogue_style: "subdued"
+          time_multiplier: 1.2  # 20% slower actions
+
+        # Emotional modifier: Excited (triggered by events or items)
+        - id: "excited"
+          group: "emotional"
+          duration: 30  # Brief emotional state
+          mixins: ["bright eyes", "animated gestures", "quick smile"]
+          time_multiplier: 0.95  # Slightly faster when excited
+
+        # Status modifier: Wet clothes (from rain or water)
+        - id: "wet_clothes"
+          group: "status"
+          duration: 90  # Takes time to dry
+          mixins: ["damp clothing", "slight shiver"]
+          time_multiplier: 1.1  # Uncomfortable, moving slower
+          on_exit:
+              - type: flag_set
+                key: "clothes_dried"
+                value: true
+
+        # Status modifier: Injured (minor injury affecting movement)
+        - id: "injured_minor"
+          group: "status"
+          duration: 120  # Takes 2 hours to feel better
+          mixins: ["careful movements", "occasional wince"]
+          time_multiplier: 1.3  # Significantly slower
+          clamp_meters:
+              energy: { min: 0, max: 70 }  # Can't reach full energy while injured
+          on_enter:
+              - type: meter_change
+                target: player
+                meter: energy
+                op: subtract
+                value: 15
+              - type: flag_set
+                key: "has_injury"
+                value: true
+          on_exit:
+              - type: flag_set
+                key: "injury_healed"
+                value: true
+              - type: flag_set
+                key: "has_injury"
+                value: false
+
+        # Emotional modifier: Curious (engaged with the world)
+        - id: "curious"
+          group: "emotional"
+          when: "flags.market_briefing_viewed and flags.vendor_briefing_viewed"
+          mixins: ["attentive expression", "frequent glances around"]
+          dialogue_style: "inquisitive"
+
+        # Status modifier: Well-rested (from good sleep or rest)
+        - id: "well_rested"
+          group: "status"
+          duration: 180  # Lasts 3 hours
+          mixins: ["clear eyes", "confident posture"]
+          time_multiplier: 0.85  # 15% faster, feeling good
+          clamp_meters:
+              energy: { min: 50, max: 100 }

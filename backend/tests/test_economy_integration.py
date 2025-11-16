@@ -16,7 +16,7 @@ Tests verify:
 """
 import pytest
 from app.core.game_engine import GameEngine
-from app.models.game import GameDefinition, MetaConfig, GameStart
+from app.models.game import GameDefinition, Meta, GameStart
 from app.models.characters import Character
 from app.models.economy import Economy, Shop
 from app.models.items import Item
@@ -31,7 +31,7 @@ from app.models.flags import BoolFlag
 def game_with_economy() -> GameDefinition:
     """Create a game with economy enabled."""
     game = GameDefinition(
-        meta=MetaConfig(
+        meta=Meta(
             id="economy_test",
             title="Economy Test Game",
             version="1.0.0"
@@ -107,7 +107,7 @@ def game_with_economy() -> GameDefinition:
 def game_without_economy() -> GameDefinition:
     """Create a game with economy disabled."""
     game = GameDefinition(
-        meta=MetaConfig(
+        meta=Meta(
             id="no_economy_test",
             title="No Economy Test Game",
             version="1.0.0"
@@ -157,7 +157,7 @@ def game_without_economy() -> GameDefinition:
 def game_with_shop_rules() -> GameDefinition:
     """Game with shop that uses availability and multipliers."""
     game = GameDefinition(
-        meta=MetaConfig(
+        meta=Meta(
             id="shop_rules_test",
             title="Shop Rules Test Game",
             version="1.0.0"
@@ -361,7 +361,7 @@ class TestEconomyEdgeCases:
     async def test_economy_with_zero_starting_money(self, mock_ai_service):
         """Test economy configuration with zero starting money."""
         game = GameDefinition(
-            meta=MetaConfig(
+            meta=Meta(
                 id="zero_money_test",
                 title="Zero Money Test",
                 version="1.0.0"
@@ -400,7 +400,7 @@ class TestEconomyEdgeCases:
     async def test_economy_with_high_max_money(self, mock_ai_service):
         """Test economy configuration with very high max money."""
         game = GameDefinition(
-            meta=MetaConfig(
+            meta=Meta(
                 id="high_money_test",
                 title="High Money Test",
                 version="1.0.0"
@@ -439,7 +439,7 @@ class TestEconomyEdgeCases:
     async def test_economy_with_custom_currency(self, mock_ai_service):
         """Test economy with custom currency names."""
         game = GameDefinition(
-            meta=MetaConfig(
+            meta=Meta(
                 id="custom_currency_test",
                 title="Custom Currency Test",
                 version="1.0.0"

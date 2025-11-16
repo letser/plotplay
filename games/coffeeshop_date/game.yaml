@@ -63,9 +63,26 @@ flags:
     description: "Marks that you invited Alex to another date."
 
 time:
-  mode: "slots"
+  slots_enabled: true
   slots: ["afternoon", "evening"]
-  actions_per_slot: 4
+  slot_windows:
+    afternoon: { start: "12:00", end: "17:59" }
+    evening: { start: "18:00", end: "21:59" }
+
+  categories:
+    instant: 0          # Quick dialogue
+    trivial: 2          # Brief interaction
+    quick: 5            # Short action
+    standard: 15        # Default activity
+    significant: 30     # Meaningful interaction
+    major: 60           # Major time passage
+
+  defaults:
+    conversation: "instant"
+    choice: "quick"
+    movement: "standard"
+    default: "trivial"
+    cap_per_visit: 30
 
 economy:
   enabled: true
@@ -75,10 +92,12 @@ economy:
   currency_symbol: "$"
 
 movement:
-  base_time: 1
   use_entry_exit: false
+  base_unit: "km"
   methods:
-    - walk: 1
+    - name: "walk"
+      active: true
+      time_cost: 15  # 15 minutes per km
 
 modifiers:
   stacking: {}

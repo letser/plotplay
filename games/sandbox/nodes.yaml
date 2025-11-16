@@ -40,6 +40,11 @@ nodes:
         on_select:
           - type: "goto"
             node: "industrial_briefing"
+      - id: "hub_effects_demo"
+        prompt: "[Demo] Test advanced effect types"
+        on_select:
+          - type: "goto"
+            node: "effects_demo_hub"
     dynamic_choices:
       - id: "hub_evening_event"
         prompt: "Observe the evening plaza busker (event check)."
@@ -150,6 +155,542 @@ nodes:
           - type: "goto"
             node: "downtown_hub"
 
+  # PRIORITY 2 DEMONSTRATION NODES: Advanced Effects
+
+  - id: "effects_demo_hub"
+    type: "hub"
+    title: "Effects Demonstration Hub"
+    beats:
+      - "Test various effect types and advanced node features."
+    choices:
+      - id: "test_conditional_random"
+        prompt: "Test conditional and random effects"
+        on_select:
+          - type: goto
+            node: weather_demo
+      - id: "test_clothing"
+        prompt: "Test clothing system"
+        on_select:
+          - type: goto
+            node: clothing_demo
+      - id: "test_inventory"
+        prompt: "Test inventory effects"
+        on_select:
+          - type: goto
+            node: inventory_demo
+      - id: "test_advanced_node"
+        prompt: "Test advanced node features"
+        on_select:
+          - type: goto
+            node: advanced_node_demo
+      - id: "test_unlock_lock"
+        prompt: "Test unlock/lock effects"
+        on_select:
+          - type: goto
+            node: unlock_lock_demo
+      - id: "test_movement_npcs"
+        prompt: "Test movement with NPCs"
+        on_select:
+          - type: goto
+            node: movement_npc_demo
+      - id: "test_privacy"
+        prompt: "Test privacy levels"
+        on_select:
+          - type: goto
+            node: privacy_demo
+      - id: "test_dynamic_choices"
+        prompt: "Test dynamic choices"
+        on_select:
+          - type: goto
+            node: dynamic_choices_demo
+      - id: "back_to_main"
+        prompt: "Return to downtown"
+        on_select:
+          - type: goto
+            node: downtown_hub
+
+  - id: "weather_demo"
+    type: "scene"
+    title: "Weather & Conditional Effects"
+    beats:
+      - "Demonstrate conditional and random effects."
+      - "Random weather affects your energy, conditional logic responds to it."
+    on_enter:
+      # Random effect: 3 possible weather outcomes
+      - type: random
+        choices:
+          - weight: 40
+            effects:
+              - type: flag_set
+                key: weather
+                value: sunny
+              - type: meter_change
+                target: player
+                meter: energy
+                op: add
+                value: 5
+          - weight: 30
+            effects:
+              - type: flag_set
+                key: weather
+                value: cloudy
+          - weight: 30
+            effects:
+              - type: flag_set
+                key: weather
+                value: rainy
+              - type: apply_modifier
+                target: player
+                modifier_id: wet_clothes
+    choices:
+      - id: "check_weather"
+        prompt: "Check how the weather affects you"
+        on_select:
+          # Conditional effect: branch based on weather
+          - type: conditional
+            when: "flags.weather == 'sunny'"
+            then:
+              - type: meter_change
+                target: player
+                meter: energy
+                op: add
+                value: 3
+              - type: flag_set
+                key: enjoyed_sunshine
+                value: true
+            otherwise:
+              - type: meter_change
+                target: player
+                meter: energy
+                op: subtract
+                value: 2
+              - type: flag_set
+                key: bad_weather_mood
+                value: true
+      - id: "continue"
+        prompt: "Continue testing"
+        on_select:
+          - type: goto
+            node: effects_demo_hub
+
+  - id: "clothing_demo"
+    type: "hub"
+    title: "Wardrobe Management"
+    beats:
+      - "Demonstrate all clothing system effects."
+    choices:
+      - id: "adjust_jacket"
+        prompt: "Unzip your jacket"
+        when: "clothing.player.light_jacket.condition == 'intact'"
+        on_select:
+          - type: clothing_state
+            target: player
+            item: light_jacket
+            condition: opened
+      - id: "zip_jacket"
+        prompt: "Zip your jacket back up"
+        when: "clothing.player.light_jacket.condition == 'opened'"
+        on_select:
+          - type: clothing_state
+            target: player
+            item: light_jacket
+            condition: intact
+      - id: "remove_jacket"
+        prompt: "Take off your jacket"
+        when: "clothing.player.light_jacket.condition != 'removed'"
+        on_select:
+          - type: clothing_take_off
+            target: player
+            item: light_jacket
+      - id: "put_on_jacket"
+        prompt: "Put your jacket back on"
+        when: "clothing.player.light_jacket.condition == 'removed'"
+        on_select:
+          - type: clothing_put_on
+            target: player
+            item: light_jacket
+            condition: intact
+      - id: "change_to_industrial"
+        prompt: "Change to industrial outfit"
+        when: "inventory.player.outfits.industrial_outfit > 0"
+        on_select:
+          - type: outfit_put_on
+            target: player
+            item: industrial_outfit
+      - id: "change_to_casual"
+        prompt: "Change back to casual outfit"
+        when: "inventory.player.outfits.casual_outfit > 0"
+        on_select:
+          - type: outfit_put_on
+            target: player
+            item: casual_outfit
+      - id: "test_slot_state"
+        prompt: "Displace your shirt"
+        when: "clothing.player.casual_shirt.condition == 'intact'"
+        on_select:
+          - type: clothing_slot_state
+            target: player
+            slot: top
+            condition: displaced
+      - id: "back"
+        prompt: "Back to effects hub"
+        on_select:
+          - type: goto
+            node: effects_demo_hub
+
+  - id: "inventory_demo"
+    type: "hub"
+    title: "Inventory Effects Demo"
+    beats:
+      - "Test inventory manipulation effects."
+    choices:
+      - id: "drop_map"
+        prompt: "Drop your city map here"
+        when: "inventory.player.items.city_map > 0"
+        on_select:
+          - type: inventory_drop
+            target: player
+            item_type: item
+            item: city_map
+            count: 1
+      - id: "take_map"
+        prompt: "Pick up the city map"
+        when: "inventory.location.items.city_map > 0"
+        on_select:
+          - type: inventory_take
+            target: player
+            item_type: item
+            item: city_map
+            count: 1
+      - id: "give_snack_alex"
+        prompt: "Give Alex an energy snack"
+        when: "inventory.player.items.energy_snack > 0 and npc_present('alex_local')"
+        on_select:
+          - type: inventory_give
+            source: player
+            target: alex_local
+            item_type: item
+            item: energy_snack
+            count: 1
+          - type: meter_change
+            target: alex_local
+            meter: trust
+            op: add
+            value: 5
+      - id: "sell_to_mara"
+        prompt: "Sell phone to Mara (demonstration only)"
+        when: "inventory.player.items.phone > 0 and npc_present('mara_vendor')"
+        on_select:
+          - type: inventory_sell
+            source: player
+            target: mara_vendor
+            item_type: item
+            item: phone
+            count: 1
+            price: 50
+      - id: "back"
+        prompt: "Back to effects hub"
+        on_select:
+          - type: goto
+            node: effects_demo_hub
+
+  - id: "advanced_node_demo"
+    type: "scene"
+    title: "Advanced Node Features"
+    beats:
+      - "Demonstrates on_enter/on_exit effects, time_behavior, and triggers."
+    # Override time behavior for this node
+    time_behavior:
+      conversation: instant
+      choice: trivial
+      movement: standard
+      default: quick
+      cap_per_visit: 15
+    # on_enter: Applied when entering the node
+    on_enter:
+      - type: meter_change
+        target: player
+        meter: energy
+        op: add
+        value: 2
+      - type: flag_set
+        key: entered_advanced_demo
+        value: true
+    # on_exit: Applied when leaving the node
+    on_exit:
+      - type: advance_time
+        minutes: 5
+      - type: flag_set
+        key: completed_advanced_demo
+        value: true
+    choices:
+      - id: "test_time_cost"
+        prompt: "Action with specific time cost (10 min)"
+        time_cost: 10
+        on_select:
+          - type: flag_set
+            key: used_time_cost_choice
+            value: true
+      - id: "test_time_category"
+        prompt: "Action using 'significant' category"
+        time_category: significant
+        on_select:
+          - type: flag_set
+            key: used_time_category_choice
+            value: true
+      - id: "continue"
+        prompt: "Finish advanced demo"
+        on_select:
+          - type: goto
+            node: effects_demo_hub
+    # Triggers: Auto-fire when conditions are met
+    triggers:
+      - when: "meters.player.energy >= 90"
+        on_select:
+          - type: flag_set
+            key: high_energy_trigger_fired
+            value: true
+          - type: apply_modifier
+            target: player
+            modifier_id: excited
+
+  # PRIORITY 3 DEMONSTRATION NODES: Remaining Features
+
+  - id: "unlock_lock_demo"
+    type: "hub"
+    title: "Unlock & Lock Effects Demo"
+    beats:
+      - "Demonstrate unlock and lock effects for various entity types."
+    choices:
+      - id: "unlock_test_item"
+        prompt: "Unlock test item"
+        when: "not flags.test_item_unlocked"
+        on_select:
+          - type: unlock
+            items: ["test_locked_item"]
+          - type: flag_set
+            key: test_item_unlocked
+            value: true
+      - id: "unlock_test_action"
+        prompt: "Unlock secret action"
+        when: "not flags.secret_action_unlocked"
+        on_select:
+          - type: unlock
+            actions: ["secret_test_action"]
+          - type: flag_set
+            key: secret_action_unlocked
+            value: true
+      - id: "unlock_test_location"
+        prompt: "Unlock secret garden"
+        when: "not flags.secret_garden_unlocked"
+        on_select:
+          - type: unlock
+            locations: ["secret_garden"]
+          - type: flag_set
+            key: secret_garden_unlocked
+            value: true
+      - id: "unlock_test_ending"
+        prompt: "Unlock secret ending"
+        when: "not flags.secret_ending_unlocked"
+        on_select:
+          - type: unlock
+            endings: ["secret_ending"]
+          - type: flag_set
+            key: secret_ending_unlocked
+            value: true
+      - id: "lock_test_item"
+        prompt: "Lock test item again"
+        when: "flags.test_item_unlocked"
+        on_select:
+          - type: lock
+            items: ["test_locked_item"]
+          - type: flag_set
+            key: test_item_unlocked
+            value: false
+      - id: "unlock_clothing"
+        prompt: "Unlock rain jacket"
+        when: "not inventory.player.clothing.rain_jacket"
+        on_select:
+          - type: unlock
+            clothing: ["rain_jacket"]
+      - id: "back"
+        prompt: "Back to effects hub"
+        on_select:
+          - type: goto
+            node: effects_demo_hub
+
+  - id: "movement_npc_demo"
+    type: "hub"
+    title: "Movement with NPCs"
+    beats:
+      - "Test moving to different locations with NPCs following."
+    choices:
+      - id: "move_with_alex_cafe"
+        prompt: "Invite Alex to the cafe"
+        when: "npc_present('alex_local') and meters.alex_local.trust >= 30"
+        on_select:
+          - type: move_to
+            location: downtown_cafe
+            with_characters: ["alex_local"]
+      - id: "move_with_alex_park"
+        prompt: "Invite Alex to the park"
+        when: "npc_present('alex_local') and meters.alex_local.trust >= 40"
+        on_select:
+          - type: move_to
+            location: suburbs_park_entrance
+            with_characters: ["alex_local"]
+      - id: "travel_with_alex_suburbs"
+        prompt: "Travel with Alex to suburbs"
+        when: "npc_present('alex_local') and meters.alex_local.trust >= 50 and location.zone != 'suburbs'"
+        on_select:
+          - type: travel_to
+            location: suburbs_park_entrance
+            method: walk
+            with_characters: ["alex_local"]
+      - id: "move_north"
+        prompt: "Move north (test directional movement)"
+        on_select:
+          - type: move
+            direction: n
+      - id: "back"
+        prompt: "Back to effects hub"
+        on_select:
+          - type: goto
+            node: effects_demo_hub
+
+  - id: "privacy_demo"
+    type: "scene"
+    title: "Privacy Levels Demo"
+    beats:
+      - "Different locations have different privacy levels (low, medium, high)."
+      - "Current location privacy affects what NPCs will agree to."
+    on_enter:
+      - type: flag_set
+        key: checked_privacy
+        value: true
+    choices:
+      - id: "show_privacy"
+        prompt: "Check current privacy level"
+        on_select:
+          - type: conditional
+            when: "location.privacy == 'low'"
+            then:
+              - type: flag_set
+                key: privacy_level_shown
+                value: low
+            otherwise:
+              - type: conditional
+                when: "location.privacy == 'medium'"
+                then:
+                  - type: flag_set
+                    key: privacy_level_shown
+                    value: medium
+                otherwise:
+                  - type: flag_set
+                    key: privacy_level_shown
+                    value: high
+      - id: "go_high_privacy"
+        prompt: "Go to high privacy location (cul-de-sac)"
+        on_select:
+          - type: move_to
+            location: suburbs_cul_de_sac
+      - id: "go_low_privacy"
+        prompt: "Go to low privacy location (plaza)"
+        on_select:
+          - type: move_to
+            location: downtown_plaza
+      - id: "back"
+        prompt: "Back to effects hub"
+        on_select:
+          - type: goto
+            node: effects_demo_hub
+
+  - id: "dynamic_choices_demo"
+    type: "hub"
+    title: "Dynamic Choices Demo"
+    beats:
+      - "Dynamic choices appear only when their conditions are met."
+      - "Regular choices are always visible (may be disabled)."
+    choices:
+      - id: "set_flag_a"
+        prompt: "Set flag A (enables dynamic choice A)"
+        when: "not flags.demo_flag_a"
+        on_select:
+          - type: flag_set
+            key: demo_flag_a
+            value: true
+      - id: "set_flag_b"
+        prompt: "Set flag B (enables dynamic choice B)"
+        when: "not flags.demo_flag_b"
+        on_select:
+          - type: flag_set
+            key: demo_flag_b
+            value: true
+      - id: "boost_energy"
+        prompt: "Boost energy to 95 (enables dynamic choice C)"
+        when: "meters.player.energy < 90"
+        on_select:
+          - type: meter_change
+            target: player
+            meter: energy
+            op: set
+            value: 95
+      - id: "reset_flags"
+        prompt: "Reset all demo flags"
+        on_select:
+          - type: flag_set
+            key: demo_flag_a
+            value: false
+          - type: flag_set
+            key: demo_flag_b
+            value: false
+      - id: "back"
+        prompt: "Back to effects hub"
+        on_select:
+          - type: goto
+            node: effects_demo_hub
+    dynamic_choices:
+      - id: "dynamic_a"
+        prompt: "Dynamic choice A (only visible when flag A is set)"
+        when: "flags.demo_flag_a"
+        on_select:
+          - type: flag_set
+            key: used_dynamic_choice_a
+            value: true
+      - id: "dynamic_b"
+        prompt: "Dynamic choice B (only visible when flag B is set)"
+        when: "flags.demo_flag_b"
+        on_select:
+          - type: flag_set
+            key: used_dynamic_choice_b
+            value: true
+      - id: "dynamic_c"
+        prompt: "Dynamic choice C (only visible when energy >= 90)"
+        when: "meters.player.energy >= 90"
+        on_select:
+          - type: flag_set
+            key: used_dynamic_choice_c
+            value: true
+      - id: "dynamic_combo"
+        prompt: "Combo dynamic choice (needs both A and B flags)"
+        when_all:
+          - "flags.demo_flag_a"
+          - "flags.demo_flag_b"
+        on_select:
+          - type: flag_set
+            key: used_combo_dynamic_choice
+            value: true
+
+  - id: "secret_ending"
+    type: "ending"
+    title: "Secret Master"
+    ending_id: "secret_master"
+    characters_present: ["player"]
+    beats:
+      - "You discovered all the hidden features of the sandbox!"
+      - "From unlocking secret locations to mastering dynamic choices and privacy mechanics."
+      - "This is the secret ending, only accessible through unlock effects."
+
   - id: "industrial_ending"
     type: "ending"
     title: "Warehouse Sign-Off Complete"
@@ -158,3 +699,34 @@ nodes:
     beats:
       - "With vest donned and access badge approved, you complete the safety walkthrough."
       - "Movement, events, and shops all sign green on the console. Sandbox scenario accomplished."
+
+  - id: "explorer_ending"
+    type: "ending"
+    title: "City Expert"
+    ending_id: "city_expert"
+    characters_present: ["player"]
+    beats:
+      - "You've explored every corner of the city, from the bustling downtown plaza to the quiet suburban streets and the industrial district."
+      - "You know the shortcuts, the best times to visit each zone, and where to find everything you need."
+      - "The city is no longer a mystery - it's your home territory now."
+
+  - id: "vendor_friend_ending"
+    type: "ending"
+    title: "Friendship Forged"
+    ending_id: "mara_friendship"
+    characters_present: ["player", "mara_vendor"]
+    beats:
+      - "Mara greets you with a warm smile as you approach her cart one more time."
+      - "Over your many visits, you've become more than just a customer - you're a friend."
+      - "She hands you a small handmade token. 'For being such a loyal friend,' she says."
+      - "Sometimes the best discoveries in a city aren't the places, but the people you meet along the way."
+
+  - id: "industrial_expert_ending"
+    type: "ending"
+    title: "Industrial District Master"
+    ending_id: "industrial_master"
+    characters_present: ["player"]
+    beats:
+      - "With your safety vest, warehouse pass, and thorough knowledge of the industrial district, you've become a fixture in this zone."
+      - "The security guards recognize you on sight. The warehouse workers greet you by name."
+      - "You've mastered the most challenging district in the city, proving your dedication and attention to safety protocols."

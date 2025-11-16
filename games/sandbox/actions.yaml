@@ -1,1 +1,146 @@
-actions: []
+actions:
+    # Utility action: Check phone
+    - id: "check_phone"
+      prompt: "Check your phone"
+      category: "utility"
+      when: "inventory.player.items.phone > 0"
+      effects:
+          - type: advance_time
+            minutes: 2
+          - type: flag_set
+            key: "checked_phone_recently"
+            value: true
+
+    # Consumable action: Eat energy snack
+    - id: "eat_snack"
+      prompt: "Eat an energy snack"
+      category: "consumable"
+      when: "inventory.player.items.energy_snack > 0 and meters.player.energy < 80"
+      effects:
+          - type: inventory_remove
+            target: player
+            item_type: item
+            item: energy_snack
+            count: 1
+          - type: meter_change
+            target: player
+            meter: energy
+            op: add
+            value: 20
+          - type: apply_modifier
+            target: player
+            modifier_id: caffeinated
+            duration: 45
+          - type: advance_time
+            minutes: 3
+
+    # Navigation action: Review city map
+    - id: "review_map"
+      prompt: "Review the city map"
+      category: "navigation"
+      when: "inventory.player.items.city_map > 0"
+      effects:
+          - type: advance_time
+            minutes: 3
+          - type: flag_set
+            key: "knows_shortcuts"
+            value: true
+          - type: apply_modifier
+            target: player
+            modifier_id: curious
+
+    # Utility action: Take a short rest (unlocked after exploration)
+    - id: "take_rest"
+      prompt: "Take a short rest"
+      category: "utility"
+      when: "flags.market_briefing_viewed and meters.player.energy < 90"
+      effects:
+          - type: advance_time
+            minutes: 15
+          - type: meter_change
+            target: player
+            meter: energy
+            op: add
+            value: 10
+          - type: apply_modifier
+            target: player
+            modifier_id: well_rested
+            duration: 120
+
+    # Social action: Use coffee token (special interaction)
+    - id: "redeem_coffee_token"
+      prompt: "Redeem coffee token"
+      category: "social"
+      when: "inventory.player.items.coffee_token > 0"
+      effects:
+          - type: inventory_remove
+            target: player
+            item_type: item
+            item: coffee_token
+            count: 1
+          - type: meter_change
+            target: player
+            meter: energy
+            op: add
+            value: 15
+          - type: apply_modifier
+            target: player
+            modifier_id: caffeinated
+            duration: 60
+          - type: flag_set
+            key: "used_coffee_token"
+            value: true
+          - type: advance_time
+            minutes: 10
+
+    # Exploration action: Look for shortcuts (unlocked by knowledge)
+    - id: "use_shortcut"
+      prompt: "Use a shortcut (saves time)"
+      category: "navigation"
+      when: "flags.knows_shortcuts"
+      effects:
+          # Note: Shortcuts save time by not advancing it (instant travel)
+          # No advance_time effect = 0 minutes
+          - type: flag_set
+            key: "used_shortcut"
+            value: true
+
+    # Advanced action: Share discovery (unlocked after multiple events)
+    - id: "share_discovery"
+      prompt: "Share your discoveries"
+      category: "social"
+      when_all:
+          - "flags.market_briefing_viewed"
+          - "flags.vendor_briefing_viewed"
+          - "flags.park_encounter_logged"
+      effects:
+          - type: flag_set
+            key: "shared_knowledge"
+            value: true
+          - type: meter_change
+            target: player
+            meter: energy
+            op: add
+            value: 5
+          - type: apply_modifier
+            target: player
+            modifier_id: excited
+          - type: advance_time
+            minutes: 10
+
+    # Secret action (unlocked via unlock effect)
+    - id: "secret_test_action"
+      prompt: "Perform secret action"
+      category: "special"
+      locked: true
+      effects:
+          - type: flag_set
+            key: "used_secret_action"
+            value: true
+          - type: meter_change
+            target: player
+            meter: energy
+            op: add
+            value: 10
+          - type: advance_time
+            minutes: 5
