@@ -3,7 +3,7 @@ import os
 
 import pytest
 
-from app.core.game_loader import GameLoader
+from app.core.loader import GameLoader
 from app.core.game_engine import GameEngine
 from app.models.game import GameDefinition, Meta, GameStart
 from app.models.time import Time

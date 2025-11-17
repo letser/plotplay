@@ -1,6 +1,6 @@
 import logging
 
-from app.core.game_loader import GameLoader
+from app.core.loader import GameLoader
 from app.core.game_engine import GameEngine
 from app.models.actions import Action
 from app.models.locations import Location, LocationConnection

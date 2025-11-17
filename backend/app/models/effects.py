@@ -9,7 +9,7 @@ from typing import Literal, ForwardRef, Annotated, Union, Any
 from pydantic import Field, TypeAdapter
 
 from .model import SimpleModel, DSLExpression, RequiredConditionalMixin
-from .wardrobe import ClothingCondition
+from .clothing import ClothingCondition
 from .locations import LocalDirection
 
 AnyEffect = ForwardRef('AnyEffect')

@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from app.core.game_loader import GameLoader
+from app.core.loader import GameLoader
 from app.models.game import GameDefinition
 
 from tests.conftest import minimal_game, load_yaml, write_yaml

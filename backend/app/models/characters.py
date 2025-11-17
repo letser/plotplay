@@ -9,7 +9,7 @@ from pydantic import Field, model_validator
 from .model import SimpleModel, DescriptiveModel, DSLExpression, RequiredConditionalMixin
 from .meters import Meters, MetersState
 from .inventory import Inventory, InventoryState
-from .wardrobe import Wardrobe, Clothing, ClothingState
+from .clothing import Wardrobe, Clothing, ClothingState
 from .locations import MovementWillingness
 from .economy import Shop
 

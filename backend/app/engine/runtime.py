@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from app.core.logger import setup_session_logger
-from app.core.state_manager import StateManager
+from app.core.state import StateManager
 from app.models.game import GameDefinition, GameIndex
 
 

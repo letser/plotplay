@@ -17,7 +17,7 @@ import pytest
 from app.core.game_engine import GameEngine
 from app.models.game import GameDefinition, Meta, GameStart
 from app.models.characters import Character
-from app.models.wardrobe import (
+from app.models.clothing import (
     Wardrobe, ClothingItem, ClothingLook, ClothingCondition, Outfit
 )
 from app.models.nodes import Node

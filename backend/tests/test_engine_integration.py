@@ -9,8 +9,8 @@ Tests the following systems working together according to specification:
 5. Time progression (slots, minutes, actions)
 """
 import pytest
-from app.core.game_loader import GameLoader
-from app.core.state_manager import StateManager
+from app.core.loader import GameLoader
+from app.core.state import StateManager
 from app.models.game import GameDefinition, Meta, GameStart
 from app.models.locations import Zone, Location
 from app.models.nodes import Node, NodeChoice

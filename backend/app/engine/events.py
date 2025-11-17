@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Iterable
 
 from app.core.conditions import ConditionEvaluator
-from app.core.state_manager import GameState
+from app.core.state import GameState
 from app.models.events import Event
 from app.models.arcs import Stage
 

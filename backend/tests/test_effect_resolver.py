@@ -1,6 +1,6 @@
 import logging
 
-from app.core.game_loader import GameLoader
+from app.core.loader import GameLoader
 from app.core.game_engine import GameEngine
 from app.models.effects import MeterChangeEffect, ConditionalEffect, FlagSetEffect
 from tests.conftest import minimal_game

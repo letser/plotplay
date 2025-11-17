@@ -6,8 +6,7 @@ from collections import Counter, defaultdict
 from collections.abc import Mapping
 from typing import Any, Iterable, Sequence
 
-from app.models.game import GameDefinition
-from app.models.nodes import NodeType
+from app.models import GameDefinition, NodeType
 
 
 class GameValidator:
@@ -681,7 +680,7 @@ class GameValidator:
                     for slot in clothing_slots[clothing_id]:
                         occupied_slots[slot].append(clothing_id)
 
-            # Warn about slot conflicts (multiple items in same slot)
+            # Warn about slot conflicts (multiple items in the same slot)
             for slot, items in occupied_slots.items():
                 if len(items) > 1:
                     self.warnings.append(
@@ -1027,7 +1026,7 @@ class GameValidator:
 
     def _validate_inventory(self, inventory, context: str) -> None:
         """Validate inventory items, clothing, and outfits - now expects dict[str, int]."""
-        # Updated to handle dict structure instead of list
+        # Updated to handle dict structure instead of a list
         for item_id in (inventory.items or {}).keys():
             if item_id not in self.item_ids:
                 self.errors.append(

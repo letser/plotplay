@@ -4,7 +4,7 @@ import os
 import pytest
 import yaml
 
-from app.core.state_manager import GameState
+from app.core.state import GameState
 from app.models.locations import LocationPrivacy
 from app.services.mock_ai_service import MockAIService
 
@@ -303,7 +303,7 @@ def sample_game_state() -> GameState:
 @pytest.fixture
 def wardrobe_game():
     """Game fixture with complete wardrobe system for clothing tests."""
-    from app.models.wardrobe import Wardrobe, ClothingItem, Outfit, ClothingLook
+    from app.models.clothing import Wardrobe, ClothingItem, Outfit, ClothingLook
     from app.models.characters import Character, ClothingConfig
     from app.models.game import GameDefinition, Meta, GameStart
     from app.models.time import Time

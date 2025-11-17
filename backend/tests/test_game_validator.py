@@ -1,7 +1,7 @@
 import pytest
 
-from app.core.game_loader import GameLoader
-from app.core.game_validator import GameValidator
+from app.core.loader import GameLoader
+from app.core.validator import GameValidator
 from app.models.nodes import NodeType
 
 

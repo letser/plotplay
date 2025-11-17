@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from app.core.conditions import ConditionEvaluator
-from app.core.state_manager import GameState
+from app.core.state import GameState
 from app.models.effects import ApplyModifierEffect, RemoveModifierEffect
 
 if TYPE_CHECKING:

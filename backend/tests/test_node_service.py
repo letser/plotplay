@@ -1,7 +1,7 @@
 import logging
 from types import SimpleNamespace
 
-from app.core.game_loader import GameLoader
+from app.core.loader import GameLoader
 from app.core.game_engine import GameEngine
 from app.models.effects import FlagSetEffect
 from app.models.nodes import Choice, Node, NodeType

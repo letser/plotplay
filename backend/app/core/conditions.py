@@ -10,7 +10,7 @@ import random
 from typing import Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from app.core.state_manager import StateManager
+    from app.core.state import StateManager
     from app.models.game import GameIndex
 
 

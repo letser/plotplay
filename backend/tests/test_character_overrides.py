@@ -13,12 +13,12 @@ This test verifies that:
 5. Character-specific wardrobe items extend the global wardrobe
 """
 import pytest
-from app.core.game_loader import GameLoader
-from app.core.state_manager import StateManager
+from app.core.loader import GameLoader
+from app.core.state import StateManager
 from app.models.game import GameDefinition
 from app.models.characters import Character
 from app.models.meters import MetersTemplate, Meter, MetersDefinition
-from app.models.wardrobe import Wardrobe, ClothingItem, Outfit, ClothingLook
+from app.models.clothing import Wardrobe, ClothingItem, Outfit, ClothingLook
 
 
 @pytest.fixture

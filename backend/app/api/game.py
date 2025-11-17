@@ -9,10 +9,10 @@ import uuid
 import json
 import asyncio
 
-from app.core.game_loader import GameLoader
+from app.core.loader import GameLoader
 from app.core.game_engine import GameEngine
 from app.core.conditions import ConditionEvaluator
-from app.models.wardrobe import ClothingCondition
+from app.models.clothing import ClothingCondition
 
 router = APIRouter()
 

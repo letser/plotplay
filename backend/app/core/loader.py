@@ -5,9 +5,9 @@ from typing import Any
 from copy import deepcopy
 import yaml
 
-from app.models.game import GameDefinition
-from app.core.game_validator import GameValidator
-from app.core.game_settings import GameSettings
+from app.models import GameDefinition
+from app.core.validator import GameValidator
+from app.core.settings import GameSettings
 
 _ALLOWED_ROOT_KEYS: set[str] = {
     "meta",

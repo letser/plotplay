@@ -21,7 +21,7 @@ from .modifiers import Modifiers, Modifier
 from .narration import Narration
 from .nodes import Node
 from .time import Time, TimeHHMM, TimeState
-from .wardrobe import Wardrobe, ClothingItem, Outfit
+from .clothing import Wardrobe, ClothingItem, Outfit
 
 
 class Meta(DescriptiveModel):

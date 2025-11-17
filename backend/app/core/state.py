@@ -4,15 +4,10 @@ from __future__ import annotations
 
 import copy
 from datetime import UTC, datetime
+from typing import Any
 
-from app.models.game import GameDefinition, GameState
-from app.models.locations import ZoneState, LocationState
-from app.models.time import TimeState
-from app.models.arcs import ArcState
-from app.models.characters import CharacterState
-from app.models.inventory import InventoryState
-from app.models.wardrobe import ClothingState
-
+from app.models import (GameDefinition, GameState, ZoneState, LocationState,
+                        TimeState, ArcState, CharacterState, InventoryState, ClothingState)
 
 class StateManager:
     """Manages game state initialization and high-level modifications."""
@@ -173,14 +168,14 @@ class StateManager:
     # ------------------------------------------------------------------ #
     def get_dsl_context(self) -> dict:
         """
-        Build DSL evaluation context from current state (data only, no functions).
+        Build DSL evaluation context from the current state (data only, no functions).
         This provides the variable namespace for condition expressions.
 
         Returns:
             Dictionary with all DSL-accessible state data
         """
-        # Simple globals
-        context = {
+        # Simple globals and placeholders
+        context: dict[str, Any] = {
             "time": {
                 "day": self.state.day,
                 "slot": self.state.time_slot,
@@ -196,18 +191,18 @@ class StateManager:
                 "id": self.state.current_node,
             },
             "turn": self.state.turn_count,
+            "flags": self.state.flags,
+            "meters": {},
+            "gates": {},
+            "modifiers": {},
+            "inventory": {},
+            "clothing": {}
         }
 
-        # Flatten character-scoped data
-        context["meters"] = {}
-        context["gates"] = {}
-        context["modifiers"] = {}
-        context["inventory"] = {}
-        context["clothing"] = {}
-
+        # Character-scoped data
         for char_id, char_state in self.state.characters.items():
             # Meters
-            context["meters"][char_id] = dict(char_state.meters)
+            context["meters"][char_id] = char_state.meters
 
             # Gates (active gates only - tuple unpacked to dict)
             context["gates"][char_id] = {
@@ -229,9 +224,6 @@ class StateManager:
                 "outfit": char_state.clothing.outfit,
                 "items": dict(char_state.clothing.items),
             }
-
-        # Global state
-        context["flags"] = dict(self.state.flags)
 
         # Arcs
         context["arcs"] = {

@@ -1,5 +1,5 @@
-from app.core.game_loader import GameLoader
-from app.core.state_manager import StateManager
+from app.core.loader import GameLoader
+from app.core.state import StateManager
 from app.models.locations import LocationPrivacy
 
 

@@ -7,7 +7,7 @@ from __future__ import annotations
 import json
 from typing import Any, TYPE_CHECKING
 
-from app.core.state_manager import GameState
+from app.core.state import GameState
 from app.core.conditions import ConditionEvaluator
 from app.models.characters import Character
 from app.models.game import GameDefinition
