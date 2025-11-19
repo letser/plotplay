@@ -2,7 +2,7 @@
 PlotPlay Game Models.
 Data and state models.
 """
-from nodes import NodeCondition, NodeTrigger, NodeChoice, NodeType, Node
+from .nodes import NodeCondition, NodeTrigger, NodeChoice, NodeType, Node
 from .actions import Action
 from .arcs import ArcStage, Arc, ArcState
 from .characters import Gate, Character, CharacterSchedule, CharacterState

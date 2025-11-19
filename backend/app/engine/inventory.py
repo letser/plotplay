@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, List, Any
 
-from app.models.effects import InventoryChangeEffect, AnyEffect
+from app.models.effects import (
+    InventoryAddEffect,
+    InventoryRemoveEffect,
+    AnyEffect
+)
 
 if TYPE_CHECKING:
     from app.core.game_engine import GameEngine
@@ -59,9 +63,9 @@ class InventoryService:
             effects_to_apply.extend(on_use)
 
         if getattr(item_def, "consumable", False):
-            remove_effect = InventoryChangeEffect(
-                type="inventory_remove",
-                owner=owner_id,
+            remove_effect = InventoryRemoveEffect(
+                target=owner_id,
+                item_type="item",
                 item=item_id,
                 count=1
             )
@@ -69,7 +73,7 @@ class InventoryService:
 
         return effects_to_apply
 
-    def apply_effect(self, effect: InventoryChangeEffect) -> List[AnyEffect]:
+    def apply_effect(self, effect: InventoryAddEffect | InventoryRemoveEffect) -> List[AnyEffect]:
         """
         Applies a single inventory change effect to the state.
         Triggers item hooks (on_get, on_lost) and returns their effects.
@@ -86,12 +90,17 @@ class InventoryService:
         if not item_def:
             return []
 
+        # Get the owner (target for new effects, owner for legacy)
+        owner = getattr(effect, 'target', getattr(effect, 'owner', None))
+        if not owner:
+            return []
+
         # Ignore invalid owner references
-        existent_character = effect.owner in self.engine.characters_map
+        existent_character = owner in self.engine.characters_map
         if not existent_character:
             return []
 
-        owner_inventory = state.inventory.setdefault(effect.owner, {})
+        owner_inventory = state.inventory.setdefault(owner, {})
         current_count = owner_inventory.get(effect.item, 0)
 
         if effect.type == "inventory_add":

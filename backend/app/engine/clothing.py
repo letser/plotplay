@@ -4,7 +4,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Dict, Any
 
-from app.models.effects import ClothingChangeEffect
+from app.models.effects import (
+    ClothingPutOnEffect,
+    ClothingTakeOffEffect,
+    ClothingStateEffect,
+    ClothingSlotStateEffect,
+)
 
 if TYPE_CHECKING:
     from app.core.game_engine import GameEngine
@@ -130,7 +135,7 @@ class ClothingService:
 
         return None
 
-    def apply_effect(self, effect: ClothingChangeEffect):
+    def apply_effect(self, effect: Any):
         """
         Applies an authored clothing change effect.
 

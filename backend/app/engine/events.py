@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Iterable
 from app.core.conditions import ConditionEvaluator
 from app.core.state import GameState
 from app.models.events import Event
-from app.models.arcs import Stage
+from app.models.arcs import ArcStage
 
 if TYPE_CHECKING:
     from app.core.game_engine import GameEngine
@@ -39,7 +39,7 @@ class EventPipeline:
         self.game_def = engine.game_def
 
         # Build stages map for quick lookup
-        self.stages_map: dict[str, Stage] = {
+        self.stages_map: dict[str, ArcStage] = {
             stage.id: stage
             for arc in self.game_def.arcs
             for stage in arc.stages

@@ -1,7 +1,6 @@
 """Engine package exposing runtime and turn orchestration utilities."""
 
 from .runtime import SessionRuntime
-from .turn_manager import TurnManager
 from .effects import EffectResolver
 from .movement import MovementService
 from .time import TimeService, TimeAdvance
@@ -20,7 +19,6 @@ from .modifiers import ModifierService
 
 __all__ = [
     "SessionRuntime",
-    "TurnManager",
     "EffectResolver",
     "MovementService",
     "TimeService",
