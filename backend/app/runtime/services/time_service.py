@@ -1,14 +1,13 @@
-"""
-Placeholder time service for the new runtime engine.
-"""
+"""Time utilities for the new runtime."""
 
 from __future__ import annotations
 
+from app.models.effects import MeterChangeEffect
 from app.runtime.session import SessionRuntime
 
 
 class TimeService:
-    """Handles time advancement and slot recalculation."""
+    """Handles time advancement, slot recalculation, and meter decay."""
 
     def __init__(self, runtime: SessionRuntime) -> None:
         self.runtime = runtime
@@ -38,6 +37,32 @@ class TimeService:
             "slot_advanced": (new_slot is not None and new_slot != previous_slot),
             "day_advanced": day_advanced,
         }
+
+    def apply_meter_dynamics(self, *, day_advanced: bool, slot_advanced: bool) -> None:
+        """Apply time-based meter decay."""
+        if day_advanced:
+            self._apply_meter_decay("day")
+        if slot_advanced:
+            self._apply_meter_decay("slot")
+
+    def _apply_meter_decay(self, decay_type: str) -> None:
+        state = self.runtime.state_manager.state
+        index = self.runtime.index
+
+        for char_id, char_state in state.characters.items():
+            for meter_id, value in list(char_state.meters.items()):
+                meter_def = index.player_meters.get(meter_id) if char_id == "player" else index.template_meters.get(meter_id)
+                if not meter_def:
+                    continue
+                decay_value = 0
+                if decay_type == "day" and getattr(meter_def, "decay_per_day", 0):
+                    decay_value = meter_def.decay_per_day
+                elif decay_type == "slot" and getattr(meter_def, "decay_per_slot", 0):
+                    decay_value = meter_def.decay_per_slot
+                if decay_value:
+                    self.runtime.effect_resolver.apply_effects(
+                        [MeterChangeEffect(target=char_id, meter=meter_id, op="add", value=decay_value)]
+                    )
 
     def _resolve_slot(self, total_minutes: int, fallback: str | None) -> str | None:
         windows = getattr(self.runtime.game.time, "slot_windows", None) or {}

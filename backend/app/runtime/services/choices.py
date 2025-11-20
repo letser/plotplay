@@ -41,21 +41,47 @@ class ChoiceBuilder:
             _append(choice, "node_choice")
 
         # Movement choices: simple list from current location connections
-        location = self.runtime.index.locations.get(self.runtime.state_manager.state.current_location)
-        if location and location.connections:
-            for connection in location.connections:
-                targets = [connection.to] if isinstance(connection.to, str) else (connection.to or [])
-                for target_id in targets:
-                    target_loc = self.runtime.index.locations.get(target_id)
-                    if not target_loc:
-                        continue
-                    choices.append(
-                        {
-                            "id": f"move_{target_id}",
-                            "text": f"Go to {target_loc.name}",
-                            "type": "movement",
-                        }
-                    )
+        state = self.runtime.state_manager.state
+        location_state = self.runtime.index.locations.get(state.current_location)
+        if location_state and location_state.connections:
+            for connection in location_state.connections:
+                if not evaluator.evaluate_object_conditions(connection):
+                    continue
+                target_id = connection.to
+                target_loc = self.runtime.index.locations.get(target_id)
+                location_runtime_state = state.locations.get(target_id)
+                if not target_loc:
+                    continue
+                if location_runtime_state and getattr(location_runtime_state, "locked", False):
+                    continue
+                if location_runtime_state and not location_runtime_state.discovered:
+                    continue
+                choices.append(
+                    {
+                        "id": f"move_{target_id}",
+                        "text": f"Go to {target_loc.name}",
+                        "type": "movement",
+                        "metadata": {
+                            "direction": getattr(connection.direction, "value", None),
+                        },
+                    }
+                )
+
+        # Unlocked global actions
+        unlocked_actions = state.unlocked_actions or []
+        for action_id in unlocked_actions:
+            action_def = self.runtime.index.actions.get(action_id)
+            if not action_def:
+                continue
+            if not evaluator.evaluate_object_conditions(action_def):
+                continue
+            choices.append(
+                {
+                    "id": action_id,
+                    "text": action_def.prompt,
+                    "type": "unlocked_action",
+                }
+            )
 
         return choices
 

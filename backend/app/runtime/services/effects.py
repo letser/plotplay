@@ -22,6 +22,23 @@ from app.models.effects import (
     InventoryRemoveEffect,
     InventoryTakeEffect,
     InventoryDropEffect,
+    InventoryPurchaseEffect,
+    InventorySellEffect,
+    InventoryGiveEffect,
+    AdvanceTimeEffect,
+    MoveEffect,
+    MoveToEffect,
+    TravelToEffect,
+    ApplyModifierEffect,
+    RemoveModifierEffect,
+    LockEffect,
+    UnlockEffect,
+    ClothingPutOnEffect,
+    ClothingTakeOffEffect,
+    ClothingStateEffect,
+    ClothingSlotStateEffect,
+    OutfitPutOnEffect,
+    OutfitTakeOffEffect,
 )
 from app.runtime.session import SessionRuntime
 from app.runtime.services.inventory import InventoryService
@@ -30,9 +47,10 @@ from app.runtime.services.inventory import InventoryService
 class EffectResolver:
     """Applies a limited subset of effects to the current state."""
 
-    def __init__(self, runtime: SessionRuntime, inventory: InventoryService, **_unused) -> None:
+    def __init__(self, runtime: SessionRuntime, inventory: InventoryService, trade=None, **_unused) -> None:
         self.runtime = runtime
         self.inventory = inventory
+        self.trade = trade
 
     def apply_effects(self, effects: Iterable[AnyEffect]) -> None:
         from app.models.effects import parse_effect
@@ -62,9 +80,71 @@ class EffectResolver:
                 if hooks:
                     self.apply_effects(hooks)
             elif isinstance(effect, InventoryTakeEffect):
-                self.inventory.take_from_location(effect.target, effect.item, count=effect.count)
+                trade = self.trade or getattr(self.runtime, "trade_service", None)
+                hooks = trade.take_from_location(effect) if trade else None
+                if hooks:
+                    self.apply_effects(hooks)
             elif isinstance(effect, InventoryDropEffect):
-                self.inventory.drop_to_location(effect.target, effect.item, count=effect.count)
+                trade = self.trade or getattr(self.runtime, "trade_service", None)
+                hooks = trade.drop_to_location(effect) if trade else None
+                if hooks:
+                    self.apply_effects(hooks)
+            elif isinstance(effect, InventoryPurchaseEffect):
+                trade = self.trade or getattr(self.runtime, "trade_service", None)
+                hooks = trade.purchase(effect) if trade else None
+                if hooks:
+                    self.apply_effects(hooks)
+            elif isinstance(effect, InventorySellEffect):
+                trade = self.trade or getattr(self.runtime, "trade_service", None)
+                hooks = trade.sell(effect) if trade else None
+                if hooks:
+                    self.apply_effects(hooks)
+            elif isinstance(effect, InventoryGiveEffect):
+                trade = self.trade or getattr(self.runtime, "trade_service", None)
+                hooks = trade.give(effect) if trade else None
+                if hooks:
+                    self.apply_effects(hooks)
+            elif isinstance(effect, MoveToEffect):
+                mover = getattr(self.runtime, "movement_service", None)
+                if mover:
+                    mover.move_to(effect)
+            elif isinstance(effect, MoveEffect):
+                mover = getattr(self.runtime, "movement_service", None)
+                if mover:
+                    mover.move_relative(effect)
+            elif isinstance(effect, TravelToEffect):
+                mover = getattr(self.runtime, "movement_service", None)
+                if mover:
+                    mover.travel(effect)
+            elif isinstance(effect, AdvanceTimeEffect):
+                time_service = getattr(self.runtime, "time_service", None)
+                if time_service:
+                    info = time_service.advance_minutes(effect.minutes)
+                    ctx = getattr(self.runtime, "current_context", None)
+                    if ctx:
+                        ctx.time_advanced_minutes += info.get("minutes", 0)
+                        ctx.day_advanced = ctx.day_advanced or info.get("day_advanced", False)
+                        ctx.slot_advanced = ctx.slot_advanced or info.get("slot_advanced", False)
+            elif isinstance(effect, ApplyModifierEffect) or isinstance(effect, RemoveModifierEffect):
+                modifiers = getattr(self.runtime, "modifier_service", None)
+                if modifiers:
+                    modifiers.apply_effect(effect, state=self.runtime.state_manager.state)
+            elif isinstance(effect, LockEffect):
+                mover = getattr(self.runtime, "movement_service", None)
+                if mover:
+                    mover.apply_lock(effect)
+            elif isinstance(effect, UnlockEffect):
+                mover = getattr(self.runtime, "movement_service", None)
+                if mover:
+                    mover.apply_unlock(effect)
+            elif isinstance(effect, ClothingPutOnEffect) or isinstance(effect, ClothingTakeOffEffect) or isinstance(effect, ClothingStateEffect) or isinstance(effect, ClothingSlotStateEffect):
+                clothing = getattr(self.runtime, "clothing_service", None)
+                if clothing:
+                    clothing.apply_effect(effect)
+            elif isinstance(effect, OutfitPutOnEffect) or isinstance(effect, OutfitTakeOffEffect):
+                clothing = getattr(self.runtime, "clothing_service", None)
+                if clothing:
+                    clothing.apply_outfit_effect(effect)
             else:
                 self.runtime.logger.debug("Ignoring unsupported effect type: %s", getattr(effect, "type", type(effect)))
 

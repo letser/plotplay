@@ -36,6 +36,7 @@ class TurnContext:
     # AI result tracking
     ai_narrative: str = ""
     checker_deltas: dict[str, Any] = field(default_factory=dict)
+    active_gates: dict[str, dict[str, bool]] = field(default_factory=dict)
 
     # Choice results
     choices: list[dict[str, Any]] = field(default_factory=list)

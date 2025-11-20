@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Iterable
 
 from app.models.events import Event
+from app.models.arcs import ArcState
 
 if TYPE_CHECKING:
     from app.runtime.session import SessionRuntime
@@ -26,6 +27,11 @@ class EventPipeline:
 
     def __init__(self, runtime: "SessionRuntime") -> None:
         self.runtime = runtime
+        self.stages_map: dict[str, ArcStage] = {
+            stage.id: stage
+            for arc in runtime.game.arcs
+            for stage in arc.stages
+        }
 
     def process_events(self, ctx: "TurnContext") -> EventResult:
         state = self.runtime.state_manager.state
@@ -68,6 +74,56 @@ class EventPipeline:
             self._apply_cooldown(event, state)
 
         return result
+
+    def process_arcs(self) -> list[str]:
+        """Advance arc stages when their conditions are met."""
+        state = self.runtime.state_manager.state
+        evaluator = self.runtime.state_manager.create_evaluator()
+        milestones: list[str] = []
+
+        for arc in self.runtime.game.arcs:
+            arc_state = state.arcs.get(arc.id)
+            current_stage_id = arc_state.stage if arc_state else None
+
+            for stage in arc.stages:
+                if arc_state and stage.id in arc_state.history and stage.once_per_game:
+                    continue
+                if not evaluator.evaluate_object_conditions(stage):
+                    continue
+
+                if current_stage_id == stage.id:
+                    break
+
+                if current_stage_id:
+                    prev_stage = self.stages_map.get(current_stage_id)
+                    if prev_stage and prev_stage.on_exit:
+                        self.runtime.effect_resolver.apply_effects(prev_stage.on_exit)
+
+                if stage.on_enter:
+                    self.runtime.effect_resolver.apply_effects(stage.on_enter)
+
+                if not arc_state:
+                    arc_state = state.arcs.setdefault(arc.id, ArcState(id=arc.id, stage=None))
+                arc_state.stage = stage.id
+                if not getattr(arc_state, "history", None):
+                    arc_state.history = []
+                arc_state.history.append(stage.id)
+                milestones.append(stage.id)
+                break
+
+        return milestones
+
+    def decrement_cooldowns(self) -> None:
+        """Reduce event cooldown timers each turn."""
+        state = self.runtime.state_manager.state
+        expired = []
+        for event_id, remaining in state.cooldowns.items():
+            if remaining > 0:
+                state.cooldowns[event_id] = remaining - 1
+                if state.cooldowns[event_id] <= 0:
+                    expired.append(event_id)
+        for event_id in expired:
+            state.cooldowns.pop(event_id, None)
 
     # ------------------------------------------------------------------ #
     # Helpers

@@ -21,6 +21,7 @@ from app.runtime.types import PlayerAction, TurnResult
 from app.runtime.services.inventory import InventoryService
 from app.runtime.services.time_service import TimeService
 from app.runtime.services.movement import MovementService
+from app.runtime.services.trade import TradeService
 from app.runtime.services.modifiers import ModifierService
 from app.runtime.services.clothing import ClothingService
 from app.runtime.services.effects import EffectResolver
@@ -45,11 +46,13 @@ class PlotPlayEngine:
         self.inventory_service = InventoryService(self.runtime)
         self.time_service = TimeService(self.runtime)
         self.movement_service = MovementService(self.runtime)
+        self.trade_service = TradeService(self.runtime)
         self.modifier_service = ModifierService(self.runtime)
         self.clothing_service = ClothingService(self.runtime)
         self.effect_resolver = EffectResolver(
             runtime=self.runtime,
             inventory=self.inventory_service,
+            trade=self.trade_service,
             movement=self.movement_service,
             time_service=self.time_service,
             modifiers=self.modifier_service,
@@ -67,6 +70,7 @@ class PlotPlayEngine:
         self.runtime.discovery_service = self.discovery_service
         self.runtime.time_service = self.time_service
         self.runtime.modifier_service = self.modifier_service
+        self.runtime.trade_service = self.trade_service
 
         self.turn_manager = TurnManager(self.runtime)
 
