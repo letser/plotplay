@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from app.core.conditions import ConditionEvaluator
-
 if TYPE_CHECKING:
     from app.core.game_engine import GameEngine
 
@@ -28,7 +26,7 @@ class NarrativeReconciler:
             return ai_narrative
 
         state = self.engine.state_manager.state
-        evaluator = ConditionEvaluator(state, rng_seed=self.engine.get_turn_seed())
+        evaluator = self.engine.state_manager.create_evaluator()
         target_char = self.engine.characters_map.get(target_char_id)
         if not target_char or not getattr(target_char, "behaviors", None):
             return ai_narrative

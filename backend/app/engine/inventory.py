@@ -48,8 +48,11 @@ class InventoryService:
             List of effects to apply (item effects + consumable removal)
         """
         state = self.engine.state_manager.state
-        owner_inventory = state.inventory.setdefault(owner_id, {})
+        owner_state = state.characters.get(owner_id)
+        if not owner_state:
+            return []
 
+        owner_inventory = owner_state.inventory.items
         if owner_inventory.get(item_id, 0) <= 0:
             return []
 
@@ -90,18 +93,16 @@ class InventoryService:
         if not item_def:
             return []
 
-        # Get the owner (target for new effects, owner for legacy)
-        owner = getattr(effect, 'target', getattr(effect, 'owner', None))
-        if not owner:
+        owner = getattr(effect, "target", getattr(effect, "owner", None))
+        if not owner or owner not in state.characters:
             return []
 
-        # Ignore invalid owner references
-        existent_character = owner in self.engine.characters_map
-        if not existent_character:
+        owner_state = state.characters[owner]
+        bucket = self._resolve_bucket(owner_state, effect.item_type)
+        if bucket is None:
             return []
 
-        owner_inventory = state.inventory.setdefault(owner, {})
-        current_count = owner_inventory.get(effect.item, 0)
+        current_count = bucket.get(effect.item, 0)
 
         if effect.type == "inventory_add":
             new_count = current_count + effect.count
@@ -110,10 +111,12 @@ class InventoryService:
         else:
             return []
 
-        if not self._is_stackable(item_def):
+        if effect.item_type in (None, "item") and not self._is_stackable(item_def):
             new_count = max(0, min(1, new_count))
 
-        owner_inventory[effect.item] = max(0, new_count)
+        bucket[effect.item] = max(0, new_count)
+        if bucket[effect.item] == 0:
+            bucket.pop(effect.item, None)
 
         # Trigger item hooks after inventory change
         triggered_effects: List[AnyEffect] = []
@@ -156,3 +159,14 @@ class InventoryService:
         if item_id in self.outfit_defs:
             return "outfit"
         return None
+
+    @staticmethod
+    def _resolve_bucket(owner_state, item_type: str | None) -> dict[str, int] | None:
+        inventory = owner_state.inventory
+        match item_type:
+            case "clothing":
+                return inventory.clothing
+            case "outfit":
+                return inventory.outfits
+            case _:
+                return inventory.items

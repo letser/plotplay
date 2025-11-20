@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from app.core.conditions import ConditionEvaluator
-
 if TYPE_CHECKING:
     from app.core.game_engine import GameEngine
 
@@ -18,7 +16,7 @@ class StateSummaryService:
 
     def build(self) -> dict:
         state = self.engine.state_manager.state
-        evaluator = ConditionEvaluator(state, rng_seed=self.engine.get_turn_seed())
+        evaluator = self.engine.state_manager.create_evaluator()
 
         def build_item_detail(item_id: str) -> dict | None:
             item_type = self.engine.inventory.get_item_type(item_id)
@@ -121,7 +119,7 @@ class StateSummaryService:
                 ]
 
         character_details: dict[str, dict] = {}
-        for char_id in state.present_chars:
+        for char_id in state.present_characters:
             char_def = self.engine.characters_map.get(char_id)
             if not char_def:
                 continue
@@ -139,7 +137,8 @@ class StateSummaryService:
         }
 
         inventory_details: dict[str, dict] = {}
-        player_inventory_raw = state.inventory.get("player", {}) or {}
+        player_state = state.characters.get("player")
+        player_inventory_raw = player_state.inventory.items if player_state else {}
         player_inventory = {
             item_id: count for item_id, count in player_inventory_raw.items() if count > 0
         }
@@ -150,10 +149,9 @@ class StateSummaryService:
             if detail := build_item_detail(item_id):
                 inventory_details[item_id] = detail
 
-        current_location = state.location_current
-        location_inventory_raw = (
-            state.location_inventory.get(current_location, {}) if current_location else {}
-        ) or {}
+        current_location = state.current_location
+        location_state = state.locations.get(current_location) if current_location else None
+        location_inventory_raw = location_state.inventory.items if location_state else {}
         location_inventory = {
             item_id: count for item_id, count in location_inventory_raw.items() if count > 0
         }
@@ -200,14 +198,14 @@ class StateSummaryService:
             "day": state.day,
             "time": state.time_slot,
             "location": self.engine.locations_map.get(
-                state.location_current
-            ).name if state.location_current in self.engine.locations_map else state.location_current,
-            "location_id": state.location_current,
-            "zone": state.zone_current,
+                state.current_location
+            ).name if state.current_location in self.engine.locations_map else state.current_location,
+            "location_id": state.current_location,
+            "zone": state.current_zone,
             "meters": summary_meters,
             "flags": summary_flags,
             "modifiers": summary_modifiers,
-            "present_characters": list(state.present_chars),
+            "present_characters": list(state.present_characters),
             "character_details": character_details,
             "player_details": player_details,
             "inventory": player_inventory,
@@ -230,11 +228,11 @@ class StateSummaryService:
             "slot": state.time_slot,
             "time_hhmm": state.time_hhmm,
             "weekday": state.weekday,
-            "mode": self.engine.game_def.time.mode.value if self.engine.game_def.time else "slots",
+            "mode": "slots" if self.engine.game_def.time and self.engine.game_def.time.slots_enabled else "clock",
         }
 
         location_detail = {}
-        current_location = self.engine.locations_map.get(state.location_current)
+        current_location = self.engine.locations_map.get(state.current_location)
         if current_location:
             exits: list[dict] = []
             for connection in current_location.connections or []:
@@ -260,7 +258,7 @@ class StateSummaryService:
 
             # Build zone connections list
             zone_connections: list[dict] = []
-            current_zone = self.engine.zones_map.get(state.zone_current)
+            current_zone = self.engine.zones_map.get(state.current_zone)
             if current_zone and current_zone.connections:
                 discovered_zones = set(state.discovered_zones or [])
                 for connection in current_zone.connections:
@@ -318,7 +316,7 @@ class StateSummaryService:
             location_detail = {
                 "id": current_location.id,
                 "name": current_location.name,
-                "zone": state.zone_current,
+                "zone": state.current_zone,
                 "privacy": getattr(current_location.privacy, "value", current_location.privacy),
                 "summary": current_location.summary,
                 "description": getattr(current_location, "description", None),
@@ -328,9 +326,9 @@ class StateSummaryService:
             }
         else:
             location_detail = {
-                "id": state.location_current,
-                "name": state.location_current,
-                "zone": state.zone_current,
+                "id": state.current_location,
+                "name": state.current_location,
+                "zone": state.current_zone,
                 "privacy": getattr(state.location_privacy, "value", state.location_privacy),
                 "summary": None,
                 "description": None,
@@ -346,12 +344,12 @@ class StateSummaryService:
             "attire": player_details["wearing"],
             "meters": summary_meters.get("player", {}),
             "modifiers": summary_modifiers.get("player", []),
-            "inventory": state.inventory.get("player", {}),
+            "inventory": player_inventory,
             "wardrobe_state": state.clothing_states.get("player"),
         }
 
         character_snapshots: list[dict] = []
-        for char_id in state.present_chars:
+        for char_id in state.present_characters:
             if char_id == "player":
                 continue
             char_def = self.engine.characters_map.get(char_id)

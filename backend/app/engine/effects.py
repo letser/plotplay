@@ -19,6 +19,7 @@ from app.models.effects import (
     GotoEffect,
     InventoryAddEffect,
     InventoryRemoveEffect,
+    InventoryChangeEffect,
     InventoryPurchaseEffect,
     InventorySellEffect,
     InventoryGiveEffect,
@@ -50,7 +51,7 @@ class EffectResolver:
         from app.models.effects import parse_effect
 
         state = self.engine.state_manager.state
-        evaluator = ConditionEvaluator(state, rng_seed=self.engine.get_turn_seed())
+        evaluator = self.engine.state_manager.create_evaluator()
 
         for effect in effects:
             # Handle both dict and parsed effect objects
@@ -81,7 +82,8 @@ class EffectResolver:
                         type="inventory_add" if isinstance(effect, InventoryAddEffect) else "inventory_remove",
                         owner=effect.target,
                         item=effect.item,
-                        count=effect.count
+                        count=effect.count,
+                        item_type=getattr(effect, "item_type", "item"),
                     )
                     hook_effects = self.engine.inventory.apply_effect(legacy_effect)
                     if hook_effects:
@@ -210,13 +212,13 @@ class EffectResolver:
 
     def apply_advance_time(self, effect: AdvanceTimeEffect) -> None:
         self.engine.logger.info("Applying AdvanceTimeEffect: %s minutes.", effect.minutes)
-        self.engine._advance_time(minutes=effect.minutes)
+        self.engine._apply_time_minutes(effect.minutes)
 
     # ------------------------------------------------------------------ #
     # Internal helpers
     # ------------------------------------------------------------------ #
     def _apply_conditional_effect(self, effect: ConditionalEffect) -> None:
-        evaluator = ConditionEvaluator(self.engine.state_manager.state, rng_seed=self.engine.get_turn_seed())
+        evaluator = self.engine.state_manager.create_evaluator()
         if evaluator.evaluate(effect.when):
             self.apply_effects(effect.then)
         else:
@@ -280,9 +282,9 @@ class EffectResolver:
         if effect.location not in state.discovered_locations:
             return
 
-        chars_to_move = [char for char in effect.with_characters if char in state.present_chars]
+        chars_to_move = [char for char in effect.with_characters if char in state.present_characters]
 
-        state.location_current = effect.location
+        state.current_location = effect.location
         state.location_privacy = self.engine._get_location_privacy(effect.location)
 
         self.engine._update_npc_presence()
@@ -291,7 +293,7 @@ class EffectResolver:
         current_node.characters_present.extend(chars_to_move)
 
         if current_node.characters_present:
-            state.present_chars = [
+            state.present_characters = [
                 char for char in current_node.characters_present if char in self.engine.characters_map
             ]
 
@@ -303,7 +305,7 @@ class EffectResolver:
         if not economy or not economy.enabled:
             return
 
-        evaluator = ConditionEvaluator(state, rng_seed=self.engine.get_turn_seed())
+        evaluator = self.engine.state_manager.create_evaluator()
         shop = self._resolve_shop(effect.source)
         if shop:
             if not evaluator.evaluate(shop.when):
@@ -350,7 +352,8 @@ class EffectResolver:
             type="inventory_add",
             owner=effect.target,
             item=effect.item,
-            count=effect.count
+            count=effect.count,
+            item_type=effect.item_type,
         )
         hook_effects = self.engine.inventory.apply_effect(add_effect)
         if hook_effects:
@@ -362,7 +365,8 @@ class EffectResolver:
                 type="inventory_remove",
                 owner=effect.source,
                 item=effect.item,
-                count=effect.count
+                count=effect.count,
+                item_type=effect.item_type,
             )
             hook_effects = self.engine.inventory.apply_effect(remove_effect)
             if hook_effects:
@@ -376,7 +380,7 @@ class EffectResolver:
         if not economy or not economy.enabled:
             return
 
-        evaluator = ConditionEvaluator(state, rng_seed=self.engine.get_turn_seed())
+        evaluator = self.engine.state_manager.create_evaluator()
         shop = self._resolve_shop(effect.target)
         if shop:
             if not evaluator.evaluate(shop.when):
@@ -408,7 +412,11 @@ class EffectResolver:
             total_price = base_value * effect.count * multiplier
 
         # Check if seller has the item
-        seller_inventory = state.inventory.get(effect.source, {})
+        seller_state = state.characters.get(effect.source)
+        if not seller_state:
+            return
+
+        seller_inventory = seller_state.inventory.items
         if seller_inventory.get(effect.item, 0) < effect.count:
             return  # Don't have enough items
 
@@ -417,14 +425,15 @@ class EffectResolver:
             type="inventory_remove",
             owner=effect.source,
             item=effect.item,
-            count=effect.count
+            count=effect.count,
+            item_type=effect.item_type,
         )
         hook_effects = self.engine.inventory.apply_effect(remove_effect)
         if hook_effects:
             self.apply_effects(hook_effects)
 
         # Add money to seller
-        seller_meters = state.meters.get(effect.source)
+        seller_meters = seller_state.meters
         if seller_meters and "money" in seller_meters:
             seller_meters["money"] += total_price
             if economy.max_money:
@@ -436,7 +445,8 @@ class EffectResolver:
                 type="inventory_add",
                 owner=effect.target,
                 item=effect.item,
-                count=effect.count
+                count=effect.count,
+                item_type=effect.item_type,
             )
             hook_effects = self.engine.inventory.apply_effect(add_effect)
             if hook_effects:
@@ -465,19 +475,19 @@ class EffectResolver:
 
         # Find source location
         if effect.source == "player":
-            source_location = state.location_current
+            source_location = state.current_location
         else:
-            # Check if source is in present_chars at current location
-            if effect.source in state.present_chars:
-                source_location = state.location_current
+            # Check if source is in present_characters at current location
+            if effect.source in state.present_characters:
+                source_location = state.current_location
 
         # Find target location
         if effect.target == "player":
-            target_location = state.location_current
+            target_location = state.current_location
         else:
-            # Check if target is in present_chars at current location
-            if effect.target in state.present_chars:
-                target_location = state.location_current
+            # Check if target is in present_characters at current location
+            if effect.target in state.present_characters:
+                target_location = state.current_location
 
         # Both must be at the same location
         if not source_location or not target_location or source_location != target_location:
@@ -509,7 +519,7 @@ class EffectResolver:
             return
 
         # Validation 5: Check if source has the item
-        source_inventory = state.inventory.get(effect.source, {})
+        source_inventory = state.characters[effect.source].inventory.items
         if source_inventory.get(effect.item, 0) < effect.count:
             self.engine.logger.warning(
                 f"Give effect failed: '{effect.source}' does not have {effect.count}x '{effect.item}'"
@@ -521,7 +531,8 @@ class EffectResolver:
             type="inventory_remove",
             owner=effect.source,
             item=effect.item,
-            count=effect.count
+            count=effect.count,
+            item_type=effect.item_type,
         )
         hook_effects = self.engine.inventory.apply_effect(remove_effect)
         if hook_effects:
@@ -532,7 +543,8 @@ class EffectResolver:
             type="inventory_add",
             owner=effect.target,
             item=effect.item,
-            count=effect.count
+            count=effect.count,
+            item_type=effect.item_type,
         )
         hook_effects = self.engine.inventory.apply_effect(add_effect)
         if hook_effects:
@@ -609,13 +621,17 @@ class EffectResolver:
     def _apply_inventory_take(self, effect: InventoryTakeEffect) -> None:
         """Handle inventory_take effect: take item from current location."""
         state = self.engine.state_manager.state
-        current_location = state.location_current
+        current_location = state.current_location
 
         if not current_location:
             return
 
         # Check if location has this item
-        loc_inventory = state.location_inventory.get(current_location, {})
+        location_state = state.locations.get(current_location)
+        if not location_state:
+            return
+
+        loc_inventory = location_state.inventory.items
         if loc_inventory.get(effect.item, 0) < effect.count:
             return  # Not enough items at location
 
@@ -629,7 +645,8 @@ class EffectResolver:
             type="inventory_add",
             owner=effect.target,
             item=effect.item,
-            count=effect.count
+            count=effect.count,
+            item_type=effect.item_type,
         )
         hook_effects = self.engine.inventory.apply_effect(add_effect)
         if hook_effects:
@@ -638,13 +655,17 @@ class EffectResolver:
     def _apply_inventory_drop(self, effect: InventoryDropEffect) -> None:
         """Handle inventory_drop effect: drop item at current location."""
         state = self.engine.state_manager.state
-        current_location = state.location_current
+        current_location = state.current_location
 
         if not current_location:
             return
 
-        # Check if character has this item
-        char_inventory = state.inventory.get(effect.target, {})
+        char_state = state.characters.get(effect.target)
+        location_state = state.locations.get(current_location)
+        if not char_state or not location_state:
+            return
+
+        char_inventory = char_state.inventory.items
         if char_inventory.get(effect.item, 0) < effect.count:
             return  # Not enough items in inventory
 
@@ -653,16 +674,16 @@ class EffectResolver:
             type="inventory_remove",
             owner=effect.target,
             item=effect.item,
-            count=effect.count
+            count=effect.count,
+            item_type=effect.item_type,
         )
         hook_effects = self.engine.inventory.apply_effect(remove_effect)
         if hook_effects:
             self.apply_effects(hook_effects)
 
         # Add to location inventory
-        state.location_inventory.setdefault(current_location, {})
-        state.location_inventory[current_location].setdefault(effect.item, 0)
-        state.location_inventory[current_location][effect.item] += effect.count
+        loc_inventory = location_state.inventory.items
+        loc_inventory[effect.item] = loc_inventory.get(effect.item, 0) + effect.count
 
     def _apply_clothing_put_on(self, effect: ClothingPutOnEffect) -> None:
         """Handle clothing_put_on effect: put on a clothing item."""

@@ -8,6 +8,7 @@ from typing import Any, Literal, cast
 import asyncio
 import json
 import time
+import math
 
 from app.engine import (
     SessionRuntime,
@@ -93,6 +94,8 @@ class TurnContext:
 
     # Time tracking
     time_category_resolved: str | None = None  # Resolved category for this action
+    time_explicit_minutes: int | None = None
+    time_apply_visit_cap: bool = False
     time_advanced_minutes: int = 0
     day_advanced: bool = False
     slot_advanced: bool = False
@@ -118,6 +121,15 @@ class GameEngine:
         self.state_manager = self.runtime.state_manager
         self.index = self.runtime.index
 
+        # Handy lookups for runtime services
+        self.characters_map = {char.id: char for char in self.game_def.characters}
+        self.zones_map = {zone.id: zone for zone in self.game_def.zones}
+        self.locations_map = {
+            location.id: location
+            for zone in self.game_def.zones
+            for location in zone.locations
+        }
+
         self.ai_service = ai_service if ai_service is not None else AIService()
 
         self.modifiers = ModifierService(self)
@@ -137,6 +149,9 @@ class GameEngine:
 
         # PromptBuilder must be initialized AFTER clothing service
         self.prompt_builder = PromptBuilder(self.game_def, self)
+
+        # Turn-scoped bookkeeping (reset every action)
+        self.turn_meter_deltas: dict[str, dict[str, float]] = {}
 
         self.logger.info(f"GameEngine for session {session_id} initialized.")
 
@@ -385,7 +400,7 @@ Focus on actions that happened, not dialogue or hypotheticals.""",
 
         # Initialize present characters from start node
         if start_node.characters_present:
-            state.present_chars = [
+            state.present_characters = [
                 char for char in start_node.characters_present if char in self.characters_map
             ]
 
@@ -396,14 +411,14 @@ Focus on actions that happened, not dialogue or hypotheticals.""",
         location_desc = location.description if location else ""
 
         # Get present characters
-        present_chars = [
+        present_characters = [
             self.characters_map.get(char_id)
-            for char_id in state.present_chars
+            for char_id in state.present_characters
             if char_id in self.characters_map
         ]
 
         # Build prompt for opening scene
-        char_list = ", ".join([c.name for c in present_chars if c]) if present_chars else "nobody else"
+        char_list = ", ".join([c.name for c in present_characters if c]) if present_characters else "nobody else"
 
         try:
             # Use beats from start node if available
@@ -625,7 +640,7 @@ Remember: This is just scene-setting. No need to describe player actions yet."""
                         )
                     case "purchase":
                         buyer = change.get("buyer") or change.get("owner") or "player"
-                        seller = change.get("seller") or change.get("from") or self.state_manager.state.location_current
+                        seller = change.get("seller") or change.get("from") or self.state_manager.state.current_location
                         price = change.get("price")
                         effects.append(
                             InventoryPurchaseEffect(
@@ -639,7 +654,7 @@ Remember: This is just scene-setting. No need to describe player actions yet."""
                         )
                     case "sell":
                         seller = change.get("seller") or change.get("owner") or "player"
-                        buyer = change.get("buyer") or change.get("to") or state.location_current
+                        buyer = change.get("buyer") or change.get("to") or state.current_location
                         price = change.get("price")
                         effects.append(
                             InventorySellEffect(
@@ -804,8 +819,8 @@ Remember: This is just scene-setting. No need to describe player actions yet."""
         return item_id
 
     def _describe_owner(self, owner_id: str | None) -> str:
-        if not owner_id or owner_id == self.state_manager.state.location_current:
-            current_location = self.locations_map.get(self.state_manager.state.location_current)
+        if not owner_id or owner_id == self.state_manager.state.current_location:
+            current_location = self.locations_map.get(self.state_manager.state.current_location)
             return current_location.name if current_location else "the area"
         if owner_id == "player":
             return "you"
@@ -829,13 +844,17 @@ Remember: This is just scene-setting. No need to describe player actions yet."""
             return False, f"Item '{item_id}' is not available."
 
         state = self.state_manager.state
-        buyer_inventory = state.inventory.get(buyer, {})
+        buyer_state = state.characters.get(buyer)
+        if not buyer_state:
+            return False, f"Character '{buyer}' is not available."
+
+        buyer_inventory = buyer_state.inventory.items
         before_count = buyer_inventory.get(item_id, 0)
-        before_money = state.meters.get(buyer, {}).get("money") if buyer in state.meters else None
+        before_money = buyer_state.meters.get("money") if buyer_state.meters else None
 
         effect = InventoryPurchaseEffect(
             target=buyer,
-            source=seller or state.location_current,
+            source=seller or state.current_location,
             item_type=item_type,
             item=item_id,
             count=count,
@@ -843,8 +862,8 @@ Remember: This is just scene-setting. No need to describe player actions yet."""
         )
         self.effect_resolver.apply_effects([effect])
 
-        after_count = state.inventory.get(buyer, {}).get(item_id, 0)
-        after_money = state.meters.get(buyer, {}).get("money") if buyer in state.meters else None
+        after_count = buyer_state.inventory.items.get(item_id, 0)
+        after_money = buyer_state.meters.get("money") if buyer_state.meters else None
 
         if after_count <= before_count:
             return False, "Purchase could not be completed."
@@ -853,7 +872,7 @@ Remember: This is just scene-setting. No need to describe player actions yet."""
         if before_money is not None and after_money is not None:
             spent = before_money - after_money
 
-        seller_label = self._describe_owner(seller or state.location_current)
+        seller_label = self._describe_owner(seller or state.current_location)
         item_label = self._describe_item(item_id)
         message = f"You purchase {count}x {item_label} from {seller_label}."
         if spent is not None:
@@ -874,13 +893,17 @@ Remember: This is just scene-setting. No need to describe player actions yet."""
             return False, f"Item '{item_id}' is not available."
 
         state = self.state_manager.state
-        seller_inventory = state.inventory.get(seller, {})
+        seller_state = state.characters.get(seller)
+        if not seller_state:
+            return False, f"Character '{seller}' is not available."
+
+        seller_inventory = seller_state.inventory.items
         before_count = seller_inventory.get(item_id, 0)
-        before_money = state.meters.get(seller, {}).get("money") if seller in state.meters else None
+        before_money = seller_state.meters.get("money") if seller_state.meters else None
 
         effect = InventorySellEffect(
             source=seller,
-            target=buyer or state.location_current,
+            target=buyer or state.current_location,
             item_type=item_type,
             item=item_id,
             count=count,
@@ -888,8 +911,8 @@ Remember: This is just scene-setting. No need to describe player actions yet."""
         )
         self.effect_resolver.apply_effects([effect])
 
-        after_count = state.inventory.get(seller, {}).get(item_id, 0)
-        after_money = state.meters.get(seller, {}).get("money") if seller in state.meters else None
+        after_count = seller_state.inventory.items.get(item_id, 0)
+        after_money = seller_state.meters.get("money") if seller_state.meters else None
 
         if after_count >= before_count:
             return False, "Sale could not be completed."
@@ -898,7 +921,7 @@ Remember: This is just scene-setting. No need to describe player actions yet."""
         if before_money is not None and after_money is not None:
             earned = after_money - before_money
 
-        buyer_label = self._describe_owner(buyer or state.location_current)
+        buyer_label = self._describe_owner(buyer or state.current_location)
         item_label = self._describe_item(item_id)
         message = f"You sell {count}x {item_label} to {buyer_label}."
         if earned is not None:
@@ -918,8 +941,13 @@ Remember: This is just scene-setting. No need to describe player actions yet."""
             return False, f"Item '{item_id}' is not available."
 
         state = self.state_manager.state
-        before_source = state.inventory.get(source, {}).get(item_id, 0)
-        before_target = state.inventory.get(target, {}).get(item_id, 0)
+        source_state = state.characters.get(source)
+        target_state = state.characters.get(target)
+        if not source_state or not target_state:
+            return False, "Gift could not be completed."
+
+        before_source = source_state.inventory.items.get(item_id, 0)
+        before_target = target_state.inventory.items.get(item_id, 0)
 
         effect = InventoryGiveEffect(
             source=source,
@@ -930,8 +958,8 @@ Remember: This is just scene-setting. No need to describe player actions yet."""
         )
         self.effect_resolver.apply_effects([effect])
 
-        after_source = state.inventory.get(source, {}).get(item_id, 0)
-        after_target = state.inventory.get(target, {}).get(item_id, 0)
+        after_source = source_state.inventory.items.get(item_id, 0)
+        after_target = target_state.inventory.items.get(item_id, 0)
 
         if after_source >= before_source or after_target <= before_target:
             return False, "Gift could not be completed."
@@ -953,10 +981,15 @@ Remember: This is just scene-setting. No need to describe player actions yet."""
             return False, f"Item '{item_id}' is not available."
 
         state = self.state_manager.state
-        location_id = state.location_current
-        location_inventory = state.location_inventory.get(location_id, {})
+        location_id = state.current_location
+        location_state = state.locations.get(location_id)
+        target_state = state.characters.get(target)
+        if not location_state or not target_state:
+            return False, "Nothing to take here."
+
+        location_inventory = location_state.inventory.items
         before_location = location_inventory.get(item_id, 0)
-        before_target = state.inventory.get(target, {}).get(item_id, 0)
+        before_target = target_state.inventory.items.get(item_id, 0)
 
         effect = InventoryTakeEffect(
             target=target,
@@ -966,8 +999,8 @@ Remember: This is just scene-setting. No need to describe player actions yet."""
         )
         self.effect_resolver.apply_effects([effect])
 
-        after_location = state.location_inventory.get(location_id, {}).get(item_id, 0)
-        after_target = state.inventory.get(target, {}).get(item_id, 0)
+        after_location = location_state.inventory.items.get(item_id, 0)
+        after_target = target_state.inventory.items.get(item_id, 0)
 
         if before_location == after_location or after_target <= before_target:
             return False, "Nothing to take here."
@@ -989,9 +1022,14 @@ Remember: This is just scene-setting. No need to describe player actions yet."""
             return False, f"Item '{item_id}' is not available."
 
         state = self.state_manager.state
-        location_id = state.location_current
-        before_source = state.inventory.get(source, {}).get(item_id, 0)
-        before_location = state.location_inventory.get(location_id, {}).get(item_id, 0)
+        location_id = state.current_location
+        source_state = state.characters.get(source)
+        location_state = state.locations.get(location_id)
+        if not source_state or not location_state:
+            return False, "Drop could not be completed."
+
+        before_source = source_state.inventory.items.get(item_id, 0)
+        before_location = location_state.inventory.items.get(item_id, 0)
 
         effect = InventoryDropEffect(
             target=source,
@@ -1001,8 +1039,8 @@ Remember: This is just scene-setting. No need to describe player actions yet."""
         )
         self.effect_resolver.apply_effects([effect])
 
-        after_source = state.inventory.get(source, {}).get(item_id, 0)
-        after_location = state.location_inventory.get(location_id, {}).get(item_id, 0)
+        after_source = source_state.inventory.items.get(item_id, 0)
+        after_location = location_state.inventory.items.get(item_id, 0)
 
         if after_source >= before_source or after_location <= before_location:
             return False, "Drop could not be completed."
@@ -1077,7 +1115,12 @@ Remember: This is just scene-setting. No need to describe player actions yet."""
 
         rng_seed = self.get_turn_seed()
         rng = Random(rng_seed)
+        state.rng_seed = rng_seed
+        self.turn_meter_deltas = {}
         current_node = self.get_current_node()
+        if state.current_visit_node != current_node.id:
+            state.current_visit_node = current_node.id
+            state.current_visit_minutes = 0
         snapshot = state.to_dict()
 
         ctx = TurnContext(
@@ -1111,6 +1154,10 @@ Remember: This is just scene-setting. No need to describe player actions yet."""
         self.logger.info("=== Updating Character Presence ===")
         self.presence.refresh()
         self.logger.debug(f"Present characters: {self.state_manager.state.present_characters}")
+
+    def _update_npc_presence(self) -> None:
+        """Backwards-compatible alias for movement service."""
+        self.presence.refresh()
 
     def _evaluate_character_gates(self, ctx: TurnContext) -> None:
         """
@@ -1175,7 +1222,7 @@ Remember: This is just scene-setting. No need to describe player actions yet."""
 
         # Resolve time category
         ctx.time_category_resolved = self._resolve_time_category(
-            action_type, choice_id, ctx.current_node, ctx.event_choices
+            ctx, action_type, choice_id, ctx.current_node, ctx.event_choices
         )
 
         # Handle choice effects
@@ -1187,55 +1234,52 @@ Remember: This is just scene-setting. No need to describe player actions yet."""
 
     def _resolve_time_category(
         self,
+        ctx: TurnContext,
         action_type: str,
         choice_id: str | None,
         node: Node,
         event_choices: list[NodeChoice],
-    ) -> str:
-        """Resolve the time category for an action."""
+    ) -> str | None:
+        """Resolve the time category for an action and capture explicit overrides."""
         time_config = self.game_def.time
+        ctx.time_explicit_minutes = None
+        ctx.time_apply_visit_cap = action_type in {"say", "do"}
 
-        # Check for choice-specific overrides
+        def _default_category() -> str:
+            if action_type in {"say", "do"}:
+                return time_config.defaults.conversation
+            if action_type == "choice":
+                return time_config.defaults.choice
+            if action_type == "move":
+                return time_config.defaults.movement
+            return time_config.defaults.default
+
+        # Choice overrides
         if choice_id:
-            choice = None
-            for c in (node.choices or []):
-                if c.id == choice_id:
-                    choice = c
-                    break
+            choice = next((c for c in node.choices or [] if c.id == choice_id), None)
             if not choice:
-                for c in event_choices:
-                    if c.id == choice_id:
-                        choice = c
-                        break
-
+                choice = next((c for c in event_choices if c.id == choice_id), None)
             if choice:
-                if hasattr(choice, 'time_cost') and choice.time_cost is not None:
-                    return f"explicit:{choice.time_cost}m"
+                time_cost = getattr(choice, "time_cost", None)
+                if time_cost is not None:
+                    ctx.time_explicit_minutes = int(time_cost)
+                    ctx.time_apply_visit_cap = False
+                    return None
+                time_category = getattr(choice, "time_category", None)
+                if time_category:
+                    return time_category
 
-                if hasattr(choice, 'time_category') and choice.time_category:
-                    return choice.time_category
-
-        # Check node-level overrides
+        # Node-level overrides
         if node.time_behavior:
-            if action_type in ["say", "do"]:
-                if node.time_behavior.conversation:
-                    return node.time_behavior.conversation
-            elif action_type == "choice":
-                if node.time_behavior.choice:
-                    return node.time_behavior.choice
-
+            if action_type in {"say", "do"} and node.time_behavior.conversation:
+                return node.time_behavior.conversation
+            if action_type == "choice" and node.time_behavior.choice:
+                ctx.time_apply_visit_cap = False  # choices respect explicit node override
+                return node.time_behavior.choice
             if node.time_behavior.default:
                 return node.time_behavior.default
 
-        # Use global defaults
-        if action_type in ["say", "do"]:
-            return time_config.defaults.conversation
-        elif action_type == "choice":
-            return time_config.defaults.choice
-        elif action_type == "move":
-            return time_config.defaults.movement
-        else:
-            return time_config.defaults.default
+        return _default_category()
 
     def _process_triggered_events(self, ctx: TurnContext) -> bool:
         """
@@ -1360,11 +1404,18 @@ Remember: This is just scene-setting. No need to describe player actions yet."""
         time_cost_minutes = self._resolve_time_cost_minutes(
             ctx.time_category_resolved,
             ctx.current_node,
+            ctx.time_explicit_minutes,
+            ctx.time_apply_visit_cap,
         )
 
-        self.logger.debug(f"Time cost resolved: {time_cost_minutes} minutes (category: {ctx.time_category_resolved})")
+        self.logger.debug(
+            "Time cost resolved: %s minutes (category: %s, explicit: %s)",
+            time_cost_minutes,
+            ctx.time_category_resolved,
+            ctx.time_explicit_minutes,
+        )
 
-        time_info = self.time.advance(minutes=time_cost_minutes)
+        time_info = self._apply_time_minutes(time_cost_minutes)
 
         ctx.time_advanced_minutes = time_info.minutes_passed
         ctx.day_advanced = time_info.day_advanced
@@ -1394,31 +1445,101 @@ Remember: This is just scene-setting. No need to describe player actions yet."""
         self,
         category: str,
         node: Node,
+        explicit_minutes: int | None,
+        apply_visit_cap: bool,
     ) -> int:
         """Convert time category to actual minutes."""
+        return self._calculate_time_minutes(
+            category=category,
+            node=node,
+            explicit_minutes=explicit_minutes,
+            apply_visit_cap=apply_visit_cap,
+            method_active=True,
+        )
+
+    def _calculate_time_minutes(
+        self,
+        *,
+        category: str | None,
+        node: Node | None,
+        explicit_minutes: int | None,
+        apply_visit_cap: bool,
+        method_active: bool,
+    ) -> int:
+        """Compute effective minutes after modifiers and visit caps."""
+        minutes = explicit_minutes if explicit_minutes is not None else self._category_to_minutes(category)
+        minutes = self._apply_time_modifiers(minutes, method_active=method_active)
+
+        if minutes <= 0:
+            return 0
+
+        if apply_visit_cap:
+            cap = self._get_visit_cap(node)
+            if cap is not None:
+                state = self.state_manager.state
+                spent = getattr(state, "current_visit_minutes", 0)
+                remaining = max(0, cap - spent)
+                minutes = min(minutes, remaining)
+                state.current_visit_minutes = spent + minutes
+
+        return max(0, minutes)
+
+    def _category_to_minutes(self, category: str | None) -> int:
+        """Convert a time category to minutes using defaults when needed."""
         time_config = self.game_def.time
-        state = self.state_manager.state
-
-        if category and category.startswith("explicit:"):
-            minutes_str = category.replace("explicit:", "").replace("m", "")
-            return int(minutes_str)
-
         if category and category in time_config.categories:
-            minutes = time_config.categories[category]
-        else:
-            default_category = time_config.defaults.default
-            minutes = time_config.categories.get(default_category, 5)
-            self.logger.warning(
-                f"Unknown time category '{category}', using default: {minutes}m"
+            return int(time_config.categories[category])
+
+        fallback = time_config.defaults.default
+        return int(time_config.categories.get(fallback, 5))
+
+    def _get_visit_cap(self, node: Node | None) -> int | None:
+        """Resolve the visit cap for the current node."""
+        time_config = self.game_def.time
+        node_cap = getattr(getattr(node, "time_behavior", None), "cap_per_visit", None) if node else None
+        cap = node_cap if node_cap is not None else getattr(time_config.defaults, "cap_per_visit", None)
+        if cap is None or cap <= 0:
+            return None
+        return int(cap)
+
+    def _apply_time_modifiers(self, minutes: int, *, method_active: bool) -> int:
+        """Apply active modifier multipliers to the provided minutes."""
+        if minutes <= 0 or not method_active:
+            return max(0, minutes)
+
+        state = self.state_manager.state
+        total_multiplier = 1.0
+        player_modifiers = getattr(state, "modifiers", {}).get("player", [])
+
+        for mod_state in player_modifiers:
+            mod_def = self.modifiers.library.get(mod_state.get("id"))
+            if mod_def and mod_def.time_multiplier:
+                total_multiplier *= mod_def.time_multiplier
+
+        total_multiplier = max(0.5, min(2.0, total_multiplier))
+        adjusted = int(math.floor(minutes * total_multiplier + 0.5))
+        return max(0, adjusted)
+
+    def _apply_time_minutes(self, minutes: int) -> TimeAdvance:
+        """Advance internal time state by the specified minutes."""
+        time_info = self.time.advance(minutes=minutes)
+
+        if hasattr(self.modifiers, "tick_durations"):
+            self.modifiers.tick_durations(
+                self.state_manager.state,
+                time_info.minutes_passed,
             )
-
-        # Visit cap handling (placeholder for future enhancement)
-        if node and hasattr(node, 'time_behavior') and node.time_behavior:
-            cap = node.time_behavior.cap_per_visit
         else:
-            cap = time_config.defaults.cap_per_visit
+            self.logger.warning("ModifierService.tick_durations() not implemented yet")
 
-        return minutes
+        self.time.apply_meter_dynamics(time_info)
+
+        if hasattr(self.events, "decrement_cooldowns"):
+            self.events.decrement_cooldowns()
+        else:
+            self.logger.debug("Event cooldown decrement not implemented yet")
+
+        return time_info
 
     def _process_arc_progression(self, ctx: TurnContext) -> None:
         """
@@ -1485,7 +1606,7 @@ Remember: This is just scene-setting. No need to describe player actions yet."""
     def _get_location_privacy(self, location_id: str | None = None) -> LocationPrivacy:
         """Get the privacy level of a location."""
         if location_id is None:
-            location_id = self.state_manager.state.location_current
+            location_id = self.state_manager.state.current_location
 
         location = self.locations_map.get(location_id)
         if location and hasattr(location, 'privacy'):

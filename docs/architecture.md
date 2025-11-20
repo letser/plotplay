@@ -407,7 +407,7 @@ GameEngine (Service Locator)
 **Key Features:**
 - Iterates all characters with schedules
 - Checks schedule rules matching current location
-- Adds NPCs to `present_chars` when conditions met
+- Adds NPCs to `present_characters` when conditions met
 - Logs all appearances
 
 **Dependencies:** ConditionEvaluator
@@ -479,7 +479,7 @@ This is the **heart of the refactored architecture**. The `TurnManager` orchestr
     ↓
   Check ENDING node → return early if story concluded
     ↓
-  Update present_chars from node.characters_present
+  Update present_characters from node.characters_present
     ↓
   Format player action (ActionFormatter)
     ↓
@@ -631,9 +631,9 @@ This is the **heart of the refactored architecture**. The `TurnManager` orchestr
 │  │ • inventory: {owner_id: {item_id: count}}         │ │
 │  │ • modifiers: {char_id: [{id, stacks, duration}]}  │ │
 │  │ • clothing: {char_id: {slot: {garment, state}}}   │ │
-│  │ • location_current, zone_current                   │ │
+│  │ • current_location, current_zone                   │ │
 │  │ • time_slot, day, time_hhmm                        │ │
-│  │ • present_chars: [char_id, ...]                   │ │
+│  │ • present_characters: [char_id, ...]                   │ │
 │  │ • discovered_locations, discovered_zones           │ │
 │  │ • unlocked_actions, unlocked_endings               │ │
 │  │ • narrative_history, memory_log                    │ │

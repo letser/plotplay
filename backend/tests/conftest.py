@@ -294,11 +294,11 @@ def sample_game_state() -> GameState:
     state.time_hhmm = "19:30"
     state.weekday = "wednesday"
 
-    state.location_current = "campus_quad"
-    state.zone_current = "campus"
+    state.current_location = "campus_quad"
+    state.current_zone = "campus"
     state.location_privacy = LocationPrivacy.MEDIUM
 
-    state.present_chars = ["player", "emma"]
+    state.present_characters = ["player", "emma"]
 
     # Set up character states (which contain meters, inventory, clothing, modifiers)
     state.characters = {

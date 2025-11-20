@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import Iterable, TYPE_CHECKING
 
-from app.core.conditions import ConditionEvaluator
 from app.models.nodes import NodeType, NodeChoice
 
 if TYPE_CHECKING:
@@ -28,7 +27,7 @@ class NodeService:
         if not transitions:
             return False
 
-        evaluator = ConditionEvaluator(self.engine.state_manager.state, rng_seed=self.engine.get_turn_seed())
+        evaluator = self.engine.state_manager.create_evaluator()
 
         for transition in transitions:
             condition = getattr(transition, "when", None)

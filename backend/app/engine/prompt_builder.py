@@ -45,10 +45,10 @@ class PromptBuilder:
         narration_rules = self.game_def.narration
 
         location = next(
-            (loc for zone in self.game_def.zones for loc in zone.locations if loc.id == state.location_current), None
+            (loc for zone in self.game_def.zones for loc in zone.locations if loc.id == state.current_location), None
         )
         zone = next(
-            (zone for zone in self.game_def.zones for loc in zone.locations if loc.id == state.location_current), None
+            (zone for zone in self.game_def.zones for loc in zone.locations if loc.id == state.current_location), None
         )
         privacy_level = location.privacy if location else "public"
         location_desc = (
@@ -60,8 +60,9 @@ class PromptBuilder:
         tone = world.get("tone", "A neutral tone.") if isinstance(world, dict) else ""
 
         player_inventory: list[str] = []
-        if player_inv := state.inventory.get("player", {}):
-            for item_id, count in player_inv.items():
+        player_state = state.characters.get("player")
+        if player_state:
+            for item_id, count in player_state.inventory.items.items():
                 if count > 0:
                     item_def = next((item for item in self.game_def.items if item.id == item_id), None)
                     if item_def:
@@ -86,7 +87,9 @@ class PromptBuilder:
         if state.weekday:
             time_str += f", {state.weekday.capitalize()}"
 
-        evaluator = ConditionEvaluator(state, rng_seed=rng_seed)
+        if rng_seed is not None:
+            state.rng_seed = rng_seed
+        evaluator = self.engine.state_manager.create_evaluator()
         character_cards = self._build_character_cards(state, evaluator)
         movement_context = self._build_movement_context(state, evaluator, location)
         shop_context = self._build_shop_context(state, evaluator, location)
@@ -128,7 +131,7 @@ class PromptBuilder:
         else:
             story_context = f"**Story So Far:**\n{recent_context}"
 
-        location_name = location.name if location else state.location_current
+        location_name = location.name if location else state.current_location
 
         system_prompt = f"""
         You are the PlotPlay Writer - a master storyteller for an adult interactive fiction game.
@@ -169,7 +172,7 @@ class PromptBuilder:
         **Zone:** {zone.name if zone else 'Unknown Area'}
 
         **Current Scene:** {node.title}
-        **Location:** {location.name if location else state.location_current} - {location_desc}
+        **Location:** {location.name if location else state.current_location} - {location_desc}
         **Time:** {time_str}
 
         **Scene Beats (Internal Only):**
@@ -198,7 +201,7 @@ class PromptBuilder:
     # Checker prompt
     # ------------------------------------------------------------------ #
     def build_checker_prompt(self, narrative: str, player_action: str, state: GameState) -> str:
-        evaluator = ConditionEvaluator(state, rng_seed=self.engine.get_turn_seed())
+        evaluator = self.engine.state_manager.create_evaluator()
         prompt_payload = {
             "player_action": player_action,
             "narrative": narrative,
@@ -226,16 +229,26 @@ class PromptBuilder:
                 "weekday": state.weekday,
             },
             "location": {
-                "id": state.location_current,
-                "zone": state.zone_current,
+                "id": state.current_location,
+                "zone": state.current_zone,
                 "privacy": location_privacy,
                 "discovered_locations": list(state.discovered_locations),
                 "discovered_zones": list(state.discovered_zones),
             },
-            "present_characters": list(state.present_chars),
+            "present_characters": list(state.present_characters),
             "meters": state.meters,
-            "inventory": state.inventory,
-            "location_inventory": state.location_inventory,
+            "inventory": {
+                char_id: {
+                    "items": dict(char_state.inventory.items),
+                    "clothing": dict(char_state.inventory.clothing),
+                    "outfits": dict(char_state.inventory.outfits),
+                }
+                for char_id, char_state in state.characters.items()
+            },
+            "location_inventory": {
+                loc_id: dict(loc_state.inventory.items)
+                for loc_id, loc_state in state.locations.items()
+            },
             "modifiers": state.modifiers,
             "flags": state.flags,
             "clothing": state.clothing_states,
@@ -248,8 +261,8 @@ class PromptBuilder:
             },
         }
 
-        if state.location_current and state.location_current in self.engine.locations_map:
-            location = self.engine.locations_map[state.location_current]
+        if state.current_location and state.current_location in self.engine.locations_map:
+            location = self.engine.locations_map[state.current_location]
             snapshot["location"]["name"] = location.name
             snapshot["location"]["connections"] = [
                 {
@@ -300,8 +313,8 @@ class PromptBuilder:
         """Collect meter catalog - OPTIMIZED to only include present characters."""
         catalog: dict[str, dict[str, Any]] = {}
 
-        # Only include meters for present characters (player + present_chars)
-        relevant_char_ids = {"player"} | set(state.present_chars)
+        # Only include meters for present characters (player + present_characters)
+        relevant_char_ids = {"player"} | set(state.present_characters)
 
         for char_id in relevant_char_ids:
             if char_id not in state.meters:
@@ -334,17 +347,20 @@ class PromptBuilder:
         relevant_item_ids = set()
         if state:
             # Player inventory
-            player_inv = state.inventory.get("player", {})
-            relevant_item_ids.update(player_inv.keys())
+            player_state = state.characters.get("player")
+            if player_state:
+                relevant_item_ids.update(player_state.inventory.items.keys())
 
             # Current location inventory
-            current_loc_inv = state.location_inventory.get(state.location_current, {})
-            relevant_item_ids.update(current_loc_inv.keys())
+            current_loc = state.locations.get(state.current_location)
+            if current_loc:
+                relevant_item_ids.update(current_loc.inventory.items.keys())
 
             # Present characters' inventories
-            for char_id in state.present_chars:
-                char_inv = state.inventory.get(char_id, {})
-                relevant_item_ids.update(char_inv.keys())
+            for char_id in state.present_characters:
+                char_state = state.characters.get(char_id)
+                if char_state:
+                    relevant_item_ids.update(char_state.inventory.items.keys())
 
         # If no state provided, fall back to all items (for compatibility)
         if not relevant_item_ids:
@@ -365,7 +381,7 @@ class PromptBuilder:
         # Collect only clothing worn by present characters
         relevant_clothing_ids = set()
         if state:
-            for char_id in ["player"] + list(state.present_chars):
+            for char_id in ["player"] + list(state.present_characters):
                 char_clothing = state.clothing_states.get(char_id, {})
                 if char_clothing and "layers" in char_clothing:
                     for slot_items in char_clothing["layers"].values():
@@ -397,7 +413,7 @@ class PromptBuilder:
     def _collect_clothing_slots(self, state: GameState) -> dict[str, list[str]]:
         slots: dict[str, set[str]] = {}
 
-        for char_id in {"player", *state.present_chars, *state.clothing_states.keys()}:
+        for char_id in {"player", *state.present_characters, *state.clothing_states.keys()}:
             char_def = self.characters_map.get(char_id)
             if not char_def:
                 continue
@@ -429,10 +445,10 @@ class PromptBuilder:
         catalog: dict[str, Any] = {}
 
         # Only include current location and directly connected locations
-        relevant_location_ids = {state.location_current}
+        relevant_location_ids = {state.current_location}
 
         # Add connected locations
-        current_location = self.engine.locations_map.get(state.location_current)
+        current_location = self.engine.locations_map.get(state.current_location)
         if current_location and current_location.connections:
             for connection in current_location.connections:
                 targets = connection.to if isinstance(connection.to, list) else [connection.to]
@@ -459,13 +475,14 @@ class PromptBuilder:
                 }
                 connections.append(connection_entry)
 
+            location_state = state.locations.get(location_id)
             catalog[location_id] = {
                 "name": location.name,
                 "zone": zone,
                 "privacy": getattr(location.privacy, "value", location.privacy),
                 "discovered": location_id in state.discovered_locations,
                 "has_shop": bool(getattr(location, "shop", None)),
-                "inventory": state.location_inventory.get(location_id, {}),
+                "inventory": dict(location_state.inventory.items) if location_state else {},
                 "connections": connections,
             }
         return catalog
@@ -488,7 +505,7 @@ class PromptBuilder:
 
     def _collect_shop_catalog(self, state: GameState, evaluator: ConditionEvaluator) -> list[dict[str, Any]]:
         shops: list[dict[str, Any]] = []
-        current_location = self.engine.locations_map.get(state.location_current)
+        current_location = self.engine.locations_map.get(state.current_location)
         if current_location and getattr(current_location, "shop", None):
             shop = current_location.shop
             shops.append(
@@ -500,7 +517,7 @@ class PromptBuilder:
                 }
             )
 
-        for char_id in state.present_chars:
+        for char_id in state.present_characters:
             if char_id == "player":
                 continue
             char_def = self.characters_map.get(char_id)
@@ -703,7 +720,7 @@ class PromptBuilder:
         if location and getattr(location, "shop", None):
             _shop_status(f"{location.name} counter", location.shop)
 
-        for char_id in state.present_chars:
+        for char_id in state.present_characters:
             if char_id == "player":
                 continue
             char_def = self.characters_map.get(char_id)
@@ -768,7 +785,7 @@ class PromptBuilder:
     def _build_character_cards(self, state: GameState, evaluator: ConditionEvaluator) -> str:
         cards = []
 
-        for char_id in state.present_chars:
+        for char_id in state.present_characters:
             char_def = self.characters_map.get(char_id)
             if not char_def:
                 continue

@@ -31,6 +31,8 @@ class StateManager:
         # Set starting node as current one and push it into the history
         self.state.current_node = self.game_def.start.node
         self.state.nodes_history.append(self.state.current_node)
+        self.state.current_visit_node = self.state.current_node
+        self.state.current_visit_minutes = 0
 
         now = datetime.now(UTC)
         self.state.created_at = now

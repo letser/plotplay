@@ -11,7 +11,6 @@ import asyncio
 
 from app.core.loader import GameLoader
 from app.core.game_engine import GameEngine
-from app.core.conditions import ConditionEvaluator
 from app.models.clothing import ClothingCondition
 
 router = APIRouter()
@@ -331,8 +330,8 @@ async def process_action_stream(session_id: str, action: GameAction):
 async def deterministic_move(session_id: str, request: MovementRequest) -> DeterministicActionResponse:
     engine = _get_engine(session_id)
     state = engine.state_manager.state
-    before_location = state.location_current
-    before_zone = state.zone_current
+    before_location = state.current_location
+    before_zone = state.current_zone
 
     if not any([request.destination_id, request.zone_id, request.direction]):
         raise HTTPException(status_code=400, detail="Provide destination_id, zone_id, or direction.")
@@ -346,7 +345,7 @@ async def deterministic_move(session_id: str, request: MovementRequest) -> Deter
         result = await engine.movement.handle_choice(f"move_{request.destination_id}")
         summary = result.get("current_state", engine.get_state_summary())
         message = result.get("narrative", "").strip()
-        success = engine.state_manager.state.location_current != before_location
+        success = engine.state_manager.state.current_location != before_location
         details = {"choices": result.get("choices", [])}
     elif request.zone_id:
         # Use direct zone travel method with parameters
@@ -367,13 +366,13 @@ async def deterministic_move(session_id: str, request: MovementRequest) -> Deter
     else:
         success = engine.movement.move_by_direction(request.direction, request.companions or [])
         summary = engine.get_state_summary()
-        new_location = engine.locations_map.get(state.location_current)
+        new_location = engine.locations_map.get(state.current_location)
         if success:
-            dest_name = new_location.name if new_location else state.location_current
+            dest_name = new_location.name if new_location else state.current_location
             message = f"You move {request.direction.lower()} to {dest_name}."
         else:
             message = f"You cannot move {request.direction.lower()} from here."
-        details = {"location_id": state.location_current}
+        details = {"location_id": state.current_location}
 
     if success:
         engine.update_discoveries()
@@ -408,7 +407,7 @@ async def deterministic_purchase(session_id: str, request: PurchaseRequest) -> D
         state_summary=summary,
         details={
             "buyer": request.buyer_id,
-            "seller": request.seller_id or engine.state_manager.state.location_current,
+            "seller": request.seller_id or engine.state_manager.state.current_location,
             "item": request.item_id,
             "count": request.count,
         },
@@ -436,7 +435,7 @@ async def deterministic_sell(session_id: str, request: SellRequest) -> Determini
         state_summary=summary,
         details={
             "seller": request.seller_id,
-            "buyer": request.buyer_id or engine.state_manager.state.location_current,
+            "buyer": request.buyer_id or engine.state_manager.state.current_location,
             "item": request.item_id,
             "count": request.count,
         },
@@ -464,7 +463,7 @@ async def deterministic_take(session_id: str, request: InventoryTakeRequest) -> 
             "owner": request.owner_id,
             "item": request.item_id,
             "count": request.count,
-            "location": engine.state_manager.state.location_current,
+            "location": engine.state_manager.state.current_location,
         },
         action_summary=engine.state_summary.build_action_summary(message),
     )
@@ -490,7 +489,7 @@ async def deterministic_drop(session_id: str, request: InventoryDropRequest) -> 
             "owner": request.owner_id,
             "item": request.item_id,
             "count": request.count,
-            "location": engine.state_manager.state.location_current,
+            "location": engine.state_manager.state.current_location,
         },
         action_summary=engine.state_summary.build_action_summary(message),
     )
@@ -687,8 +686,8 @@ async def get_characters_list(session_id: str):
         characters_list.append({
             "id": char_def.id,
             "name": char_def.name,
-            "present": char_def.id in state.present_chars,
-            "location": state.location_current if char_def.id in state.present_chars else None,
+            "present": char_def.id in state.present_characters,
+            "location": state.current_location if char_def.id in state.present_characters else None,
         })
 
     return {
@@ -713,7 +712,7 @@ async def get_character_full(session_id: str, character_id: str):
         raise HTTPException(status_code=404, detail=f"Character '{character_id}' not found")
 
     # Evaluate gates if they exist
-    evaluator = ConditionEvaluator(state, rng_seed=engine.get_turn_seed())
+    evaluator = engine.state_manager.create_evaluator()
     evaluated_gates = []
     if hasattr(char_def, 'gates') and char_def.gates:
         for gate in char_def.gates:
@@ -771,30 +770,12 @@ async def get_character_full(session_id: str, character_id: str):
     summary_meters = summary.get("meters", {})
     summary_modifiers = summary.get("modifiers", {})
 
-    # Get inventory and separate clothing from regular items
-    # state.inventory is dict[str, dict[str, int]] where first key is owner_id
-    full_inventory = state.inventory.get(character_id, {})
+    char_state = state.characters.get(character_id)
+    if not char_state:
+        raise HTTPException(status_code=404, detail="Character state not found")
 
-    # Build set of clothing item IDs for filtering
-    # Include items from both global wardrobe AND character's personal wardrobe
-    clothing_item_ids = set()
-
-    # Add global wardrobe items
-    if engine.game_def.wardrobe and engine.game_def.wardrobe.items:
-        clothing_item_ids.update(item.id for item in engine.game_def.wardrobe.items)
-
-    # Add character's personal wardrobe items
-    if char_def.wardrobe and char_def.wardrobe.items:
-        clothing_item_ids.update(item.id for item in char_def.wardrobe.items)
-
-    # Split inventory into regular items vs clothing items
-    inventory = {}
-    wardrobe_items = {}
-    for item_id, count in full_inventory.items():
-        if item_id in clothing_item_ids:
-            wardrobe_items[item_id] = count
-        else:
-            inventory[item_id] = count
+    inventory = dict(char_state.inventory.items)
+    wardrobe_items = dict(char_state.inventory.clothing)
 
     # Build item details (inventory items + clothing items)
     item_details = {}
@@ -882,8 +863,8 @@ async def get_character_full(session_id: str, character_id: str):
         "wardrobe": wardrobe_items,  # Individual clothing items owned
         "outfits": outfits_data,  # Unlocked outfits with ownership status
         "item_details": item_details,  # Item definitions for both inventory and wardrobe
-        "present": character_id in state.present_chars,
-        "location": state.location_current if character_id in state.present_chars else None,
+        "present": character_id in state.present_characters,
+        "location": state.current_location if character_id in state.present_characters else None,
     }
 
     return response

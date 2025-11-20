@@ -20,7 +20,7 @@ class ChoiceService:
 
     def build(self, node: Node, event_choices: Iterable[NodeChoice]) -> list[dict]:
         state = self.engine.state_manager.state
-        evaluator = ConditionEvaluator(state, rng_seed=self.engine.get_turn_seed())
+        evaluator = self.engine.state_manager.create_evaluator()
 
         available: list[dict] = []
 
@@ -82,7 +82,7 @@ class ChoiceService:
 
     def _append_movement_choices(self, bucket: list[dict], evaluator: ConditionEvaluator) -> None:
         state = self.engine.state_manager.state
-        current_location = self.engine.get_location(state.location_current)
+        current_location = self.engine.get_location(state.current_location)
         if current_location and current_location.connections:
             for connection in current_location.connections:
                 targets = [connection.to] if isinstance(connection.to, str) else (connection.to or [])
@@ -111,7 +111,7 @@ class ChoiceService:
         # dropdowns for method and entry location selection.
         # Keeping this code commented for reference:
         #
-        # current_zone = self.engine.zones_map.get(state.zone_current)
+        # current_zone = self.engine.zones_map.get(state.current_zone)
         # if current_zone and current_zone.connections:
         #     discovered_zones = set(state.discovered_zones or [])
         #     for connection in current_zone.connections:

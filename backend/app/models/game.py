@@ -196,6 +196,8 @@ class GameState:
 
     # --- Characters ---
     characters: dict[str, CharacterState] = field(default_factory=dict)
+    modifiers: dict[str, list[dict]] = field(default_factory=dict)
+    clothing_states: dict[str, dict] = field(default_factory=dict)
 
     # --- Flags & arcs ---
     flags: FlagsState = field(default_factory=dict)
@@ -204,6 +206,8 @@ class GameState:
     # --- Narrative progression ---
     current_node: str | None = None
     nodes_history: list[str] = field(default_factory=list)
+    current_visit_node: str | None = None
+    current_visit_minutes: int = 0
     unlocked_endings: list[str] = field(default_factory=list)
     unlocked_actions: list[str] = field(default_factory=list)
     unlocked_items: list[str] = field(default_factory=list)
@@ -275,4 +279,3 @@ class GameState:
     def to_dict(self) -> dict:
         """Convert to dictionary for serialization."""
         return asdict(self)
-

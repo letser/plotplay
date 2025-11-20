@@ -69,7 +69,7 @@ def test_deterministic_endpoints_flow(client: TestClient):
 
     engine = game_router.game_sessions[session_id]
     state = engine.state_manager.state
-    state.present_chars = ["player", "alex"]
+    state.present_characters = ["player", "alex"]
     engine.inventory.item_defs["spiced_matcha"].can_give = True
 
     try:
@@ -82,7 +82,7 @@ def test_deterministic_endpoints_flow(client: TestClient):
         assert move_payload["success"] is True
         assert move_payload["state_summary"]["snapshot"]["location"]["id"] == "cafe_counter"
         assert move_payload.get("action_summary")
-        state.present_chars = ["player", "alex"]
+        state.present_characters = ["player", "alex"]
 
         take_resp = client.post(
             f"/api/game/inventory/{session_id}/take",

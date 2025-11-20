@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from app.core.conditions import ConditionEvaluator
-
 if TYPE_CHECKING:
     from app.core.game_engine import GameEngine
 
@@ -19,7 +17,7 @@ class DiscoveryService:
 
     def refresh(self) -> None:
         state = self.engine.state_manager.state
-        evaluator = ConditionEvaluator(state, rng_seed=self.engine.get_turn_seed())
+        evaluator = self.engine.state_manager.create_evaluator()
 
         for zone in self.engine.game_def.zones:
             if zone.id not in state.discovered_zones:

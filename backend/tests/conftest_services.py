@@ -6,7 +6,7 @@ import pytest
 from app.core.loader import GameLoader
 from app.core.game_engine import GameEngine
 from app.models.game import GameDefinition, Meta, GameStart
-from app.models.time import Time
+from app.models.time import Time, TimeDurations, TimeSlotWindow
 from app.models.meters import MetersTemplate, Meter
 from app.models.modifiers import Modifiers, Modifier
 from app.models.characters import Character
@@ -101,8 +101,25 @@ def engine_with_modifiers(monkeypatch, mock_ai_service, use_real_ai):
             slot="morning"
         ),
         time=Time(
-            mode="slots",
-            slots=["morning", "afternoon", "evening"]
+            slots_enabled=True,
+            slots=["morning", "afternoon", "evening"],
+            slot_windows={
+                "morning": TimeSlotWindow(start="06:00", end="11:59"),
+                "afternoon": TimeSlotWindow(start="12:00", end="17:59"),
+                "evening": TimeSlotWindow(start="18:00", end="21:59"),
+            },
+            categories={
+                "instant": 0,
+                "quick": 5,
+                "standard": 15,
+            },
+            defaults=TimeDurations(
+                conversation="instant",
+                choice="quick",
+                movement="standard",
+                default="quick",
+                cap_per_visit=30,
+            ),
         ),
         meters=MetersTemplate(
             player={

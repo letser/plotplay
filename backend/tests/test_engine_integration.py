@@ -421,7 +421,7 @@ class TestIntegrationCollegeRomance:
 
         # Check initialization
         assert state_mgr.state.current_node == "intro_dorm"
-        assert state_mgr.state.location_current == "campus_dorm_room"
+        assert state_mgr.state.current_location == "campus_dorm_room"
         assert state_mgr.state.day == 1
         assert state_mgr.state.time_slot == "morning"
 

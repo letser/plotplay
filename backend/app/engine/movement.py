@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+import math
 import re
 from typing import TYPE_CHECKING, Any
 
-from app.core.conditions import ConditionEvaluator
 from app.models.effects import MeterChangeEffect
 from app.models.locations import LocationConnection
 
@@ -46,8 +46,26 @@ class MovementService:
                 if companion and companion not in present:
                     present.append(companion)
 
-        state.present_chars = present
+        state.present_characters = present
         engine._update_npc_presence()
+
+    async def move_local(self, destination_id: str) -> bool:
+        """Move to a specific location within the current zone."""
+        state = self.engine.state_manager.state
+        current_location = self.engine.get_location(state.current_location)
+        if not current_location or not current_location.connections:
+            return False
+
+        for connection in current_location.connections:
+            targets = [connection.to] if isinstance(connection.to, str) else (connection.to or [])
+            if destination_id in targets:
+                result = self._execute_local_movement(destination_id, connection)
+                return "action_summary" in result
+        return False
+
+    async def move_zone(self, zone_id: str, method: str | None = None, entry_location_id: str | None = None) -> bool:
+        """Travel to another zone using the provided method."""
+        return self.travel_to_zone(zone_id=zone_id, entry_location_id=entry_location_id, method=method)
 
     async def handle_choice(self, choice_id: str) -> dict[str, Any]:
         """Process movement selections coming from predefined choices."""
@@ -56,27 +74,20 @@ class MovementService:
 
         if choice_id.startswith("move_"):
             destination_id = choice_id.removeprefix("move_")
-            current_location = engine.get_location(state.location_current)
+            current_location = engine.get_location(state.current_location)
             if current_location and current_location.connections:
                 for connection in current_location.connections:
-                    if isinstance(connection.to, str) and connection.to == destination_id:
-                        return await self._execute_local_movement(destination_id, connection)
-                    if isinstance(connection.to, list) and destination_id in connection.to:
-                        return await self._execute_local_movement(destination_id, connection)
+                    targets = [connection.to] if isinstance(connection.to, str) else (connection.to or [])
+                    if destination_id in targets:
+                        return self._execute_local_movement(destination_id, connection)
 
         if choice_id.startswith("travel_"):
             destination_zone_id = choice_id.removeprefix("travel_")
-            current_zone = engine.zones_map.get(state.zone_current)
+            current_zone = engine.zones_map.get(state.current_zone)
             if current_zone and current_zone.connections:
                 for connection in current_zone.connections:
-                    # Check if destination is in the connection's 'to' list
                     if destination_zone_id in connection.to:
-                        # Convert ZoneConnection to dict for compatibility
-                        connection_dict = {
-                            "to": destination_zone_id,
-                            "distance": connection.distance or 1.0
-                        }
-                        return await self._execute_zone_travel(destination_zone_id, connection_dict)
+                        return await self._execute_zone_travel(destination_zone_id, None)
 
         return {
             "narrative": "You can't seem to go that way.",
@@ -88,7 +99,7 @@ class MovementService:
     async def handle_freeform(self, action_text: str) -> dict[str, Any]:
         """Attempt to resolve freeform text as a movement action."""
         engine = self.engine
-        current_location = engine.get_location(engine.state_manager.state.location_current)
+        current_location = engine.get_location(engine.state_manager.state.current_location)
         if not current_location or not current_location.connections:
             return {
                 "narrative": "There's nowhere to go from here.",
@@ -102,7 +113,7 @@ class MovementService:
             targets = [connection.to] if isinstance(connection.to, str) else connection.to
             for target_id in targets or []:
                 if target_id and target_id in engine.state_manager.state.discovered_locations and target_id in action_lower:
-                    return await self._execute_local_movement(target_id, connection)
+                    return self._execute_local_movement(target_id, connection)
 
         return {
             "narrative": "You try to move, but there's no clear path forward.",
@@ -115,84 +126,45 @@ class MovementService:
     def is_movement_action(action_text: str) -> bool:
         return bool(MovementService._ACTION_PATTERN.search(action_text))
 
-    async def _execute_zone_travel(self, destination_zone_id: str, connection: dict) -> dict[str, Any]:
+    async def _execute_zone_travel(self, destination_zone_id: str, connection: dict | None = None) -> dict[str, Any]:
         engine = self.engine
         state = engine.state_manager.state
-        move_rules = engine.game_def.movement
 
-        dest_zone = engine.zones_map.get(destination_zone_id)
-        if not dest_zone or not dest_zone.locations:
+        if not self.travel_to_zone(zone_id=destination_zone_id):
             return {
-                "narrative": "That area is not yet accessible.",
+                "narrative": "You can't find a way to travel there right now.",
                 "choices": engine._generate_choices(engine.get_current_node(), []),
                 "current_state": engine.get_state_summary(),
             }
 
-        # Determine entry location
-        destination_location_id = None
-
-        # Priority 1: use_entry_exit zones with entrances defined
-        if move_rules and move_rules.use_entry_exit and dest_zone.entrances:
-            destination_location_id = dest_zone.entrances[0]
-
-        # Priority 2: First location in zone
-        if not destination_location_id:
-            destination_location_id = dest_zone.locations[0].id
-
-        # Zone travel time calculation
-        # According to spec: base_time * distance for the travel method
-        distance = connection.get("distance", 1.0)
-
-        # Default to 15 minutes if no methods configured
-        time_cost_minutes = 15
-
-        if move_rules and move_rules.methods:
-            # Use first available method's base_time
-            # (Spec allows connections to specify available methods, defaulting to all)
-            base_time = move_rules.methods[0].base_time
-            time_cost_minutes = int(base_time * distance)
-
-        state.location_previous = state.location_current
-        state.zone_current = destination_zone_id
-        state.location_current = destination_location_id
-        state.location_privacy = engine._get_location_privacy(destination_location_id)
-
-        engine._advance_time(minutes=time_cost_minutes)
-        engine.check_and_apply_node_transitions()
-        self._sync_presence_after_move()
-
-        new_location = engine.get_location(destination_location_id)
+        dest_zone = engine.zones_map.get(state.current_zone)
+        new_location = engine.get_location(state.current_location)
         loc_desc = (
             new_location.description
             if new_location and isinstance(new_location.description, str)
             else "You arrive in a new area."
         )
 
-        final_narrative = f"You travel to {dest_zone.name}.\n\n{loc_desc}"
-        self.logger.info(
-            "Zone travel to '%s' (entry: %s) completed. Time cost: %sm.",
-            destination_zone_id,
-            destination_location_id,
-            time_cost_minutes,
-        )
+        final_narrative = f"You travel to {dest_zone.name if dest_zone else destination_zone_id}.\n\n{loc_desc}"
 
         return {
             "narrative": final_narrative,
             "choices": engine._generate_choices(engine.get_current_node(), []),
             "current_state": engine.get_state_summary(),
-            "action_summary": engine.state_summary.build_action_summary(f"You travel to {dest_zone.name}."),
+            "action_summary": engine.state_summary.build_action_summary(
+                f"You travel to {dest_zone.name if dest_zone else destination_zone_id}."
+            ),
         }
 
-    async def _execute_local_movement(
+    def _execute_local_movement(
         self,
         destination_id: str,
         connection: LocationConnection,
+        extra_companions: list[str] | None = None,
     ) -> dict[str, Any]:
         engine = self.engine
         state = engine.state_manager.state
-        evaluator = ConditionEvaluator(state, rng_seed=engine.get_turn_seed())
-        move_rules = engine.game_def.movement
-
+        evaluator = engine.state_manager.create_evaluator()
         # Check if destination is discovered
         if destination_id not in state.discovered_locations:
             return {
@@ -202,7 +174,7 @@ class MovementService:
             }
 
         moving_companions: list[str] = []
-        for char_id in state.present_chars:
+        for char_id in state.present_characters:
             if char_id == "player":
                 continue
 
@@ -226,17 +198,31 @@ class MovementService:
                 }
 
         # Calculate time cost for local movement
-        # According to spec: base_time is minutes in hybrid/clock modes, actions in slots mode
-        time_cost_minutes = 0
-        if move_rules and move_rules.base_time:
-            time_cost_minutes = move_rules.base_time
+        zone = engine.zones_map.get(state.current_zone)
+        explicit_minutes = getattr(zone, "time_cost", None) if zone else None
+        category = getattr(zone, "time_category", None) if zone else None
+        if explicit_minutes is None and not category:
+            category = engine.game_def.time.defaults.movement
 
-        state.location_previous = state.location_current
-        state.location_current = destination_id
+        time_cost_minutes = engine._calculate_time_minutes(
+            category=category,
+            node=engine.get_current_node(),
+            explicit_minutes=explicit_minutes,
+            apply_visit_cap=False,
+            method_active=True,
+        )
+
+        state.location_previous = state.current_location
+        state.current_location = destination_id
         state.location_privacy = engine._get_location_privacy(destination_id)
 
-        engine._advance_time(minutes=time_cost_minutes)
+        engine._apply_time_minutes(time_cost_minutes)
         engine.check_and_apply_node_transitions()
+        if extra_companions:
+            for companion in extra_companions:
+                if companion and companion not in moving_companions:
+                    moving_companions.append(companion)
+
         self._sync_presence_after_move(moving_companions)
 
         new_location = engine.get_location(destination_id)
@@ -252,7 +238,7 @@ class MovementService:
 
             # Add NPC presence if any (exclude player)
             npc_names = [
-                engine.characters_map[cid].name for cid in state.present_chars
+                engine.characters_map[cid].name for cid in state.present_characters
                 if cid in engine.characters_map and cid != "player"
             ]
             if npc_names:
@@ -280,7 +266,7 @@ class MovementService:
         """Move in a cardinal direction. Returns True if successful."""
         engine = self.engine
         state = engine.state_manager.state
-        current_location = engine.get_location(state.location_current)
+        current_location = engine.get_location(state.current_location)
 
         if not current_location or not current_location.connections:
             return False
@@ -298,20 +284,8 @@ class MovementService:
                     if destination_id not in state.discovered_locations:
                         return False
 
-                    # Update location
-                    state.location_previous = state.location_current
-                    state.location_current = destination_id
-                    state.location_privacy = engine._get_location_privacy(destination_id)
-
-                    # Advance time
-                    move_rules = engine.game_def.movement
-                    time_cost = move_rules.base_time if move_rules and move_rules.base_time else 0
-                    if time_cost > 0:
-                        engine._advance_time(minutes=time_cost)
-
-                    engine.check_and_apply_node_transitions()
-                    self._sync_presence_after_move(with_characters)
-                    return True
+                    result = self._execute_local_movement(destination_id, connection, extra_companions=with_characters)
+                    return "action_summary" in result
 
         return False
 
@@ -353,11 +327,11 @@ class MovementService:
             return False
 
         # Check if it's actually a different zone
-        if zone_id == state.zone_current:
+        if zone_id == state.current_zone:
             # Same zone, just do local movement if entry_location_id specified
             if entry_location_id:
-                state.location_previous = state.location_current
-                state.location_current = entry_location_id
+                state.location_previous = state.current_location
+                state.current_location = entry_location_id
                 state.location_privacy = engine._get_location_privacy(entry_location_id)
                 engine.check_and_apply_node_transitions()
                 self._sync_presence_after_move(with_characters)
@@ -385,58 +359,89 @@ class MovementService:
             return False
 
         # Calculate travel time
-        current_zone = engine.zones_map.get(state.zone_current)
+        current_zone = engine.zones_map.get(state.current_zone)
         if not current_zone:
             return False
 
-        # Find connection and calculate distance
+        previous_zone = state.current_zone
+
+        # Find connection and calculate distance/methods
         distance = 1.0
-        available_methods = []
-        for connection in current_zone.connections:
-            if zone_id in connection.to:
-                distance = connection.distance or 1.0
-                available_methods = connection.methods if connection.methods else []
-                break
+        connection_methods: list[str] = []
+        if current_zone and current_zone.connections:
+            for connection in current_zone.connections:
+                targets = connection.to or []
+                reachable = False
+                if "all" in targets:
+                    exceptions = connection.exceptions or []
+                    reachable = zone_id not in exceptions
+                else:
+                    reachable = zone_id in targets
 
-        # If no connection found, travel is not possible
-        if not available_methods and move_rules and move_rules.methods:
-            # Use all game methods if connection doesn't restrict
-            available_methods = [m.name for m in move_rules.methods]
+                if reachable:
+                    distance = connection.distance or 1.0
+                    connection_methods = connection.methods or []
+                    break
 
-        # Validate the requested method is available
-        if method and available_methods and method not in available_methods:
-            return False
+        method_defs = {
+            travel_method.name: travel_method
+            for travel_method in (move_rules.methods if move_rules else [])
+        }
 
-        # Calculate time cost
-        time_cost_minutes = 15  # Default
+        candidate_methods = [m for m in connection_methods if m in method_defs]
+        if not candidate_methods and not connection_methods:
+            candidate_methods = list(method_defs.keys())
 
-        if move_rules and move_rules.methods:
-            # If method specified, find it
-            if method:
-                for travel_method in move_rules.methods:
-                    if travel_method.name == method:
-                        time_cost_minutes = int(travel_method.base_time * distance)
-                        break
-            else:
-                # Use first available method
-                time_cost_minutes = int(move_rules.methods[0].base_time * distance)
+        chosen_method = None
+        if method:
+            if candidate_methods and method not in candidate_methods:
+                return False
+            chosen_method = method_defs.get(method)
+            if not chosen_method:
+                return False
+        elif candidate_methods:
+            chosen_method = method_defs.get(candidate_methods[0])
+
+        method_active = True
+        explicit_minutes: int | None = None
+        if chosen_method:
+            method_active = chosen_method.active
+            if chosen_method.time_cost is not None:
+                explicit_minutes = int(chosen_method.time_cost * distance)
+            elif chosen_method.speed is not None:
+                explicit_minutes = math.ceil((distance / chosen_method.speed) * 60)
+            elif chosen_method.category:
+                per_unit = self.engine._category_to_minutes(chosen_method.category)
+                explicit_minutes = int(per_unit * distance)
+        else:
+            default_category = self.engine.game_def.time.defaults.movement
+            per_unit = self.engine._category_to_minutes(default_category)
+            explicit_minutes = int(per_unit * distance)
+
+        time_cost_minutes = self.engine._calculate_time_minutes(
+            category=None,
+            node=self.engine.get_current_node(),
+            explicit_minutes=explicit_minutes,
+            apply_visit_cap=False,
+            method_active=method_active,
+        )
 
         # Execute travel
-        state.location_previous = state.location_current
-        state.zone_current = zone_id
-        state.location_current = destination_location_id
+        state.location_previous = state.current_location
+        state.current_zone = zone_id
+        state.current_location = destination_location_id
         state.location_privacy = engine._get_location_privacy(destination_location_id)
 
-        engine._advance_time(minutes=time_cost_minutes)
+        engine._apply_time_minutes(time_cost_minutes)
         engine.check_and_apply_node_transitions()
         self._sync_presence_after_move(with_characters)
 
         self.logger.info(
             "Zone travel from '%s' to '%s' (entry: %s) via '%s'. Time cost: %sm.",
-            state.zone_current,
+            previous_zone,
             zone_id,
             destination_location_id,
-            method or "default",
+            method or (chosen_method.name if chosen_method else "default"),
             time_cost_minutes,
         )
 

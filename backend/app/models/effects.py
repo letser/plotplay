@@ -5,6 +5,7 @@ Effects.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Literal, ForwardRef, Annotated, Union, Any
 from pydantic import Field, TypeAdapter
 
@@ -74,6 +75,19 @@ class InventoryDropEffect(Effect):
     item_type: ItemType
     item: str
     count: int = 1
+
+
+@dataclass
+class InventoryChangeEffect:
+    """
+    Legacy inventory change effect retained for deterministic helpers.
+    Not part of the spec DSL.
+    """
+    type: Literal["inventory_add", "inventory_remove"]
+    owner: str
+    item: str
+    count: int = 1
+    item_type: ItemType | None = "item"
 
 # Shopping
 class InventoryPurchaseEffect(Effect):

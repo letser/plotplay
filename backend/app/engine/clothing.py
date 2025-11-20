@@ -223,8 +223,6 @@ class ClothingService:
         Returns:
             True if state change is allowed, False otherwise
         """
-        from app.core.conditions import ConditionEvaluator
-
         # Check can_open for "opened" state
         if new_state == "opened" and not clothing_item.can_open:
             return False
@@ -232,7 +230,7 @@ class ClothingService:
         # Check if locked
         if clothing_item.locked:
             # Check unlock conditions
-            evaluator = ConditionEvaluator(self.state)
+            evaluator = self.engine.state_manager.create_evaluator()
             if not evaluator.evaluate_object_conditions(clothing_item):
                 return False  # Locked and unlock condition not met
 

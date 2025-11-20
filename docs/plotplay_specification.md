@@ -2537,7 +2537,7 @@ tracks every outcome the Checker or authored effects apply.
 
 ### Time, location & discovery
 - `day`, `time_slot`, `time_hhmm`, `weekday`, and the embedded `time: TimeState` mirror the configured clock.
-- `location_current` / `zone_current` (aliases `current_location` / `current_zone`) identify where the player stands.
+- `current_location` / `current_zone` identify where the player stands.
 - `location_previous` lets movement describe "where you came from".
 - `location_privacy` (alias `current_privacy`) stores the resolved `LocationPrivacy` enum for the present location.
 - `discovered_locations` and `discovered_zones` are sets of IDs the player has revealed. 
@@ -2545,10 +2545,10 @@ tracks every outcome the Checker or authored effects apply.
 
 ### Characters, meters & inventory
 - `characters` holds `CharacterState` objects (runtime meters, inventory, gate cache, per-character arc state).
-- `present_chars` (alias `present_characters`) is the ordered list of NPC IDs currently on scene (the player is implied).
+- `present_characters` is the ordered list of NPC IDs currently on scene (the player is implied).
 - `meters` is a dict of `char_id -> { meter_id: value }` used for fast math and UI.
 - `flags` is the resolved `FlagsState` dict defined in the manifest.
-- `inventory` stores `owner_id -> { item_id: count }` for every actor. Clothing pieces and outfits share the same namespace, so `"campus_ready": 1` simply means the outfit recipe is owned.
+- `inventory` stores `owner_id -> InventoryState` objects (separate `items`, `clothing`, `outfits` dicts with counts).
 - `location_inventory` mirrors the same structure but keyed by `location_id`.
 
 ```json
