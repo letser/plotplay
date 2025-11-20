@@ -240,7 +240,7 @@ class StateSummaryService:
             for connection in current_location.connections or []:
                 targets = connection.to if isinstance(connection.to, list) else [connection.to]
                 is_locked = bool(getattr(connection, "locked", False))
-                if getattr(connection, "unlocked_when", None) and evaluator.evaluate(connection.unlocked_when):
+                if is_locked and evaluator.evaluate_object_conditions(connection):
                     is_locked = False
 
                 for target_id in targets:
@@ -277,8 +277,7 @@ class StateSummaryService:
                         # Check access/locks
                         access = dest_zone.access if hasattr(dest_zone, 'access') else None
                         locked = access.locked if access else False
-                        unlocked_when = access.unlocked_when if access else None
-                        is_locked = locked and (not unlocked_when or not evaluator.evaluate(unlocked_when))
+                        is_locked = locked and (not access or not evaluator.evaluate_object_conditions(access))
 
                         # Get available travel methods
                         available_methods = connection.methods if connection.methods else []

@@ -66,9 +66,11 @@ class Character(DescriptiveModel):
     # Schedule
     schedule: list[CharacterSchedule] | None = Field(default_factory=list)
 
-    #Locking
+    # Locking
     locked: bool = False
-    unlock_when: DSLExpression | None = None
+    when: DSLExpression | None = None
+    when_all: list[DSLExpression] | None = None
+    when_any: list[DSLExpression] | None = None
 
     # Movement willingness
     movement: MovementWillingness | None = None

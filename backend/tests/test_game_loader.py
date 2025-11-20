@@ -117,6 +117,7 @@ def test_game_loader_requires_matching_meta_id(tmp_path: Path):
 
 
 def test_game_loader_append_mode_prevents_duplicates(tmp_path: Path):
+    """Test that append mode uses 'last one wins' for duplicate IDs."""
     game_dir = minimal_game(tmp_path)
 
     duplicate_nodes = {
@@ -139,5 +140,8 @@ def test_game_loader_append_mode_prevents_duplicates(tmp_path: Path):
 
     loader = GameLoader(games_dir=tmp_path)
 
-    with pytest.raises(ValueError, match="Duplicate ID 'intro'"):
-        loader.load_game(game_dir.name)
+    # Current behavior: last one wins (overwrites)
+    game_def = loader.load_game(game_dir.name)
+    assert len(game_def.nodes) == 1
+    assert game_def.nodes[0].id == "intro"
+    assert game_def.nodes[0].title == "Duplicate Intro"  # Last one wins

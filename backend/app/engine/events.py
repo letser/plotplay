@@ -5,7 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Iterable
 
-from app.core.conditions import ConditionEvaluator
 from app.core.state import GameState
 from app.models.events import Event
 from app.models.arcs import ArcStage
@@ -89,7 +88,7 @@ class EventPipeline:
         """
         triggered_events = []
         random_pool = []
-        evaluator = ConditionEvaluator(state, rng_seed=rng_seed)
+        evaluator = self.engine.evaluator
 
         for event in self.game_def.events:
             if self._is_event_on_cooldown(event, state):
@@ -219,7 +218,7 @@ class EventPipeline:
         self,
         state: GameState,
         rng_seed: int | None = None
-    ) -> tuple[list[Stage], list[Stage]]:
+    ) -> tuple[list[ArcStage], list[ArcStage]]:
         """
         Evaluate all arcs and return lists of newly entered and exited stages.
 
@@ -232,7 +231,7 @@ class EventPipeline:
         """
         newly_entered_stages = []
         newly_exited_stages = []
-        evaluator = ConditionEvaluator(state, rng_seed=rng_seed)
+        evaluator = self.engine.evaluator
 
         for arc in self.game_def.arcs:
             current_stage_id = state.active_arcs.get(arc.id)

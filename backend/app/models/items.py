@@ -34,9 +34,11 @@ class Item(DescriptiveModel):
 
     can_give: bool | None = False
 
-    #Locking
+    # Locking
     locked: bool = False
-    unlock_when: DSLExpression | None = None
+    when: DSLExpression | None = None
+    when_all: list[DSLExpression] | None = None
+    when_any: list[DSLExpression] | None = None
 
     # Dynamic effects
     on_get: EffectsList = Field(default_factory=list)

@@ -63,11 +63,10 @@ class ClothingService:
                 outfit = self._find_outfit(char, outfit_id)
                 if outfit:
                     layers_dict, slot_to_item = self._build_layers_from_outfit(outfit, char)
-                    self.state.clothing_states[char.id] = {
-                        'current_outfit': outfit.id,
-                        'layers': layers_dict,
-                        'slot_to_item': slot_to_item
-                    }
+                    char_state = self.state.characters.get(char.id)
+                    if char_state:
+                        char_state.clothing.outfit = outfit.id
+                        char_state.clothing.items = layers_dict
 
     def _find_outfit(self, char, outfit_id: str):
         """Find an outfit by ID in character's wardrobe or global wardrobe."""
@@ -233,10 +232,9 @@ class ClothingService:
         # Check if locked
         if clothing_item.locked:
             # Check unlock conditions
-            if clothing_item.unlock_when:
-                evaluator = ConditionEvaluator(self.state)
-                if not evaluator.evaluate(clothing_item.unlock_when):
-                    return False  # Locked and unlock condition not met
+            evaluator = ConditionEvaluator(self.state)
+            if not evaluator.evaluate_object_conditions(clothing_item):
+                return False  # Locked and unlock condition not met
 
         # Check concealment - can't change state of concealed items
         if new_state in ["opened", "displaced", "removed"]:
@@ -565,11 +563,15 @@ class ClothingService:
             return False
 
         # Grant each clothing item in the outfit to the character's inventory
-        char_inventory = self.state.inventory.setdefault(char_id, {})
+        char_state = self.state.characters.get(char_id)
+        if not char_state:
+            return False
+
+        char_inventory_clothing = char_state.inventory.clothing
         for clothing_id in outfit.items:
             # Only grant if the character doesn't already have it
-            if clothing_id not in char_inventory:
-                char_inventory[clothing_id] = 1
+            if clothing_id not in char_inventory_clothing:
+                char_inventory_clothing[clothing_id] = 1
             # Note: If they already have it, we don't add duplicates
             # (clothing items typically aren't stackable)
 

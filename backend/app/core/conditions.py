@@ -115,6 +115,25 @@ class ConditionEvaluator:
                 return True
         return False
 
+    def evaluate_object_conditions(self, rule_obj) -> bool:
+        """
+        Convenience helper for evaluating the spec's (when, when_all, when_any) trio for any model object.
+        """
+
+        when = getattr(rule_obj, 'when', None)
+        if when and not self.evaluate(when):
+            return False
+
+        when_all = getattr(rule_obj, 'when_all', None)
+        if when_all and not self.evaluate_all(when_all):
+            return False
+
+        when_any = getattr(rule_obj, 'when_any', None)
+        if when_any is not None:
+            return self.evaluate_any(when_any)
+
+        return True
+
     def evaluate_conditions(
         self,
         *,

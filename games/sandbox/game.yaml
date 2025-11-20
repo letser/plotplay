@@ -119,7 +119,7 @@ wardrobe:
       name: "Rain Jacket"
       value: 60
       locked: true
-      unlock_when: "flags.market_briefing_viewed"
+      when: "flags.market_briefing_viewed"
       occupies: ["outerwear"]
       conceals: ["top"]
       can_open: true
@@ -147,7 +147,7 @@ wardrobe:
         sneakers: intact
         hi_vis_vest_wearable: intact
       locked: true
-      unlock_when: "inventory.player.items.hi_vis_vest > 0"
+      when: "inventory.player.items.hi_vis_vest > 0"
 
     - id: "rainy_day_outfit"
       name: "Rainy Day Outfit"
@@ -158,7 +158,7 @@ wardrobe:
         jeans: intact
         sneakers: intact
       locked: true
-      unlock_when: "flags.market_briefing_viewed"
+      when: "flags.market_briefing_viewed"
 
 movement:
   use_entry_exit: true

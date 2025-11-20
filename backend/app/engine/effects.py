@@ -180,9 +180,11 @@ class EffectResolver:
         effective_min = meter_def.min
         effective_max = meter_def.max
 
-        active_modifiers = self.engine.state_manager.state.modifiers.get(effect.target, [])
-        for mod_state in active_modifiers:
-            mod_def = self.engine.modifiers.library.get(mod_state["id"])
+        # Get modifiers from character state
+        char_state = self.engine.state_manager.state.characters.get(effect.target)
+        active_modifiers = char_state.modifiers if char_state else {}
+        for mod_id, mod_state in active_modifiers.items():
+            mod_def = self.engine.modifiers.library.get(mod_id)
             if mod_def and mod_def.clamp_meters:
                 if meter_clamp := mod_def.clamp_meters.get(effect.meter):
                     if "min" in meter_clamp:
@@ -235,12 +237,42 @@ class EffectResolver:
                 return
 
     def _apply_unlock(self, effect: UnlockEffect) -> None:
-        if effect.type in {"unlock_outfit", "unlock"} and (effect.outfit or effect.outfits):
+        """Handle unlock effect: unlock items, clothing, outfits, zones, locations, actions, endings."""
+        state = self.engine.state_manager.state
+
+        # Unlock items
+        if effect.items:
+            for item_id in effect.items:
+                if item_id not in state.unlocked_items:
+                    state.unlocked_items.append(item_id)
+
+        # Unlock clothing
+        if effect.clothing:
+            for clothing_id in effect.clothing:
+                if clothing_id not in state.unlocked_clothing:
+                    state.unlocked_clothing.append(clothing_id)
+
+        # Unlock outfits (uses specialized method with character targeting)
+        if effect.outfit or effect.outfits:
             self._apply_unlock_outfit(effect)
-        if effect.type in {"unlock_ending", "unlock"} and (effect.ending or effect.endings):
+
+        # Unlock zones (adds to discovered_zones)
+        if effect.zones:
+            state.discovered_zones.update(effect.zones)
+
+        # Unlock locations (adds to discovered_locations)
+        if effect.locations:
+            state.discovered_locations.update(effect.locations)
+
+        # Unlock actions
+        if effect.actions:
+            for action_id in effect.actions:
+                if action_id not in state.unlocked_actions:
+                    state.unlocked_actions.append(action_id)
+
+        # Unlock endings
+        if effect.ending or effect.endings:
             self._apply_unlock_ending(effect)
-        if effect.type in {"unlock_actions", "unlock"} and effect.actions:
-            self._apply_unlock_actions(effect)
 
     def _apply_move_to(self, effect: MoveToEffect) -> None:
         state = self.engine.state_manager.state
@@ -693,37 +725,40 @@ class EffectResolver:
         )
 
     def _apply_lock(self, effect: LockEffect) -> None:
-        """Handle lock effect: lock items/clothing/locations/actions."""
+        """Handle lock effect: re-lock items, clothing, outfits, zones, locations, actions, endings."""
         state = self.engine.state_manager.state
 
-        # Initialize locked tracking if needed
-        if not hasattr(state, 'locked_items'):
-            state.locked_items = []
-        if not hasattr(state, 'locked_clothing'):
-            state.locked_clothing = []
-        if not hasattr(state, 'locked_outfits'):
-            state.locked_outfits = []
-        if not hasattr(state, 'locked_locations'):
-            state.locked_locations = []
-        if not hasattr(state, 'locked_zones'):
-            state.locked_zones = []
-        if not hasattr(state, 'locked_actions'):
-            state.locked_actions = []
-        if not hasattr(state, 'locked_endings'):
-            state.locked_endings = []
-
-        # Lock each category
+        # Lock items (remove from unlocked list)
         if effect.items:
-            state.locked_items.extend(effect.items)
+            state.unlocked_items = [item_id for item_id in state.unlocked_items if item_id not in effect.items]
+
+        # Lock clothing (remove from unlocked list)
         if effect.clothing:
-            state.locked_clothing.extend(effect.clothing)
+            state.unlocked_clothing = [clothing_id for clothing_id in state.unlocked_clothing
+                                       if clothing_id not in effect.clothing]
+
+        # Lock outfits (remove from unlocked_outfits per character)
         if effect.outfits:
-            state.locked_outfits.extend(effect.outfits)
-        if effect.locations:
-            state.locked_locations.extend(effect.locations)
+            for char_id in state.unlocked_outfits:
+                state.unlocked_outfits[char_id] = [
+                    outfit_id for outfit_id in state.unlocked_outfits[char_id]
+                    if outfit_id not in effect.outfits
+                ]
+
+        # Lock zones (remove from discovered_zones)
         if effect.zones:
-            state.locked_zones.extend(effect.zones)
+            state.discovered_zones.difference_update(effect.zones)
+
+        # Lock locations (remove from discovered_locations)
+        if effect.locations:
+            state.discovered_locations.difference_update(effect.locations)
+
+        # Lock actions (remove from unlocked list)
         if effect.actions:
-            state.locked_actions.extend(effect.actions)
+            state.unlocked_actions = [action_id for action_id in state.unlocked_actions
+                                       if action_id not in effect.actions]
+
+        # Lock endings (remove from unlocked list)
         if effect.endings:
-            state.locked_endings.extend(effect.endings)
+            state.unlocked_endings = [ending_id for ending_id in state.unlocked_endings
+                                       if ending_id not in effect.endings]

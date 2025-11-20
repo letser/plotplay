@@ -258,7 +258,7 @@ class PromptBuilder:
                     "locked": bool(getattr(connection, "locked", False)),
                     "currently_unlocked": (
                         not getattr(connection, "locked", False)
-                        or (getattr(connection, "unlocked_when", None) and evaluator.evaluate(connection.unlocked_when))
+                        or evaluator.evaluate_object_conditions(connection)
                     ),
                     "description": getattr(connection, "description", None),
                 }
@@ -452,7 +452,7 @@ class PromptBuilder:
                     "locked": bool(getattr(connection, "locked", False)),
                     "unlocked_now": (
                         not getattr(connection, "locked", False)
-                        or (getattr(connection, "unlocked_when", None) and evaluator.evaluate(connection.unlocked_when))
+                        or evaluator.evaluate_object_conditions(connection)
                     ),
                     "description": getattr(connection, "description", None),
                     "targets": targets,
@@ -649,9 +649,8 @@ class PromptBuilder:
                     continue
 
                 is_locked = bool(getattr(connection, "locked", False))
-                if getattr(connection, "unlocked_when", None):
-                    if evaluator.evaluate(connection.unlocked_when):
-                        is_locked = False
+                if is_locked and evaluator.evaluate_object_conditions(connection):
+                    is_locked = False
 
                 direction = getattr(connection.direction, "name", None) or str(connection.direction or "").upper()
                 direction_label = direction.upper()

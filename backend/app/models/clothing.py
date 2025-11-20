@@ -48,8 +48,11 @@ class ClothingItem(DescriptiveModel):
     conceals: list[str] = Field(default_factory=list)
     can_open: bool = False
 
+    # Locking
     locked: bool = False
-    unlock_when: DSLExpression | None = None
+    when: DSLExpression | None = None
+    when_all: list[DSLExpression] | None = None
+    when_any: list[DSLExpression] | None = None
 
     # Dynamic effects
     on_get: EffectsList = Field(default_factory=list)
@@ -73,8 +76,11 @@ class Outfit(DescriptiveModel):
 
     grant_items: bool = True
 
+    # Locking
     locked: bool = False
-    unlock_when: DSLExpression | None = None
+    when: DSLExpression | None = None
+    when_all: list[DSLExpression] | None = None
+    when_any: list[DSLExpression] | None = None
 
     # Dynamic effects
     on_get: EffectsList = Field(default_factory=list)

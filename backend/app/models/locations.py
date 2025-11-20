@@ -70,7 +70,9 @@ class LocationConnection(SimpleModel):
     description: str | None = None
     locked: bool = False
     direction: LocalDirection
-    unlocked_when: DSLExpression | None = None
+    when: DSLExpression | None = None
+    when_all: list[DSLExpression] | None = None
+    when_any: list[DSLExpression] | None = None
 
 
 class LocationAccess(SimpleModel):
@@ -79,7 +81,9 @@ class LocationAccess(SimpleModel):
     hidden_until_discovered: bool = False
     discovered_when: DSLExpression | None = None
     locked: bool = False
-    unlocked_when: DSLExpression | None = None
+    when: DSLExpression | None = None
+    when_all: list[DSLExpression] | None = None
+    when_any: list[DSLExpression] | None = None
 
 
 class Location(DescriptiveModel):

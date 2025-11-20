@@ -28,7 +28,9 @@ def minimal_game(tmp_path: Path) -> Path:
             "meta": {
                 "id": "campus_story",
                 "title": "Campus Story",
+                "version": "1.0.0",
                 "authors": ["Test Author"],
+                "description": "A minimal test game for loader tests.",
                 "nsfw_allowed": False,
             },
             "narration": {"pov": "second", "tense": "present", "paragraphs": "1-2"},
@@ -54,15 +56,42 @@ def minimal_game(tmp_path: Path) -> Path:
                 "arc_stage_bond": {"type": "bool", "default": False},
             },
             "time": {
-                "mode": "slots",
-                "slots": ["morning", "evening"],
-                "actions_per_slot": 3,
+                "slots_enabled": True,
+                "slots": ["morning", "afternoon", "evening"],
+                "slot_windows": {
+                    "morning": {"start": "06:00", "end": "11:59"},
+                    "afternoon": {"start": "12:00", "end": "17:59"},
+                    "evening": {"start": "18:00", "end": "21:59"},
+                },
+                "categories": {
+                    "instant": 0,
+                    "trivial": 2,
+                    "quick": 5,
+                    "standard": 15,
+                    "significant": 30,
+                    "major": 60,
+                },
+                "defaults": {
+                    "conversation": "instant",
+                    "choice": "quick",
+                    "movement": "standard",
+                    "default": "trivial",
+                    "cap_per_visit": 30,
+                },
             },
-            "economy": {"enabled": True},
+            "economy": {
+                "enabled": True,
+                "starting_money": 50,
+                "max_money": 500,
+                "currency_name": "dollars",
+                "currency_symbol": "$",
+            },
             "movement": {
-                "base_time": 1,
                 "use_entry_exit": False,
-                "methods": [{"walk": 1}],
+                "base_unit": "km",
+                "methods": [
+                    {"name": "walk", "active": True, "time_cost": 20}
+                ],
             },
             "includes": ["items.yaml", "characters.yaml", "locations.yaml", "nodes.yaml", "events.yaml"],
         },
@@ -91,7 +120,7 @@ def minimal_game(tmp_path: Path) -> Path:
                     {
                         "id": "player_outfit",
                         "name": "Campus Casual",
-                        "items": ["player_top"],
+                        "items": {"player_top": "intact"},
                         "grant_items": True,
                     },
                 ],
@@ -109,14 +138,14 @@ def minimal_game(tmp_path: Path) -> Path:
                     "age": 20,
                     "gender": "unspecified",
                     "clothing": {"outfit": "player_outfit"},
-                    "inventory": {"items": []},
+                    "inventory": {"items": {}},
                 },
                 {
                     "id": "friend",
                     "name": "Friend",
                     "age": 20,
                     "gender": "female",
-                    "inventory": {"items": []},
+                    "inventory": {"items": {}},
                 },
             ]
         },
@@ -214,6 +243,7 @@ def minimal_game(tmp_path: Path) -> Path:
                 {
                     "id": "friendship_arc",
                     "title": "Building Friendship",
+                    "character": "friend",
                     "description": "Develop friendships on campus",
                     "repeatable": False,
                     "stages": [
@@ -254,6 +284,10 @@ def minimal_game(tmp_path: Path) -> Path:
 
 @pytest.fixture
 def sample_game_state() -> GameState:
+    from app.models.characters import CharacterState
+    from app.models.clothing import ClothingState
+    from app.models.inventory import InventoryState
+
     state = GameState()
     state.day = 3
     state.time_slot = "evening"
@@ -266,27 +300,25 @@ def sample_game_state() -> GameState:
 
     state.present_chars = ["player", "emma"]
 
-    state.meters = {
-        "player": {"energy": 65, "money": 40},
-        "emma": {"trust": 55, "attraction": 42},
+    # Set up character states (which contain meters, inventory, clothing, modifiers)
+    state.characters = {
+        "player": CharacterState(
+            meters={"energy": 65, "money": 40},
+            inventory=InventoryState(items={"coffee": 1, "ticket": 0}),
+            modifiers=[{"id": "inspired"}],
+            clothing=ClothingState(outfit="campus_ready", items={"top": "intact"})
+        ),
+        "emma": CharacterState(
+            meters={"trust": 55, "attraction": 42},
+            inventory=InventoryState(),
+            modifiers=[],
+            clothing=ClothingState()
+        ),
     }
 
     state.flags = {
         "met_emma": True,
         "invitation_sent": False,
-    }
-
-    state.inventory = {
-        "player": {"coffee": 1, "ticket": 0},
-    }
-
-    state.modifiers = {
-        "player": [{"id": "inspired"}],
-        "emma": [],
-    }
-
-    state.clothing_states = {
-        "player": {"layers": {"top": "intact"}, "current_outfit": "campus_ready"}
     }
 
     state.active_arcs = {"emma_path": "study_buddies"}
@@ -298,120 +330,6 @@ def sample_game_state() -> GameState:
     state.turn_count = 5
 
     return state
-
-
-@pytest.fixture
-def wardrobe_game():
-    """Game fixture with complete wardrobe system for clothing tests."""
-    from app.models.clothing import Wardrobe, ClothingItem, Outfit, ClothingLook
-    from app.models.characters import Character, ClothingConfig
-    from app.models.game import GameDefinition, Meta, GameStart
-    from app.models.time import Time
-    from app.models.locations import Zone, Location
-    from app.models.nodes import Node
-
-    # Define clothing items
-    t_shirt = ClothingItem(
-        id="t_shirt",
-        name="T-shirt",
-        occupies=["top"],
-        look=ClothingLook(intact="a casual t-shirt")
-    )
-
-    jeans = ClothingItem(
-        id="jeans",
-        name="Jeans",
-        occupies=["bottom"],
-        look=ClothingLook(intact="blue jeans")
-    )
-
-    dress = ClothingItem(
-        id="dress",
-        name="Dress",
-        occupies=["top", "bottom"],
-        conceals=["top", "bottom"],
-        can_open=True,
-        look=ClothingLook(
-            intact="a flowy dress",
-            opened="an unbuttoned dress"
-        )
-    )
-
-    jacket = ClothingItem(
-        id="jacket",
-        name="Jacket",
-        occupies=["top_outer"],
-        conceals=["top"],
-        look=ClothingLook(intact="a leather jacket")
-    )
-
-    # Define outfits
-    casual_outfit = Outfit(
-        id="casual",
-        name="Casual Outfit",
-        items=["t_shirt", "jeans"]
-    )
-
-    formal_outfit = Outfit(
-        id="formal",
-        name="Formal Outfit",
-        items=["dress"]
-    )
-
-    # Create wardrobe config
-    wardrobe = Wardrobe(
-        items=[t_shirt, jeans, dress, jacket],
-        outfits=[casual_outfit, formal_outfit]
-    )
-
-    # Create character with wardrobe
-    emma = Character(
-        id="emma",
-        name="Emma",
-        age=20,
-        gender="female",
-        clothing=ClothingConfig(outfit="casual"),
-        wardrobe=wardrobe
-    )
-
-    # Create game definition
-    game = GameDefinition(
-        meta=Meta(
-            id="wardrobe_test",
-            title="Wardrobe Test Game",
-            version="1.0.0"
-        ),
-        start=GameStart(
-            node="start",
-            location="room",
-            day=1,
-            slot="morning"
-        ),
-        time=Time(
-            mode="slots",
-            slots=["morning", "afternoon", "evening"]
-        ),
-        zones=[
-            Zone(
-                id="zone1",
-                name="Zone",
-                locations=[
-                    Location(
-                        id="room",
-                        name="Room",
-                        description="A room."
-                    )
-                ]
-            )
-        ],
-        characters=[emma],
-        nodes=[
-            Node(id="start", type="scene", title="Start")
-        ],
-        wardrobe=wardrobe
-    )
-
-    return game
 
 
 # AI Service Mocking

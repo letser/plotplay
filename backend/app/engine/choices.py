@@ -101,7 +101,7 @@ class ChoiceService:
                     }
 
                     if dest_location.access and dest_location.access.locked:
-                        if not evaluator.evaluate(dest_location.access.unlocked_when):
+                        if not evaluator.evaluate_object_conditions(dest_location.access):
                             choice["disabled"] = True
 
                     bucket.append(choice)

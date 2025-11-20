@@ -206,6 +206,9 @@ class GameState:
     nodes_history: list[str] = field(default_factory=list)
     unlocked_endings: list[str] = field(default_factory=list)
     unlocked_actions: list[str] = field(default_factory=list)
+    unlocked_items: list[str] = field(default_factory=list)
+    unlocked_clothing: list[str] = field(default_factory=list)
+    unlocked_outfits: dict[str, list[str]] = field(default_factory=dict)  # char_id -> [outfit_ids]
 
     narrative_history: list[str] = field(default_factory=list)
     memory_log: list[dict[str, str]] = field(default_factory=list)

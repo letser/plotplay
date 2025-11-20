@@ -52,11 +52,12 @@ from app.models.effects import (
     ApplyModifierEffect,
     RemoveModifierEffect,
 )
-from app.models.game import GameDefinition
+from app.models.game import GameDefinition, GameState
 from app.models.locations import Location, LocationPrivacy
 from app.models.nodes import Node, NodeChoice, NodeType
 from app.services.ai_service import AIService
 from app.engine.prompt_builder import PromptBuilder
+from app.core.conditions import ConditionEvaluator
 
 
 @dataclass
@@ -74,23 +75,23 @@ class TurnContext:
     current_node: Node
     snapshot_state: dict  # Pre-turn snapshot for potential rollback
 
-    # Gate evaluation (Phase 4 - NEW!)
+    # Gate evaluation
     active_gates: dict[str, dict[str, bool]] = field(default_factory=dict)  # {char_id: {gate_id: bool}}
 
     # Effect tracking
     meter_deltas: dict[str, dict[str, float]] = field(default_factory=dict)  # {char_id: {meter_id: delta}}
     pending_effects: list = field(default_factory=list)
 
-    # Event tracking (Phase 8)
+    # Event tracking
     events_fired: list[str] = field(default_factory=list)
     event_choices: list[NodeChoice] = field(default_factory=list)
     event_narratives: list[str] = field(default_factory=list)
 
-    # Arc tracking (Phase 19)
+    # Arc tracking
     milestones_reached: list[str] = field(default_factory=list)
     arcs_advanced: list[str] = field(default_factory=list)
 
-    # Time tracking (Phase 7, 18)
+    # Time tracking
     time_category_resolved: str | None = None  # Resolved category for this action
     time_advanced_minutes: int = 0
     day_advanced: bool = False
@@ -137,15 +138,11 @@ class GameEngine:
         # PromptBuilder must be initialized AFTER clothing service
         self.prompt_builder = PromptBuilder(self.game_def, self)
 
-        self.nodes_map: dict[str, Node] = dict(self.index.nodes)
-        self.actions_map: dict[str, Action] = dict(self.index.actions)
-        self.characters_map: dict[str, Character] = dict(self.index.characters)
-        self.locations_map: dict[str, Location] = dict(self.index.locations)
-        self.zones_map = dict(self.index.zones)
-        self.items_map = dict(self.index.items)
-        self.turn_meter_deltas: dict[str, dict[str, float]] = {}
-
         self.logger.info(f"GameEngine for session {session_id} initialized.")
+
+    @property
+    def state(self) -> GameState:
+        return self.state_manager.state
 
     @property
     def base_seed(self) -> int | None:
@@ -154,6 +151,10 @@ class GameEngine:
     @property
     def generated_seed(self) -> int | None:
         return self.runtime.generated_seed
+
+    @property
+    def evaluator(self) -> ConditionEvaluator:
+        return self.state_manager.create_evaluator()
 
     async def process_action(
             self,
@@ -164,7 +165,7 @@ class GameEngine:
             item_id: str | None = None,
             skip_ai: bool = False,
     ) -> dict[str, Any]:
-        """Process action and return final result (non-streaming)."""
+        """Process action and return the final result (non-streaming)."""
         result = None
         async for event in self.process_action_stream(
             action_type=action_type,
@@ -181,7 +182,7 @@ class GameEngine:
         if not result:
             raise RuntimeError("No complete event received from turn processing")
 
-        # Remove the 'type' field from result
+        # Remove the 'type' field from a result
         result.pop("type", None)
         return result
 
@@ -195,20 +196,20 @@ class GameEngine:
             skip_ai: bool = False,
     ):
         """
-        Unified 22-phase turn processing pipeline with streaming.
+        Unified turn processing pipeline with streaming support.
 
         Yields events during processing:
-        - action_summary
-        - narrative_chunk (if AI enabled)
-        - checker_status (if AI enabled)
-        - complete (final result)
+        - action_summary: Formatted player action
+        - narrative_chunk: Streaming narrative from Writer AI (if AI enabled)
+        - checker_status: Streaming Checker validation updates (if AI enabled)
+        - complete: Final turn result with state summary and choices
         """
-        # --- PHASE 1-5: Core Setup (ALWAYS) ---
-        ctx = self._phase_01_initialize_turn()
-        self._phase_02_validate_node_state(ctx)
-        self._phase_03_update_presence(ctx)
-        self._phase_04_evaluate_gates(ctx)
-        self._phase_05_format_action(ctx, action_type, action_text, target, choice_id, item_id)
+        # --- Core Setup (ALWAYS) ---
+        ctx = self._initialize_turn_context()
+        self._validate_current_node(ctx)
+        self._update_character_presence(ctx)
+        self._evaluate_character_gates(ctx)
+        self._format_player_action(ctx, action_type, action_text, target, choice_id, item_id)
 
         # Yield action summary immediately
         yield {
@@ -216,20 +217,16 @@ class GameEngine:
             "content": ctx.action_summary
         }
 
-        # --- PHASE 6: Node Entry Effects (CONDITIONAL) ---
-        if not skip_ai:
-            self._phase_06_apply_node_entry(ctx)
-
-        # --- PHASE 7: Action Effects (ALWAYS) ---
-        await self._phase_07_execute_action_effects(
+        # --- Action Effects (ALWAYS) ---
+        await self._execute_action_effects(
             ctx, action_type, action_text, target, choice_id, item_id
         )
 
-        # --- PHASE 8: Events (ALWAYS) ---
-        forced_transition = self._phase_08_process_events(ctx)
+        # --- Events (ALWAYS) ---
+        forced_transition = self._process_triggered_events(ctx)
         if forced_transition:
             # Early finalization
-            state_summary = self._phase_21_build_state_summary(ctx)
+            state_summary = self._build_state_summary(ctx)
             result = self._build_turn_result(ctx, state_summary)
             yield {
                 "type": "complete",
@@ -237,13 +234,10 @@ class GameEngine:
             }
             return
 
-        # --- PHASE 9-14: AI Generation (CONDITIONAL with STREAMING) ---
+        # --- AI Generation (CONDITIONAL with STREAMING) ---
         if not skip_ai:
-            # Phase 9: Build AI context
-            await self._phase_09_build_ai_context(ctx)
-
-            # Phase 10: Generate narrative (WITH STREAMING)
-            self.logger.info("=== Phase 10: Generate Narrative (Streaming) ===")
+            # Generate narrative (WITH STREAMING)
+            self.logger.info("=== Generating Narrative (Streaming) ===")
             state = self.state_manager.state
 
             writer_prompt = self.prompt_builder.build_writer_prompt(
@@ -272,8 +266,8 @@ class GameEngine:
             writer_elapsed = time.time() - writer_start
             self.logger.info(f"⏱️  Writer completed in {writer_elapsed:.2f}s")
 
-            # Phase 11: Extract deltas (WITH STATUS UPDATES)
-            self.logger.info("=== Phase 11: Extract Deltas (Streaming) ===")
+            # Extract state changes (WITH STATUS UPDATES)
+            self.logger.info("=== Extracting State Changes (Streaming) ===")
 
             checker_prompt = self.prompt_builder.build_checker_prompt(
                 ctx.ai_narrative,
@@ -354,20 +348,17 @@ Focus on actions that happened, not dialogue or hypotheticals.""",
                 self.logger.warning(f"Checker returned invalid JSON: {checker_response.content[:200]}")
                 ctx.checker_deltas = {}
 
-            # Phase 12-14: Process AI results
-            self._phase_12_reconcile_narrative(ctx)
-            self._phase_13_apply_checker_deltas(ctx)
-            self._phase_14_post_ai_effects(ctx)
+            # Apply AI-detected state changes
+            self._apply_checker_deltas(ctx)
 
-        # --- PHASE 15-22: Post-Processing (ALWAYS) ---
-        self._phase_15_node_transitions(ctx)
-        self._phase_16_update_modifiers(ctx)
-        self._phase_17_update_discoveries(ctx)
-        self._phase_18_advance_time(ctx)
-        self._phase_19_process_arcs(ctx)
-        self._phase_20_build_choices(ctx)
-        state_summary = self._phase_21_build_state_summary(ctx)
-        self._phase_22_save_state(ctx)
+        # --- Post-Processing (ALWAYS) ---
+        self._check_node_transitions(ctx)
+        self._update_active_modifiers(ctx)
+        self._update_discoveries(ctx)
+        self._advance_time(ctx)
+        self._process_arc_progression(ctx)
+        self._build_available_choices(ctx)
+        state_summary = self._build_state_summary(ctx)
 
         # Add final narrative to history
         all_narratives = ctx.event_narratives.copy()
@@ -470,35 +461,6 @@ Remember: This is just scene-setting. No need to describe player actions yet."""
     def update_discoveries(self):
         """Checks for and applies new location discoveries."""
         self.discovery.refresh()
-
-    async def _handle_movement_choice(self, choice_id: str) -> dict[str, Any]:
-        """Compatibility wrapper around the movement service."""
-        return await self.movement.handle_choice(choice_id)
-
-    async def _handle_movement(self, action_text: str) -> dict[str, Any]:
-        """Compatibility wrapper around freeform movement handling."""
-        return await self.movement.handle_freeform(action_text)
-
-    def _is_movement_action(self, action_text: str) -> bool:
-        return self.movement.is_movement_action(action_text)
-
-    def _advance_time(self, minutes: int | None = None) -> dict[str, bool]:
-        """Compatibility wrapper for legacy callers; prefer TimeService.advance."""
-        info = self.time.advance(minutes)
-        return {
-            "day_advanced": info.day_advanced,
-            "slot_advanced": info.slot_advanced,
-            "minutes_passed": info.minutes_passed,
-        }
-
-
-    def _update_npc_presence(self):
-        """
-        Updates NPC presence based on schedules. Adds NPCs scheduled to be in the
-        current location. This logic assumes schedules determine appearance, but will
-        not remove characters who arrived by other means (e.g., following the player).
-        """
-        self.presence.refresh()
 
     def reconcile_narrative(self, player_action: str, ai_narrative: str, deltas: dict,
                             target_char_id: str | None) -> str:
@@ -1072,66 +1034,43 @@ Remember: This is just scene-setting. No need to describe player actions yet."""
         return self.state_summary.build()
 
     def get_current_node(self) -> Node:
-        node = self.nodes_map.get(self.state_manager.state.current_node)
+        node = self.index.nodes.get(self.state.current_node)
         if not node: raise ValueError(f"FATAL: Current node '{self.state_manager.state.current_node}' not found.")
         return node
 
     def _get_character(self, char_id: str) -> Character | None:
-        return self.characters_map.get(char_id)
+        return  self.index.characters.get(char_id)
+
+    def _get_meter_def(self, char_id: str, meter_id: str):
+        """Get meter definition for a character's meter."""
+        # Check player meters
+        if char_id == "player" and meter_id in self.index.player_meters:
+            return self.index.player_meters[meter_id]
+
+        # Check template meters for NPCs
+        if char_id != "player" and meter_id in self.index.template_meters:
+            return self.index.template_meters[meter_id]
+
+        return None
 
     def get_location(self, location_id: str) -> Location | None:
-        return self.locations_map.get(location_id)
+        return self.index.locations.get(location_id)
 
-    def _process_meter_dynamics(self, time_advanced_info: dict[str, bool]):
-        """Compatibility wrapper for meter decay."""
-        time_info = TimeAdvance(
-            day_advanced=time_advanced_info.get("day_advanced", False),
-            slot_advanced=time_advanced_info.get("slot_advanced", False),
-            minutes_passed=time_advanced_info.get("minutes_passed", 0),
-        )
-        self.time.apply_meter_dynamics(time_info)
-
-    def _apply_meter_decay(self, decay_type: Literal["day", "slot"]):
-        """Compatibility wrapper that defers to TimeService."""
-        self.time.apply_meter_decay(decay_type)
-
-    def _get_meter_def(self, char_id: str, meter_id: str) -> Any | None:
-        """Helper to find the definition for a specific meter."""
-        # Player meters live in the index for O(1) lookup
-        if char_id == "player":
-            return self.index.player_meters.get(meter_id)
-
-        meter_def = self.index.template_meters.get(meter_id)
-
-        char_def = self.characters_map.get(char_id)
-        if not char_def or not char_def.meters:
-            return meter_def
-
-        meter_override = char_def.meters.get(meter_id)
-        if meter_override is None:
-            return meter_def
-
-        if meter_def is None:
-            return meter_override
-
-        patch = meter_override.model_dump(
-            exclude_unset=True,
-            exclude_none=True,
-            exclude_defaults=True,
-        )
-        return meter_def.model_copy(update=patch)
 
     def get_turn_seed(self) -> int:
         """Generate a deterministic seed for the current turn."""
         return self.runtime.turn_seed()
 
     # ============================================================================
-    # 22-Phase Turn Processing Pipeline
+    # Turn Processing Pipeline - Clean Implementation
     # ============================================================================
 
-    def _phase_01_initialize_turn(self) -> TurnContext:
-        """Phase 1: Initialize turn context."""
-        self.logger.info("=== Phase 1: Initialize Turn ===")
+    def _initialize_turn_context(self) -> TurnContext:
+        """
+        Initialize turn context with deterministic RNG seed and state snapshot.
+        Increments turn counter and captures current node.
+        """
+        self.logger.info("=== Initializing Turn Context ===")
 
         state = self.state_manager.state
         state.turn_count += 1
@@ -1152,35 +1091,44 @@ Remember: This is just scene-setting. No need to describe player actions yet."""
         self.logger.debug(f"Turn {ctx.turn_number} initialized with seed {rng_seed}")
         return ctx
 
-    def _phase_02_validate_node_state(self, ctx: TurnContext) -> None:
-        """Phase 2: Validate node state."""
-        self.logger.info("=== Phase 2: Validate Node State ===")
+    def _validate_current_node(self, ctx: TurnContext) -> None:
+        """
+        Validate that the current node allows action processing.
+        Rejects actions if the game is in an ENDING node.
+        """
+        self.logger.info("=== Validating Current Node ===")
 
         if ctx.current_node.type == NodeType.ENDING:
             raise ValueError("Cannot process action in ENDING node")
 
         self.logger.debug(f"Node validation passed: {ctx.current_node.id}")
 
-    def _phase_03_update_presence(self, ctx: TurnContext) -> None:
-        """Phase 3: Update character presence."""
-        self.logger.info("=== Phase 3: Update Presence ===")
+    def _update_character_presence(self, ctx: TurnContext) -> None:
+        """
+        Update character presence based on schedules.
+        Refreshes which NPCs are present in the current location.
+        """
+        self.logger.info("=== Updating Character Presence ===")
         self.presence.refresh()
         self.logger.debug(f"Present characters: {self.state_manager.state.present_characters}")
 
-    def _phase_04_evaluate_gates(self, ctx: TurnContext) -> None:
-        """Phase 4: Evaluate all character gates. CRITICAL BUG FIX."""
-        self.logger.info("=== Phase 4: Evaluate Gates ===")
+    def _evaluate_character_gates(self, ctx: TurnContext) -> None:
+        """
+        Evaluate all character gates to determine active behaviors.
+        Gates control character responses and interactions based on state.
+        """
+        self.logger.info("=== Evaluating Character Gates ===")
 
         active_gates = {}
         evaluator = self.state_manager.create_evaluator()
 
-        for character in self.game_def.characters:
+        for character in self.index.characters.values():
             if not character.gates:
                 continue
 
             char_gates = {}
             for gate in character.gates:
-                is_active = evaluator.evaluate(gate.when)
+                is_active = evaluator.evaluate_object_conditions(gate)
                 char_gates[gate.id] = is_active
 
             active_gates[character.id] = char_gates
@@ -1189,7 +1137,7 @@ Remember: This is just scene-setting. No need to describe player actions yet."""
         ctx.condition_context['gates'] = active_gates
         self.logger.debug(f"Active gates: {active_gates}")
 
-    def _phase_05_format_action(
+    def _format_player_action(
         self,
         ctx: TurnContext,
         action_type: str,
@@ -1198,8 +1146,11 @@ Remember: This is just scene-setting. No need to describe player actions yet."""
         choice_id: str | None,
         item_id: str | None,
     ) -> None:
-        """Phase 5: Format player action."""
-        self.logger.info("=== Phase 5: Format Action ===")
+        """
+        Format player action into human-readable summary for AI context and logs.
+        Resolves references (choice IDs, character names, item names).
+        """
+        self.logger.info("=== Formatting Player Action ===")
 
         ctx.action_summary = self.action_formatter.format(
             action_type, action_text, target, choice_id, item_id
@@ -1207,12 +1158,7 @@ Remember: This is just scene-setting. No need to describe player actions yet."""
 
         self.logger.debug(f"Action: {ctx.action_summary}")
 
-    def _phase_06_apply_node_entry(self, ctx: TurnContext) -> None:
-        """Phase 6: Apply node entry effects (AI actions only)."""
-        self.logger.info("=== Phase 6: Apply Node Entry Effects ===")
-        self.logger.debug("Node entry effects skipped (handled in transitions)")
-
-    async def _phase_07_execute_action_effects(
+    async def _execute_action_effects(
         self,
         ctx: TurnContext,
         action_type: str,
@@ -1221,8 +1167,11 @@ Remember: This is just scene-setting. No need to describe player actions yet."""
         choice_id: str | None,
         item_id: str | None,
     ) -> None:
-        """Phase 7: Execute action-specific effects."""
-        self.logger.info("=== Phase 7: Execute Action Effects ===")
+        """
+        Execute state changes associated with the chosen action.
+        Handles choice effects, movement, inventory, and time category resolution.
+        """
+        self.logger.info("=== Executing Action Effects ===")
 
         # Resolve time category
         ctx.time_category_resolved = self._resolve_time_category(
@@ -1288,9 +1237,12 @@ Remember: This is just scene-setting. No need to describe player actions yet."""
         else:
             return time_config.defaults.default
 
-    def _phase_08_process_events(self, ctx: TurnContext) -> bool:
-        """Phase 8: Process triggered events. CRITICAL BUG FIX."""
-        self.logger.info("=== Phase 8: Process Events ===")
+    def _process_triggered_events(self, ctx: TurnContext) -> bool:
+        """
+        Check for and trigger events based on current state conditions.
+        Returns True if a forced node transition occurred (early exit).
+        """
+        self.logger.info("=== Processing Triggered Events ===")
 
         event_result = self.events.process_events(ctx.rng_seed)
 
@@ -1302,19 +1254,12 @@ Remember: This is just scene-setting. No need to describe player actions yet."""
 
         return forced_transition
 
-    async def _phase_09_build_ai_context(self, ctx: TurnContext) -> None:
-        """Phase 9: Build AI context."""
-        self.logger.info("=== Phase 9: Build AI Context ===")
-        self.logger.debug("AI context ready")
-
-    def _phase_12_reconcile_narrative(self, ctx: TurnContext) -> None:
-        """Phase 12: Reconcile narrative."""
-        self.logger.info("=== Phase 12: Reconcile Narrative ===")
-        self.logger.debug("Narrative reconciliation complete")
-
-    def _phase_13_apply_checker_deltas(self, ctx: TurnContext) -> None:
-        """Phase 13: Apply checker deltas."""
-        self.logger.info("=== Phase 13: Apply Checker Deltas ===")
+    def _apply_checker_deltas(self, ctx: TurnContext) -> None:
+        """
+        Apply state changes extracted by Checker AI from narrative.
+        Handles meters, flags, inventory, clothing, movement, modifiers, and memories.
+        """
+        self.logger.info("=== Applying Checker Deltas ===")
 
         if not hasattr(ctx, 'checker_deltas'):
             ctx.checker_deltas = {}
@@ -1368,23 +1313,24 @@ Remember: This is just scene-setting. No need to describe player actions yet."""
         if valid_memories:
             self.logger.debug(f"Extracted {len(valid_memories)} memories")
 
-    def _phase_14_post_ai_effects(self, ctx: TurnContext) -> None:
-        """Phase 14: Post-AI effects."""
-        self.logger.info("=== Phase 14: Post-AI Effects ===")
-        self.logger.debug("Post-AI effects complete")
-
-    def _phase_15_node_transitions(self, ctx: TurnContext) -> None:
-        """Phase 15: Node transitions."""
-        self.logger.info("=== Phase 15: Node Transitions ===")
+    def _check_node_transitions(self, ctx: TurnContext) -> None:
+        """
+        Check for and apply automatic node transitions based on conditions.
+        Updates current node if transition occurs.
+        """
+        self.logger.info("=== Checking Node Transitions ===")
 
         self.nodes.check_auto_transitions()
         ctx.current_node = self.get_current_node()
 
         self.logger.debug(f"Node transitions complete, current node: {ctx.current_node.id}")
 
-    def _phase_16_update_modifiers(self, ctx: TurnContext) -> None:
-        """Phase 16: Update modifiers (BEFORE time advancement)."""
-        self.logger.info("=== Phase 16: Update Modifiers ===")
+    def _update_active_modifiers(self, ctx: TurnContext) -> None:
+        """
+        Update time-based and condition-based modifiers.
+        Activates/deactivates modifiers based on when conditions.
+        """
+        self.logger.info("=== Updating Active Modifiers ===")
 
         self.modifiers.update_modifiers_for_turn(
             self.state_manager.state,
@@ -1393,17 +1339,23 @@ Remember: This is just scene-setting. No need to describe player actions yet."""
 
         self.logger.debug("Modifiers auto-activation checked")
 
-    def _phase_17_update_discoveries(self, ctx: TurnContext) -> None:
-        """Phase 17: Update discoveries."""
-        self.logger.info("=== Phase 17: Update Discoveries ===")
+    def _update_discoveries(self, ctx: TurnContext) -> None:
+        """
+        Mark zones, locations, and other content as discovered based on conditions.
+        Unlocks new areas, actions, and endings.
+        """
+        self.logger.info("=== Updating Discoveries ===")
 
         self.discovery.update_discoveries(self.state_manager.state)
 
         self.logger.debug("Discoveries updated")
 
-    def _phase_18_advance_time(self, ctx: TurnContext) -> None:
-        """Phase 18: Advance time. CRITICAL BUG FIX."""
-        self.logger.info("=== Phase 18: Advance Time ===")
+    def _advance_time(self, ctx: TurnContext) -> None:
+        """
+        Progress game time and apply time-based state changes.
+        Handles day/slot rollover, modifier duration ticking, meter decay, and event cooldowns.
+        """
+        self.logger.info("=== Advancing Time ===")
 
         time_cost_minutes = self._resolve_time_cost_minutes(
             ctx.time_category_resolved,
@@ -1468,17 +1420,23 @@ Remember: This is just scene-setting. No need to describe player actions yet."""
 
         return minutes
 
-    def _phase_19_process_arcs(self, ctx: TurnContext) -> None:
-        """Phase 19: Process arcs. CRITICAL BUG FIX."""
-        self.logger.info("=== Phase 19: Process Arcs ===")
+    def _process_arc_progression(self, ctx: TurnContext) -> None:
+        """
+        Check for and advance story arcs based on milestone conditions.
+        Applies arc stage effects and tracks progression history.
+        """
+        self.logger.info("=== Processing Arc Progression ===")
 
         self.events.process_arcs(ctx.rng_seed)
 
         self.logger.debug("Arcs processed")
 
-    def _phase_20_build_choices(self, ctx: TurnContext) -> None:
-        """Phase 20: Build choices."""
-        self.logger.info("=== Phase 20: Build Choices ===")
+    def _build_available_choices(self, ctx: TurnContext) -> None:
+        """
+        Generate the list of choices available to the player for the next turn.
+        Includes node choices, event choices, movement options, and unlocked actions.
+        """
+        self.logger.info("=== Building Available Choices ===")
 
         ctx.choices = self.choices.build_choices(
             ctx.current_node,
@@ -1487,9 +1445,12 @@ Remember: This is just scene-setting. No need to describe player actions yet."""
 
         self.logger.debug(f"Built {len(ctx.choices)} choices")
 
-    def _phase_21_build_state_summary(self, ctx: TurnContext) -> dict:
-        """Phase 21: Build state summary."""
-        self.logger.info("=== Phase 21: Build State Summary ===")
+    def _build_state_summary(self, ctx: TurnContext) -> dict:
+        """
+        Create a snapshot of game state for API response and frontend display.
+        Includes meters, flags, inventory, clothing, time, and present characters.
+        """
+        self.logger.info("=== Building State Summary ===")
 
         state_summary = self.get_state_summary()
 
@@ -1497,13 +1458,11 @@ Remember: This is just scene-setting. No need to describe player actions yet."""
 
         return state_summary
 
-    def _phase_22_save_state(self, ctx: TurnContext) -> None:
-        """Phase 22: Save state."""
-        self.logger.info("=== Phase 22: Save State ===")
-        self.logger.debug("State saved")
-
     def _build_turn_result(self, ctx: TurnContext, state_summary: dict) -> dict[str, Any]:
-        """Build final turn result."""
+        """
+        Build final turn result for API response.
+        Combines all narratives and collects turn metadata.
+        """
         all_narratives = ctx.event_narratives.copy()
         if ctx.ai_narrative:
             all_narratives.append(ctx.ai_narrative)
@@ -1520,7 +1479,7 @@ Remember: This is just scene-setting. No need to describe player actions yet."""
         }
 
     # ============================================================================
-    # End of Turn Processing Pipeline
+    # Helper Methods
     # ============================================================================
 
     def _get_location_privacy(self, location_id: str | None = None) -> LocationPrivacy:

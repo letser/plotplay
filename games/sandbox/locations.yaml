@@ -309,7 +309,7 @@ zones:
         access:
           discovered: false
           locked: true
-          unlock_when: "flags.industrial_cleared"
+          when: "flags.industrial_cleared"
         connections:
           - to: "industrial_warehouse"
             description: "Return to the main warehouse area."

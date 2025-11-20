@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from app.core.conditions import ConditionEvaluator
 from app.core.state import GameState
 from app.models.effects import ApplyModifierEffect, RemoveModifierEffect
 
@@ -44,10 +43,9 @@ class ModifierService:
             rng_seed: RNG seed for deterministic condition evaluation
         """
         all_character_ids = list(state.meters.keys())
+        evaluator = self.engine.evaluator
 
         for char_id in all_character_ids:
-            evaluator = ConditionEvaluator(state, rng_seed=rng_seed)
-
             if char_id not in state.modifiers:
                 state.modifiers[char_id] = []
 

@@ -202,9 +202,9 @@ includes: [<string>, ...]        # OPTIONAL. List of yaml files to include.
 
 ## 3. Expression DSL (Conditions)
 
-### Purpose & Syntax 
-The game engine uses a small, safe, deterministic expression language anywhere the spec accepts a condition 
-(e.g., node `preconditions`, effect `when`, event triggers, outfit `unlock_when`, 
+### Purpose & Syntax
+The game engine uses a small, safe, deterministic expression language anywhere the spec accepts a condition
+(e.g., node `preconditions`, effect `when`, event triggers, content unlocking (`when/when_all/when_any`),
 flag `reveal_when`, arc `when`).
 
 ```
@@ -942,7 +942,9 @@ items:
     
     # --- Locking ---
     locked: <bool>              # OPTIONAL. Default: false.
-    unlock_when: "<expr>"       # OPTIONAL. Unlock condition.
+    when: "<expr>"              # OPTIONAL. Unlock condition (single expression).
+    when_all: [<expr>, ...]     # OPTIONAL. All conditions must be true.
+    when_any: [<expr>, ...]     # OPTIONAL. Any condition must be true.
 
     # --- Usage ---
     consumable: <bool>            # OPTIONAL. Destroyed on use.
@@ -984,7 +986,7 @@ items:
     stackable: false
     droppable: false
     locked: true
-    unlock_when: "flags.zoe_band_invite == true"
+    when: "flags.zoe_band_invite == true"
     can_give: true
     on_give:
       - type: "meter_change"
@@ -1060,7 +1062,9 @@ wardrobe:
       can_open: <bool>               # OPTIONAL. Default: true. Can be opened/unfastened?
       # --- Locking ---
       locked: <bool>              # OPTIONAL. Default: false.
-      unlock_when: "<expr>"       # OPTIONAL. Unlock condition.
+      when: "<expr>"              # OPTIONAL. Unlock condition (single expression).
+      when_all: [<expr>, ...]     # OPTIONAL. All conditions must be true.
+      when_any: [<expr>, ...]     # OPTIONAL. Any condition must be true.
       # --- Dynamic effects ---
       on_get:  [<effect>, ... ]      # OPTIONAL. Effects applied when get item. See the Effects section.
       on_lost: [<effect>, ... ]      # OPTIONAL. Effects applied when lost item. See the Effects section.
@@ -1074,10 +1078,12 @@ wardrobe:
       # --- Items ---
       items: {<item_id>: <condition>, ...} #Items in the outfit and their conditions. 
       grant_items: <bool>                 # OPTIONAL. Auto-grant items.
-            
+
       # --- Locking ---
       locked: <bool>              # OPTIONAL. Default: false.
-      unlock_when: "<expr>"       # OPTIONAL. Unlock condition.
+      when: "<expr>"              # OPTIONAL. Unlock condition (single expression).
+      when_all: [<expr>, ...]     # OPTIONAL. All conditions must be true.
+      when_any: [<expr>, ...]     # OPTIONAL. Any condition must be true.
       # --- Dynamic effects ---
       on_get:  [<effect>, ... ]      # OPTIONAL. Effects applied when get outfit. See the Effects section.
       on_lost: [<effect>, ... ]      # OPTIONAL. Effects applied when lost outfit. See the Effects section.
@@ -1139,7 +1145,7 @@ wardrobe:
         black_jeans: "intact"
         combat_boots: "intact"
       locked: true
-      unlock_when: "flags.zoe_band_invite == true"
+      when: "flags.zoe_band_invite == true"
 ```
 ---
 
@@ -1238,7 +1244,9 @@ If there are no connections provides then it is possible to travel between any z
     hidden_until_discovered: <boo  l>      # OPTIONAL. Default false.
     discovered_when: "<expr>"              # OPTIONAL. Expressions; if true, then revealed.
     locked: <bool>                         # OPTIONAL. Default false.
-    unlocked_when: "<expr>"                # OPTIONAL. Expression DSL. If true, then unlocked.
+    when: "<expr>"                         # OPTIONAL. Unlock condition (single expression).
+    when_all: [<expr>, ...]                # OPTIONAL. All conditions must be true.
+    when_any: [<expr>, ...]                # OPTIONAL. Any condition must be true.
 
   # --- Local movement time ---
   time_cost: <int>                      # OPTIONAL. Minutes to move between locations in this zone.
@@ -1288,7 +1296,9 @@ using cardinal direction and up/down between floors.
     hidden_until_discovered: <bool>      # OPTIONAL. Default false.
     discovered_when: "<expr>"            # OPTIONAL. Expressions; if true, then revealed.
     locked: <bool>                       # OPTIONAL. Default false.
-    unlocked_when: "<expr>"              # OPTIONAL. Expression DSL. If true, then unlocked.
+    when: "<expr>"                       # OPTIONAL. Unlock condition (single expression).
+    when_all: [<expr>, ...]              # OPTIONAL. All conditions must be true.
+    when_any: [<expr>, ...]              # OPTIONAL. Any condition must be true.
 
   # --- Connections (intra-zone travel) ---
   connections:                    # OPTIONAL. Connection to adjacent locations 
@@ -1296,7 +1306,9 @@ using cardinal direction and up/down between floors.
       description: "<string>"     # OPTIONAL. Short description to show in UI and pass to Writer. 
       direction: "n|s|w|e|nw|ne|sw|se|u|d"   # REQUIRED. Cardinal directions and up/down.
       locked: <bool>                       # OPTIONAL. Default false.
-      unlocked_when: "<expr>"              # OPTIONAL. Expression DSL. If true, then unlocked.
+      when: "<expr>"                       # OPTIONAL. Unlock condition (single expression).
+      when_all: [<expr>, ...]              # OPTIONAL. All conditions must be true.
+      when_any: [<expr>, ...]              # OPTIONAL. Any condition must be true.
   # --- Inventory ---
   inventory:   <inventory>        # OPTIONAL. Location's inventory. This is not a shop.
   shop: <shop>                    # OPTIONAL. Shop definition.
@@ -1457,7 +1469,9 @@ while meters for other characters are taken from the `template`  section.
 
   # --- Locking ---
   locked: <bool>              # OPTIONAL. Default: false.
-  unlock_when: "<expr>"       # OPTIONAL. Unlock condition.
+  when: "<expr>"              # OPTIONAL. Unlock condition (single expression).
+  when_all: [<expr>, ...]     # OPTIONAL. All conditions must be true.
+  when_any: [<expr>, ...]     # OPTIONAL. Any condition must be true.
 
   # --- Schedule ---
   schedule:                      # OPTIONAL. Controls where the character is by time/day. List of schedules 
