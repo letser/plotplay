@@ -39,3 +39,19 @@
 
 ### Stage 3 Status
 - **API Contract**: `docs/api_contract.md` codifies the two gameplay endpoints (`/start`, `/action`), the optional streaming flows, and the shared `TurnResult` schema. It also documents how all gameplay actions—including movement, travel, inventory, and shopping—surface as authored choices routed through the single `/action` endpoint, along with the allowed `action_type` values (`say`, `do`, `choice`, `use`, `give`) and error/streaming behaviors.
+
+### Stage 4 Plan
+- **New Runtime Package**: Introduced `app/runtime/` with initial skeleton files (`__init__.py`, `engine.py`, `session.py`, `turn_manager.py`, `types.py`). This namespace hosts the new engine implementation, completely separate from the legacy `app/engine/`.
+- **Engine Façade**: `PlotPlayEngine` in `runtime/engine.py` wraps `SessionRuntime` + `TurnManager` and exposes `start`, `process_action`, and `process_action_stream` for FastAPI.
+- **Shared Types**: `runtime/types.py` defines `PlayerAction` and `TurnResult` aligned with the API contract.
+- **Next Steps**: Flesh out `TurnManager` and the supporting runtime services (actions, choices, events, effects, inventory, time, etc.) according to the architecture outlined earlier, then wire the API to use this new package when ready.
+
+### Stage 5 Plan
+- **New Test Suite Namespace**: Created `backend/tests_v2/` with its own `conftest.py`, avoiding any dependency on the legacy test tree.
+- **Core Fixtures**: Added fixtures for `GameLoader`, `MockAIService`, an engine factory that instantiates the new `PlotPlayEngine`, an async `started_engine` helper, and a `player_action` builder.
+- **Usage**: All upcoming tests (unit + integration + scenarios) will live under `tests_v2/` and rely on these fixtures, ensuring the new runtime is exercised in isolation. The legacy `backend/tests/` directory remains untouched until the cutover.
+
+### Stage 6 Status
+- **Incomplete**: The new runtime exists (engine/session/services) but still lacks full movement handling, AI Writer/Checker integration, modifier/discovery logic, arc progression, spec-compliant time costs, and the full state snapshot. The API routes to `PlotPlayEngine`, yet many services remain stubs.
+- **Verification Needed**: Anything already ported (action routing, events, time service, inventory helpers, choice/state summary builders) must be reviewed against the spec to ensure accuracy before layering more features.
+- **Next Steps**: Re-evaluate every Stage 6 requirement, finish the remaining turn phases, and ensure the runtime/API satisfy the specification end-to-end before moving on to the test stages.

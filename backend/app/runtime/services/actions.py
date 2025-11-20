@@ -1,0 +1,87 @@
+"""
+Action routing for the new runtime engine.
+"""
+
+from __future__ import annotations
+
+from app.runtime.session import SessionRuntime
+
+
+class ActionService:
+    """Executes player actions by applying effects/goto transitions."""
+
+    def __init__(self, runtime: SessionRuntime) -> None:
+        self.runtime = runtime
+        self.effect_resolver = runtime.effect_resolver
+        self.inventory = runtime.inventory_service
+
+    def execute(self, ctx, action) -> None:
+        if action.action_type == "choice":
+            if not action.choice_id:
+                raise ValueError("choice action requires choice_id")
+            self._handle_predefined_choice(ctx, action.choice_id)
+        elif action.action_type in {"say", "do"}:
+            # Freeform actions currently rely on AI/Checker for state deltas.
+            return
+        elif action.action_type == "use":
+            if not action.item_id:
+                raise ValueError("use action requires item_id")
+            self._handle_use_item(action.item_id)
+        elif action.action_type == "give":
+            if not action.item_id or not action.target:
+                raise ValueError("give action requires item_id and target")
+            self._handle_give_item(action.item_id, action.target)
+        else:
+            raise ValueError(f"Unsupported action_type: {action.action_type}")
+
+    # ------------------------------------------------------------------ #
+    # Internal helpers
+    # ------------------------------------------------------------------ #
+
+    def _handle_predefined_choice(self, ctx, choice_id: str) -> None:
+        state = self.runtime.state_manager.state
+        node = ctx.current_node
+
+        def _apply_choice(choice):
+            effects = getattr(choice, "effects", None)
+            if effects is None:
+                effects = getattr(choice, "on_select", None)
+            if effects:
+                self.effect_resolver.apply_effects(effects)
+            if getattr(choice, "goto", None):
+                state.current_node = choice.goto
+
+        # Event choices take priority
+        for choice in ctx.event_choices:
+            if choice.id == choice_id:
+                _apply_choice(choice)
+                return
+
+        for choice in list(node.choices or []) + list(node.dynamic_choices or []):
+            if choice.id == choice_id:
+                _apply_choice(choice)
+                return
+
+        # Fallback to unlocked actions
+        action_def = self.runtime.index.actions.get(choice_id)
+        if action_def and choice_id in (state.unlocked_actions or []):
+            effects = getattr(action_def, "effects", None) or getattr(action_def, "on_select", None)
+            if effects:
+                self.effect_resolver.apply_effects(effects)
+            return
+
+        raise ValueError(f"Choice '{choice_id}' not found in current context.")
+
+    def _handle_use_item(self, item_id: str) -> None:
+        if not self.inventory:
+            raise RuntimeError("Inventory service not available")
+        hooks = self.inventory.use_item("player", item_id)
+        if hooks:
+            self.effect_resolver.apply_effects(hooks)
+
+    def _handle_give_item(self, item_id: str, target: str) -> None:
+        if not self.inventory:
+            raise RuntimeError("Inventory service not available")
+        hooks = self.inventory.give_item("player", target, item_id)
+        if hooks:
+            self.effect_resolver.apply_effects(hooks)

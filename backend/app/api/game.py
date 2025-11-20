@@ -130,6 +130,11 @@ def _get_engine(session_id: str) -> GameEngine:
     return engine
 
 
+def _require_legacy_engine(engine):
+    if isinstance(engine, PlotPlayEngine):
+        raise HTTPException(status_code=400, detail="Deterministic endpoint is not supported. Use /api/game/action instead.")
+
+
 def _describe_character(engine: GameEngine, char_id: str) -> str:
     if char_id == "player":
         return "You"
@@ -164,25 +169,24 @@ async def start_game(request: StartGameRequest) -> GameResponse:
     try:
         loader = GameLoader()
         game_def = loader.load_game(request.game_id)
-        engine = GameEngine(game_def, session_id)
+        engine = PlotPlayEngine(game_def, session_id)
 
         game_sessions[session_id] = engine
 
         # A default "look around" action to generate the first narrative block
         result = await engine.process_action(
-            action_type="do",
-            action_text="Look around and observe the surroundings"
+            PlayerAction(action_type="do", action_text="Look around and observe the surroundings")
         )
 
         return GameResponse(
             session_id=session_id,
-            narrative=result['narrative'],
-            choices=result['choices'],
-            state_summary=result['current_state'],
-            time_advanced=result.get('time_advanced', False),
-            location_changed=result.get('location_changed', False),
-            generated_seed=engine.generated_seed,
-            action_summary=result.get("action_summary"),
+            narrative=result.narrative,
+            choices=result.choices,
+            state_summary=result.state_summary,
+            time_advanced=result.time_advanced,
+            location_changed=result.location_changed,
+            generated_seed=engine.runtime.generated_seed,
+            action_summary=result.action_summary,
         )
 
     except Exception as e:
@@ -200,7 +204,7 @@ async def start_game_stream(request: StartGameRequest):
             loader = GameLoader()
             game_def = loader.load_game(request.game_id)
             print(f"[START] Game loaded, creating engine...")
-            engine = GameEngine(game_def, session_id)
+            engine = PlotPlayEngine(game_def, session_id)
             print(f"[START] Engine created")
 
             game_sessions[session_id] = engine
@@ -209,15 +213,16 @@ async def start_game_stream(request: StartGameRequest):
             session_event = {
                 "type": "session_created",
                 "session_id": session_id,
-                "generated_seed": engine.generated_seed
+                "generated_seed": engine.runtime.generated_seed
             }
             yield f"data: {json.dumps(session_event)}\n\n"
             print(f"[START] Session created event sent")
 
             # Send initial state snapshot immediately (before narrative)
             # This populates all the panels right away
-            initial_state = engine.get_state_summary()
-            initial_choices = engine._generate_choices(engine.get_current_node(), [])
+            initial_state = engine.state_summary.build()
+            current_node = engine.runtime.index.nodes.get(engine.runtime.state_manager.state.current_node)
+            initial_choices = engine.choice_builder.build(current_node, [])
 
             initial_state_event = {
                 "type": "initial_state",
@@ -237,9 +242,17 @@ async def start_game_stream(request: StartGameRequest):
 
             # Stream opening scene (Writer only, no Checker)
             print(f"[START] Starting opening scene stream...")
-            async for chunk in engine.generate_opening_scene_stream():
-                print(f"[START] Chunk type: {chunk.get('type')}")
-                yield f"data: {json.dumps(chunk)}\n\n"
+            result = await engine.process_action(
+                PlayerAction(action_type="do", action_text="Look around and observe the surroundings")
+            )
+            completion_event = {
+                "type": "complete",
+                "narrative": result.narrative,
+                "choices": result.choices,
+                "state_summary": result.state_summary,
+                "action_summary": result.action_summary,
+            }
+            yield f"data: {json.dumps(completion_event)}\n\n"
 
             yield "data: [DONE]\n\n"
             print(f"[START] Done!")
@@ -263,24 +276,44 @@ async def process_action(session_id: str, action: GameAction) -> GameResponse:
     engine = _get_engine(session_id)
 
     try:
-        result = await engine.process_action(
-            action_type=action.action_type,
-            action_text=action.action_text,
-            target=action.target,
-            choice_id=action.choice_id,
-            item_id=action.item_id,
-            skip_ai=action.skip_ai,
-        )
+        if isinstance(engine, PlotPlayEngine):
+            player_action = PlayerAction(
+                action_type=action.action_type,
+                action_text=action.action_text,
+                choice_id=action.choice_id,
+                item_id=action.item_id,
+                target=action.target,
+                skip_ai=action.skip_ai,
+            )
+            result = await engine.process_action(player_action)
+            return GameResponse(
+                session_id=session_id,
+                narrative=result.narrative,
+                choices=result.choices,
+                state_summary=result.state_summary,
+                time_advanced=result.time_advanced,
+                location_changed=result.location_changed,
+                action_summary=result.action_summary,
+            )
+        else:
+            result = await engine.process_action(
+                action_type=action.action_type,
+                action_text=action.action_text,
+                target=action.target,
+                choice_id=action.choice_id,
+                item_id=action.item_id,
+                skip_ai=action.skip_ai,
+            )
 
-        return GameResponse(
-            session_id=session_id,
-            narrative=result['narrative'],
-            choices=result['choices'],
-            state_summary=result['current_state'],
-            time_advanced=result.get('time_advanced', False),
-            location_changed=result.get('location_changed', False),
-            action_summary=result.get("action_summary"),
-        )
+            return GameResponse(
+                session_id=session_id,
+                narrative=result['narrative'],
+                choices=result['choices'],
+                state_summary=result['current_state'],
+                time_advanced=result.get('time_advanced', False),
+                location_changed=result.get('location_changed', False),
+                action_summary=result.get("action_summary"),
+            )
 
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -329,6 +362,7 @@ async def process_action_stream(session_id: str, action: GameAction):
 @router.post("/move/{session_id}")
 async def deterministic_move(session_id: str, request: MovementRequest) -> DeterministicActionResponse:
     engine = _get_engine(session_id)
+    _require_legacy_engine(engine)
     state = engine.state_manager.state
     before_location = state.current_location
     before_zone = state.current_zone
@@ -390,6 +424,7 @@ async def deterministic_move(session_id: str, request: MovementRequest) -> Deter
 @router.post("/shop/{session_id}/purchase")
 async def deterministic_purchase(session_id: str, request: PurchaseRequest) -> DeterministicActionResponse:
     engine = _get_engine(session_id)
+    _require_legacy_engine(engine)
     if request.count <= 0:
         raise HTTPException(status_code=400, detail="count must be positive")
     success, message = engine.purchase_item(
@@ -418,6 +453,7 @@ async def deterministic_purchase(session_id: str, request: PurchaseRequest) -> D
 @router.post("/shop/{session_id}/sell")
 async def deterministic_sell(session_id: str, request: SellRequest) -> DeterministicActionResponse:
     engine = _get_engine(session_id)
+    _require_legacy_engine(engine)
     if request.count <= 0:
         raise HTTPException(status_code=400, detail="count must be positive")
     success, message = engine.sell_item(
@@ -446,6 +482,7 @@ async def deterministic_sell(session_id: str, request: SellRequest) -> Determini
 @router.post("/inventory/{session_id}/take")
 async def deterministic_take(session_id: str, request: InventoryTakeRequest) -> DeterministicActionResponse:
     engine = _get_engine(session_id)
+    _require_legacy_engine(engine)
     if request.count <= 0:
         raise HTTPException(status_code=400, detail="count must be positive")
     success, message = engine.take_item(
@@ -472,6 +509,7 @@ async def deterministic_take(session_id: str, request: InventoryTakeRequest) -> 
 @router.post("/inventory/{session_id}/drop")
 async def deterministic_drop(session_id: str, request: InventoryDropRequest) -> DeterministicActionResponse:
     engine = _get_engine(session_id)
+    _require_legacy_engine(engine)
     if request.count <= 0:
         raise HTTPException(status_code=400, detail="count must be positive")
     success, message = engine.drop_item(
@@ -498,6 +536,7 @@ async def deterministic_drop(session_id: str, request: InventoryDropRequest) -> 
 @router.post("/inventory/{session_id}/give")
 async def deterministic_give(session_id: str, request: InventoryGiveRequest) -> DeterministicActionResponse:
     engine = _get_engine(session_id)
+    _require_legacy_engine(engine)
     if request.count <= 0:
         raise HTTPException(status_code=400, detail="count must be positive")
     success, message = engine.give_item(
@@ -525,6 +564,7 @@ async def deterministic_give(session_id: str, request: InventoryGiveRequest) -> 
 @router.post("/clothing/{session_id}/put-on")
 async def deterministic_clothing_put_on(session_id: str, request: ClothingPutOnRequest) -> DeterministicActionResponse:
     engine = _get_engine(session_id)
+    _require_legacy_engine(engine)
     state_value = request.state.value if isinstance(request.state, ClothingCondition) else request.state
     apply_state = state_value or ClothingCondition.INTACT.value
     success = engine.clothing.put_on_clothing(request.character_id, request.clothing_id, apply_state)
@@ -553,6 +593,7 @@ async def deterministic_clothing_put_on(session_id: str, request: ClothingPutOnR
 @router.post("/clothing/{session_id}/take-off")
 async def deterministic_clothing_take_off(session_id: str, request: ClothingTakeOffRequest) -> DeterministicActionResponse:
     engine = _get_engine(session_id)
+    _require_legacy_engine(engine)
     success = engine.clothing.take_off_clothing(request.character_id, request.clothing_id)
     clothing_name = _describe_item(engine, request.clothing_id)
     character_label = _describe_character(engine, request.character_id)
@@ -578,6 +619,7 @@ async def deterministic_clothing_take_off(session_id: str, request: ClothingTake
 @router.post("/clothing/{session_id}/state")
 async def deterministic_clothing_state(session_id: str, request: ClothingStateRequest) -> DeterministicActionResponse:
     engine = _get_engine(session_id)
+    _require_legacy_engine(engine)
     state_value = request.state.value if isinstance(request.state, ClothingCondition) else str(request.state)
     success = engine.clothing.set_clothing_state(request.character_id, request.clothing_id, state_value)
     clothing_name = _describe_item(engine, request.clothing_id)
@@ -605,6 +647,7 @@ async def deterministic_clothing_state(session_id: str, request: ClothingStateRe
 @router.post("/outfits/{session_id}/put-on")
 async def deterministic_outfit_put_on(session_id: str, request: OutfitPutOnRequest) -> DeterministicActionResponse:
     engine = _get_engine(session_id)
+    _require_legacy_engine(engine)
     success = engine.clothing.put_on_outfit(request.character_id, request.outfit_id)
     outfit_name = _describe_item(engine, request.outfit_id)
     character_label = _describe_character(engine, request.character_id)
@@ -630,6 +673,7 @@ async def deterministic_outfit_put_on(session_id: str, request: OutfitPutOnReque
 @router.post("/outfits/{session_id}/take-off")
 async def deterministic_outfit_take_off(session_id: str, request: OutfitTakeOffRequest) -> DeterministicActionResponse:
     engine = _get_engine(session_id)
+    _require_legacy_engine(engine)
     success = engine.clothing.take_off_outfit(request.character_id, request.outfit_id)
     outfit_name = _describe_item(engine, request.outfit_id)
     character_label = _describe_character(engine, request.character_id)
