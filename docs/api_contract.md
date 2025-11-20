@@ -1,0 +1,142 @@
+# PlotPlay Gameplay API Contract
+
+## Overview
+
+The refactored backend exposes a minimal gameplay API surface so every action flows through the same turn-processing pipeline. Only **two** write endpoints exist for gameplay (`/start`, `/action`); everything else (movement, inventory, shopping, etc.) is expressed as authored choices or freeform actions inside that pipeline. This document defines the protocol that both the backend engine and frontend client must follow.
+
+Helper endpoints (e.g., `/game/list`) remain read-only, but all deterministic helpers (`/move`, `/inventory/*`, `/shop/*`, `/clothing/*`, etc.) are removed.
+
+---
+
+## Endpoints
+
+### `GET /api/game/list`
+Returns the available games for selection.
+
+```jsonc
+{
+  "games": [
+    {"id": "coffeeshop_date", "title": "Coffee Shop Date", "author": "PlotPlay Team", "version": "1.1.0"},
+    ...
+  ]
+}
+```
+
+### `POST /api/game/start`
+Creates a new session, loads the requested game, executes the scripted opening turn (internally “look around” / initial node entry), and returns the first `TurnResult`.
+
+Request:
+```jsonc
+{ "game_id": "coffeeshop_date" }
+```
+
+Response (`200 OK`):
+```jsonc
+{
+  "session_id": "<uuid>",
+  "narrative": "<combined author + AI prose>",
+  "choices": [ { /* choice objects described below */ }, ... ],
+  "state_summary": { /* snapshot with time/location/meters/inventory/etc. */ },
+  "action_summary": "You look around the cafe.",
+  "events_fired": [],
+  "milestones_reached": [],
+  "time_advanced": false,
+  "location_changed": false,
+  "rng_seed": 123456789
+}
+```
+
+### `POST /api/game/action/{session_id}`
+Runs a single turn using the unified pipeline. All gameplay actions (dialogue, movement, inventory, shopping, arc choices, etc.) must hit this endpoint.
+
+Request body fields:
+- `action_type`: `"say" | "do" | "choice" | "use" | "give"`
+- `action_text` (optional string) — required for `say`/`do`, optional context for others.
+- `choice_id` (optional string) — required for `choice`, pulled from prior `choices`.
+- `item_id` (optional string) — required for `use`/`give`, identifies the inventory item.
+- `target` (optional string) — used when an action is directed at a character/location.
+- `skip_ai` (optional bool) — debug/testing flag to bypass Writer/Checker.
+- `extra` (optional object) — future-proofing for structured payloads (e.g., passing travel method); the backend ignores unknown keys but leaves room for extension.
+
+Response is the same `TurnResult` structure as `/start`.
+
+### Streaming Variants (Optional)
+`POST /api/game/start/stream` and `POST /api/game/action/{session_id}/stream` use Server-Sent Events to stream:
+1. `{"type":"action_summary","content":...}` immediately.
+2. Zero or more `{"type":"narrative_chunk","content":...}` writer chunks.
+3. Periodic `{"type":"checker_status","message":...}` updates while waiting for Checker.
+4. Final `{"type":"complete", ...TurnResult }`.
+If an error occurs, emit `{"type":"error","message":...}` before closing the stream.
+
+---
+
+## `TurnResult` Schema
+
+| Field              | Type            | Description |
+|--------------------|-----------------|-------------|
+| `session_id`       | string (UUID)   | Echoes the active session. |
+| `narrative`        | string          | Combined narrative for the turn (events + AI). |
+| `choices`          | array\<Choice\> | Available actions for the next turn (node choices, movement, unlocked actions, etc.). |
+| `state_summary`    | object          | Snapshot built by `StateSummaryService` (time, location, privacy, player details, present characters, inventory, economy, etc.). |
+| `action_summary`   | string          | Human-readable description of the action the player just took. |
+| `events_fired`     | array\<string\> | Event IDs triggered during the turn. |
+| `milestones_reached` | array\<string\> | Arc milestone IDs advanced this turn. |
+| `time_advanced`    | bool            | Companion convenience flag (can infer from state summary but useful for UI hints). |
+| `location_changed` | bool            | Similar convenience flag. |
+| `rng_seed`         | integer         | Deterministic per-turn seed (optional for debugging). |
+| `errors`           | array\<string\> \| null | Reserved for partial failures; normal turns return `null`. |
+
+### Choice Objects
+
+Each entry in `choices` has at least:
+```jsonc
+{
+  "id": "move_cafe_counter",
+  "text": "Head north to the cafe counter",
+  "type": "movement",       // other types: node_choice, event_choice, unlocked_action, travel, shop_buy, shop_sell, inventory_take, etc.
+  "disabled": false,
+  "metadata": { ... }        // optional helper info (direction, cost, etc.)
+}
+```
+Frontends display these as buttons/menus. To execute a choice, call `/action` with `action_type="choice"` and the `choice_id`. This applies to **all deterministic interactions** (movement, travel, inventory, shopping, clothing, advanced actions); no separate endpoints exist.
+
+---
+
+## Action Semantics
+
+| `action_type` | Purpose | Required fields | Notes |
+|---------------|---------|-----------------|-------|
+| `say`         | Freeform dialogue | `action_text` | Text flows to Writer/Checker, and authored rules decide the effect. |
+| `do`          | Freeform narration/action | `action_text` | Same pattern as `say` but for descriptive actions. |
+| `choice`      | Select authored choice/action | `choice_id` | Applies to node choices, event choices, unlocked actions, movement/travel options, shops, inventory actions, etc. |
+| `use`         | Consume or activate an item | `item_id`; optional `target` | Engine resolves the `on_use` effects and handles removal. |
+| `give`        | Transfer item to another character/location | `item_id`, `target` | Runs through the unified inventory give logic. |
+
+### Movement & Travel
+- Local movement appears as `choices` with `type: "movement"` (e.g., `move_cafe_counter`).
+- Zone travel appears as `choices` or as structured options in the UI; once the player selects their method/entry, the client sends the corresponding `choice` action with any necessary metadata encoded in the choice definition.
+- Compass directions (N/S/E/W) are just movement choices with metadata like `{ "direction": "north" }`; the engine doesn’t need a special API.
+
+### Inventory & Shopping
+- Pickup/drop/give/sell/purchase actions are also emitted as choices (types `inventory_take`, `inventory_drop`, `shop_buy`, `shop_sell`, etc.).  
+- When the player fills a quantity/price form, the UI either picks the specific choice ID or includes extra payload in the `choice` action; the backend handles the effect.  
+- Dedicated action types (`use`, `give`) are only for direct item-use/gifting commands outside pre-authored choices.
+
+### Additional Actions
+- As we introduce more authored mechanics (e.g., wardrobe changes, modifier toggles), they either become `choice` entries or new action types extended through the same `/action` endpoint.
+
+---
+
+## Error Handling
+- `404 Not Found`: unknown `session_id`.
+- `400 Bad Request`: invalid input (unknown choice, missing required field, etc.) with `{ "detail": "message" }`.
+- Streaming endpoints send `{"type": "error", "message": ...}` before terminating.
+- The backend does not return partial deterministic responses; a turn either succeeds or the client must try again.
+
+---
+
+## Notes for Frontend & Tests
+- Store `session_id` after `/start` and reuse it for every `/action`.
+- Always render the returned `choices` verbatim; do not assume deterministic shortcuts exist.
+- For deterministic flows (movement, shopping, inventory), rely on the server-provided choices instead of calling legacy endpoints.
+- The new test suite (and scenario runner) will hit only `/start` and `/action`, ensuring test coverage mirrors user behavior.

@@ -203,6 +203,12 @@ nodes:
         on_select:
           - type: goto
             node: dynamic_choices_demo
+      - id: "trigger_park_encounter"
+        prompt: "Trigger park encounter (debug)"
+        when: "not flags.park_encounter_logged"
+        on_select:
+          - type: goto
+            node: park_encounter
       - id: "back_to_main"
         prompt: "Return to downtown"
         on_select:
@@ -366,8 +372,12 @@ nodes:
         prompt: "Give Alex an energy snack"
         when: "inventory.player.items.energy_snack > 0 and npc_present('alex_local')"
         on_select:
-          - type: inventory_give
-            source: player
+          - type: inventory_remove
+            target: player
+            item_type: item
+            item: energy_snack
+            count: 1
+          - type: inventory_add
             target: alex_local
             item_type: item
             item: energy_snack

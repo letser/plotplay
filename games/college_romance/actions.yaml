@@ -4,8 +4,8 @@ actions:
     category: "self-care"
     when: "meters.player.energy <= 40"
     effects:
-      - type: "advance_time_slot"
-        slots: 1
+      - type: "advance_time"
+        minutes: 20
       - type: "meter_change"
         target: "player"
         meter: "energy"
