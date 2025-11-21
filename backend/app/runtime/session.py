@@ -55,6 +55,7 @@ class SessionRuntime:
     discovery_service: object | None = field(default=None)
     time_service: object | None = field(default=None)
     modifier_service: object | None = field(default=None)
+    trade_service: object | None = field(default=None)
 
     def __post_init__(self) -> None:
         self.logger = setup_session_logger(self.session_id)

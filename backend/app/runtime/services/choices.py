@@ -50,6 +50,10 @@ class ChoiceBuilder:
                 target_id = connection.to
                 target_loc = self.runtime.index.locations.get(target_id)
                 location_runtime_state = state.locations.get(target_id)
+                target_zone_id = self.runtime.index.location_to_zone.get(target_id)
+                target_zone_state = state.zones.get(target_zone_id) if target_zone_id else None
+                if target_zone_state and getattr(target_zone_state, "locked", False):
+                    continue
                 if not target_loc:
                     continue
                 if location_runtime_state and getattr(location_runtime_state, "locked", False):

@@ -64,7 +64,7 @@ class EffectResolver:
                 self._apply_conditional(effect)
                 continue
 
-            if not evaluator.evaluate(effect.when):
+            if not evaluator.evaluate_object_conditions(effect):
                 continue
 
             if isinstance(effect, RandomEffect):
@@ -156,7 +156,7 @@ class EffectResolver:
         return self.runtime.state_manager.create_evaluator()
 
     def _apply_conditional(self, effect: ConditionalEffect) -> None:
-        if self._evaluator().evaluate(effect.when):
+        if self._evaluator().evaluate_object_conditions(effect):
             self.apply_effects(effect.then or [])
         else:
             self.apply_effects(effect.otherwise or [])
@@ -189,23 +189,90 @@ class EffectResolver:
             return
 
         current = target.get(effect.meter, 0)
-        op_map = {
-            "add": lambda a, b: a + b,
-            "subtract": lambda a, b: a - b,
-            "multiply": lambda a, b: a * b,
-            "divide": lambda a, b: a / b if b != 0 else a,
-            "set": lambda a, b: b,
-        }
-        op = op_map.get(effect.op)
-        if not op:
+
+        # Apply delta caps per turn for additive changes
+        ctx = getattr(self.runtime, "current_context", None)
+        per_turn = ctx.meter_deltas.setdefault(effect.target, {}) if ctx else {}
+        cap = meter_def.delta_cap_per_turn if effect.cap_per_turn else None
+
+        delta = None
+        if effect.op == "add":
+            delta = effect.value
+        elif effect.op == "subtract":
+            delta = -effect.value
+
+        if delta is not None and cap is not None:
+            applied = per_turn.get(effect.meter, 0)
+            remaining = cap - abs(applied)
+            if remaining <= 0:
+                return
+            allowed = max(-remaining, min(delta, remaining))
+            delta = allowed
+            per_turn[effect.meter] = applied + allowed
+
+        if delta is not None:
+            new_value = current + delta
+        elif effect.op == "set":
+            new_value = effect.value
+        elif effect.op == "multiply":
+            new_value = current * effect.value
+        elif effect.op == "divide":
+            new_value = current if effect.value == 0 else current / effect.value
+        else:
             return
-        new_value = op(current, effect.value)
-        new_value = max(meter_def.min, min(meter_def.max, new_value))
+
+        # Apply modifier-based clamps first
+        new_value = self._apply_modifier_clamps(effect.target, effect.meter, new_value)
+
+        # Apply meter caps when requested
+        if effect.respect_caps:
+            new_value = max(meter_def.min, min(meter_def.max, new_value))
+
         target[effect.meter] = new_value
 
+    def _apply_modifier_clamps(self, char_id: str, meter_id: str, value: float) -> float:
+        """Clamp meter value based on active modifiers."""
+        modifier_service = getattr(self.runtime, "modifier_service", None)
+        state = self.runtime.state_manager.state
+        if not modifier_service:
+            return value
+
+        clamps_min = None
+        clamps_max = None
+        active_mods = state.modifiers.get(char_id, [])
+        for mod in active_mods:
+            mod_def = modifier_service.library.get(mod.get("id"))
+            if not mod_def:
+                continue
+            clamp_config = None
+            if getattr(mod_def, "clamp_meters", None):
+                clamp_config = mod_def.clamp_meters.get(meter_id)
+            if not clamp_config:
+                continue
+            if clamp_config.min is not None:
+                clamps_min = clamp_config.min if clamps_min is None else max(clamps_min, clamp_config.min)
+            if clamp_config.max is not None:
+                clamps_max = clamp_config.max if clamps_max is None else min(clamps_max, clamp_config.max)
+
+        if clamps_min is not None:
+            value = max(clamps_min, value)
+        if clamps_max is not None:
+            value = min(clamps_max, value)
+        return value
+
     def _apply_flag(self, effect: FlagSetEffect) -> None:
-        if effect.key in self.runtime.state_manager.state.flags:
-            self.runtime.state_manager.state.flags[effect.key] = effect.value
+        state = self.runtime.state_manager.state
+        if effect.key not in state.flags:
+            return
+
+        flag_def = getattr(self.runtime.game.flags, effect.key, None) if getattr(self.runtime, "game", None) else None
+        allowed_values = getattr(flag_def, "allowed_values", None) if flag_def else None
+        if allowed_values:
+            if effect.value not in allowed_values:
+                self.runtime.logger.debug("Flag '%s' value '%s' not in allowed_values; skipping", effect.key, effect.value)
+                return
+
+        state.flags[effect.key] = effect.value
 
     def _apply_goto(self, effect: GotoEffect) -> None:
         if effect.node in self.runtime.index.nodes:

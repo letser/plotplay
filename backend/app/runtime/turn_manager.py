@@ -13,6 +13,7 @@ from random import Random
 from typing import AsyncIterator
 import json
 import math
+from datetime import datetime, timezone
 
 from app.models.effects import (
     MeterChangeEffect,
@@ -114,6 +115,12 @@ class TurnManager:
         narrative = "\n\n".join(narrative_parts).strip()
         self.runtime.state_manager.state.narrative_history.append(narrative)
 
+        # Persist updated timestamp for state snapshots/persistence layers
+        try:
+            self.runtime.state_manager.state.updated_at = datetime.now(timezone.utc)
+        except Exception:
+            pass
+
         result = {
             "session_id": self.runtime.session_id,
             "narrative": narrative,
@@ -158,9 +165,12 @@ class TurnManager:
             current_node=current_node,
             snapshot_state=snapshot,
             starting_location=state.current_location,
+            meter_deltas={},
         )
 
     def _validate_node(self, ctx: TurnContext) -> None:
+        if not ctx.current_node:
+            raise ValueError("Current node not found.")
         if ctx.current_node.type == NodeType.ENDING:
             raise ValueError("Cannot process action in an ending node.")
 
@@ -176,6 +186,19 @@ class TurnManager:
             gate_results = {}
             for gate in character.gates:
                 gate_results[gate.id] = evaluator.evaluate_object_conditions(gate)
+
+            # Apply modifier gate constraints (disallow/allow)
+            if self.modifier_service:
+                active_mods = self.runtime.state_manager.state.modifiers.get(character.id, [])
+                for mod in active_mods:
+                    mod_def = self.modifier_service.library.get(mod.get("id"))
+                    if not mod_def:
+                        continue
+                    for gate_id in getattr(mod_def, "disallow_gates", []) or []:
+                        gate_results[gate_id] = False
+                    for gate_id in getattr(mod_def, "allow_gates", []) or []:
+                        gate_results[gate_id] = True
+
             active_gates[character.id] = gate_results
             char_state = self.runtime.state_manager.state.characters.get(character.id)
             if char_state is not None:
@@ -203,9 +226,14 @@ class TurnManager:
             return time_config.defaults.default
 
         if action.action_type == "choice" and action.choice_id:
+            if action.choice_id.startswith("move_"):
+                ctx.time_apply_visit_cap = False
+                return time_config.defaults.movement
             choice = next((c for c in ctx.current_node.choices or [] if c.id == action.choice_id), None)
             if not choice:
                 choice = next((c for c in ctx.current_node.dynamic_choices or [] if c.id == action.choice_id), None)
+            if not choice:
+                choice = next((c for c in ctx.event_choices or [] if c.id == action.choice_id), None)
             if choice:
                 if getattr(choice, "time_cost", None) is not None:
                     ctx.time_explicit_minutes = int(choice.time_cost)
@@ -253,7 +281,10 @@ class TurnManager:
             self.event_pipeline.decrement_cooldowns()
 
     def _calculate_time_minutes(self, ctx: TurnContext) -> int:
-        minutes = ctx.time_explicit_minutes if ctx.time_explicit_minutes is not None else self._category_to_minutes(ctx.time_category_resolved)
+        fallback_category = self.runtime.game.time.defaults.default
+        category = ctx.time_category_resolved or fallback_category
+
+        minutes = ctx.time_explicit_minutes if ctx.time_explicit_minutes is not None else self._category_to_minutes(category)
         minutes = self._apply_time_modifiers(minutes)
 
         if minutes <= 0:
@@ -282,12 +313,12 @@ class TurnManager:
             return max(0, minutes)
         state = self.runtime.state_manager.state
         total_multiplier = 1.0
-        player_modifiers = getattr(state, "modifiers", {}).get("player", [])
         library = getattr(self.modifier_service, "library", {})
-        for mod in player_modifiers:
-            mod_def = library.get(mod.get("id"))
-            if mod_def and getattr(mod_def, "time_multiplier", None):
-                total_multiplier *= mod_def.time_multiplier
+        for active_list in getattr(state, "modifiers", {}).values():
+            for mod in active_list or []:
+                mod_def = library.get(mod.get("id"))
+                if mod_def and getattr(mod_def, "time_multiplier", None):
+                    total_multiplier *= mod_def.time_multiplier
 
         total_multiplier = max(0.5, min(2.0, total_multiplier))
         return max(0, int(math.floor(minutes * total_multiplier + 0.5)))
@@ -302,39 +333,69 @@ class TurnManager:
 
     def _apply_node_transitions(self, ctx: TurnContext) -> None:
         state = self.runtime.state_manager.state
-        node = self.runtime.index.nodes.get(state.current_node)
+        # Sync context if a goto effect already changed the node
+        if state.current_node and (not ctx.current_node or state.current_node != ctx.current_node.id):
+            self._enter_node(state.current_node, ctx, run_exit=True)
+
+        node = ctx.current_node
         if not node:
             return
+
         transitions = getattr(node, "transitions", None) or getattr(node, "triggers", None)
         if not transitions:
             return
-        evaluator = self.runtime.state_manager.create_evaluator()
+
+        evaluator = self.runtime.state_manager.create_evaluator(extra_context=ctx.condition_context)
         for transition in transitions:
             if evaluator.evaluate_object_conditions(transition):
-                # Apply transition effects if present
                 effects = getattr(transition, "on_select", None)
                 if effects:
                     self.runtime.effect_resolver.apply_effects(effects)
 
                 to_node = getattr(transition, "to", None)
                 if to_node and to_node in self.runtime.index.nodes:
-                    if node.on_exit:
-                        self.runtime.effect_resolver.apply_effects(node.on_exit)
-                    state.current_node = to_node
-                    ctx.current_node = self.runtime.index.nodes[to_node]
-                    state.nodes_history.append(to_node)
-                    if ctx.current_node.on_enter:
-                        self.runtime.effect_resolver.apply_effects(ctx.current_node.on_enter)
+                    self._enter_node(to_node, ctx, run_exit=True)
                 return
+
+    def _enter_node(self, node_id: str, ctx: TurnContext, *, run_exit: bool) -> None:
+        """Switch to a new node, applying exit/enter hooks and visit tracking."""
+        state = self.runtime.state_manager.state
+        new_node = self.runtime.index.nodes.get(node_id)
+        if not new_node:
+            return
+
+        previous_node = ctx.current_node
+        if run_exit and previous_node and previous_node.on_exit and previous_node.id != new_node.id:
+            self.runtime.effect_resolver.apply_effects(previous_node.on_exit)
+
+        state.current_node = new_node.id
+        ctx.current_node = new_node
+
+        if not state.nodes_history or state.nodes_history[-1] != new_node.id:
+            state.nodes_history.append(new_node.id)
+
+        state.current_visit_node = new_node.id
+        state.current_visit_minutes = 0
+
+        if new_node.on_enter:
+            self.runtime.effect_resolver.apply_effects(new_node.on_enter)
 
     async def _run_ai_phase(self, ctx: TurnContext, action: PlayerAction) -> AsyncIterator[dict]:
         """Generate narrative + checker deltas via AI service."""
         state = self.runtime.state_manager.state
         location = self.runtime.index.locations.get(state.current_location)
         location_label = location.name if location and getattr(location, "name", None) else state.current_location
+        node = ctx.current_node
+
+        character_cards = self._build_character_cards(state, ctx)
+        history_tail = "\n".join(self.runtime.state_manager.state.narrative_history[-3:])
 
         writer_prompt = (
             f"Scene location: {location_label}.\n"
+            f"Node type: {getattr(node, 'type', None)}\n"
+            f"Present characters: {', '.join(state.present_characters)}\n"
+            f"Character cards:\n{character_cards}\n"
+            f"Recent history:\n{history_tail}\n"
             f"Player action: {ctx.action_summary}\n"
             "Write the next short narrative beat (3-5 sentences)."
         )
@@ -353,12 +414,15 @@ class TurnManager:
         checker_prompt = (
             "You are a strict state checker. Based on the player's action and the resulting scene, "
             "produce a JSON object with keys meters, flags, inventory, clothing, movement, modifiers, discoveries. "
-            "Omit keys you don't need to change. Use numeric deltas where appropriate."
+            "Honor character gates/consent rules. Use numeric deltas where appropriate. "
+            "Current state snapshot and gates are provided for reference."
         )
 
         try:
             checker_response = await self.ai_service.generate(
-                f"{checker_prompt}\nAction: {ctx.action_summary}\nScene: {ctx.ai_narrative}",
+                f"{checker_prompt}\nAction: {ctx.action_summary}\nScene: {ctx.ai_narrative}\n"
+                f"State Snapshot: {ctx.snapshot_state}\n"
+                f"Active Gates: {ctx.active_gates}",
                 json_mode=True,
                 temperature=0.2,
                 max_tokens=300,
@@ -581,3 +645,36 @@ class TurnManager:
 
         if effects:
             self.runtime.effect_resolver.apply_effects(effects)
+
+    # ------------------------------------------------------------------
+    # AI helpers
+    # ------------------------------------------------------------------
+    def _build_character_cards(self, state, ctx: TurnContext) -> str:
+        """Assemble lightweight character cards for present NPCs."""
+        cards: list[str] = []
+        for char_id in state.present_characters:
+            if char_id == "player":
+                continue
+            char_def = self.runtime.index.characters.get(char_id)
+            if not char_def:
+                continue
+            char_state = state.characters.get(char_id)
+            meters_state = char_state.meters if char_state else {}
+            meter_defs = self.runtime.index.template_meters
+            meter_parts = []
+            for meter_id, meter_def in meter_defs.items():
+                if meter_id in meters_state:
+                    meter_parts.append(f"{meter_id}: {meters_state[meter_id]}/{meter_def.max}")
+            gates = ctx.active_gates.get(char_id, {})
+            mods = [m.get("id") for m in state.modifiers.get(char_id, []) if m.get("id")]
+            clothing = state.clothing_states.get(char_id, {})
+            cards.append(
+                f"{char_def.name} ({char_id})\n"
+                f"Appearance: {getattr(char_def, 'appearance', '')}\n"
+                f"Personality: {getattr(char_def, 'personality', '')}\n"
+                f"Meters: {', '.join(meter_parts)}\n"
+                f"Gates: {gates}\n"
+                f"Modifiers: {mods}\n"
+                f"Clothing: {clothing}"
+            )
+        return "\n\n".join(cards)

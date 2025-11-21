@@ -69,7 +69,7 @@ class TradeService:
         ]
 
     def give(self, effect: InventoryGiveEffect) -> List:
-        return [
+        hooks: List = [
             InventoryRemoveEffect(
                 target=effect.source,
                 item_type=effect.item_type,
@@ -83,12 +83,20 @@ class TradeService:
                 count=effect.count,
             ),
         ]
+        inv = getattr(self.runtime, "inventory_service", None)
+        item_def = inv.get_item_definition(effect.item) if inv else None
+        if item_def and getattr(item_def, "on_give", None):
+            hooks.extend(item_def.on_give)
+        return hooks
 
     # ------------------------------------------------------------------ #
     # Commerce helpers
     # ------------------------------------------------------------------ #
     def purchase(self, effect: InventoryPurchaseEffect) -> List:
         """Transfer an item from seller (merchant/location shop) to buyer with pricing rules."""
+        economy = getattr(self.runtime.game, "economy", None)
+        if economy and getattr(economy, "enabled", True) is False:
+            return []
         state = self.runtime.state_manager.state
         buyer_state = state.characters.get(effect.target)
         if not buyer_state:
@@ -100,6 +108,10 @@ class TradeService:
 
         shop_bucket, shop_def = self._resolve_shop_inventory(effect.source)
         evaluator = self.runtime.state_manager.create_evaluator()
+        if shop_def and not self._shop_open(shop_def, evaluator):
+            return []
+        if shop_def and getattr(shop_def, "can_sell", None) and not evaluator.evaluate(shop_def.can_sell):
+            return []
         multiplier = 1.0
         if shop_def and getattr(shop_def, "multiplier_buy", None):
             mult_val = evaluator.evaluate_value(shop_def.multiplier_buy, default=1)
@@ -116,6 +128,8 @@ class TradeService:
             resell = getattr(shop_def, "resell", False) if shop_def else False
             if not resell and available < effect.count:
                 return []
+            if available >= effect.count:
+                shop_bucket[effect.item] = max(0, available - effect.count)
 
         # Money check
         money_before = buyer_state.meters.get("money") if buyer_state.meters else None
@@ -130,11 +144,6 @@ class TradeService:
                 count=effect.count,
             )
         ]
-
-        if shop_bucket is not None and shop_bucket.get(effect.item, 0) >= effect.count:
-            shop_bucket[effect.item] -= effect.count
-            if shop_bucket[effect.item] <= 0:
-                shop_bucket.pop(effect.item, None)
 
         if money_before is not None and total_price:
             transfer_effects.append(
@@ -151,6 +160,9 @@ class TradeService:
 
     def sell(self, effect: InventorySellEffect) -> List:
         """Sell an item from source to a merchant/location shop."""
+        economy = getattr(self.runtime.game, "economy", None)
+        if economy and getattr(economy, "enabled", True) is False:
+            return []
         state = self.runtime.state_manager.state
         seller_state = state.characters.get(effect.source)
         if not seller_state:
@@ -158,6 +170,10 @@ class TradeService:
 
         shop_bucket, shop_def = self._resolve_shop_inventory(effect.target or state.current_location)
         evaluator = self.runtime.state_manager.create_evaluator()
+        if shop_def and not self._shop_open(shop_def, evaluator):
+            return []
+        if shop_def and getattr(shop_def, "can_buy", None) and not evaluator.evaluate(shop_def.can_buy):
+            return []
 
         item_def = getattr(self.runtime, "inventory_service", None)
         item_def = item_def.get_item_definition(effect.item) if item_def else None
@@ -214,6 +230,13 @@ class TradeService:
     # ------------------------------------------------------------------ #
     # Helpers
     # ------------------------------------------------------------------ #
+    def _shop_open(self, shop_def, evaluator) -> bool:
+        when = getattr(shop_def, "when", None)
+        can_sell = getattr(shop_def, "can_sell", None)
+        can_buy = getattr(shop_def, "can_buy", None)
+        # when is primary gate; can_sell/can_buy handled in caller for direction
+        return evaluator.evaluate(when) if when else True
+
     def _resolve_shop_inventory(self, source_id: str | None) -> Tuple[Any, Any]:
         """
         Resolve an appropriate shop bucket and shop definition for a seller/buyer.

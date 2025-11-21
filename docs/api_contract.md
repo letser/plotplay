@@ -50,7 +50,7 @@ Response (`200 OK`):
 Runs a single turn using the unified pipeline. All gameplay actions (dialogue, movement, inventory, shopping, arc choices, etc.) must hit this endpoint.
 
 Request body fields:
-- `action_type`: `"say" | "do" | "choice" | "use" | "give"`
+- `action_type`: `"say" | "do" | "choice" | "use" | "give" | "move" | "travel" | "shop_buy" | "shop_sell" | "inventory" | "clothing"`
 - `action_text` (optional string) — required for `say`/`do`, optional context for others.
 - `choice_id` (optional string) — required for `choice`, pulled from prior `choices`.
 - `item_id` (optional string) — required for `use`/`give`, identifies the inventory item.
@@ -111,6 +111,12 @@ Frontends display these as buttons/menus. To execute a choice, call `/action` wi
 | `choice`      | Select authored choice/action | `choice_id` | Applies to node choices, event choices, unlocked actions, movement/travel options, shops, inventory actions, etc. |
 | `use`         | Consume or activate an item | `item_id`; optional `target` | Engine resolves the `on_use` effects and handles removal. |
 | `give`        | Transfer item to another character/location | `item_id`, `target` | Runs through the unified inventory give logic. |
+| `move`        | Direct movement command (when surfaced by UI) | optional `choice_id` or structured metadata | Alternative to `choice` for movement if UI sends a direct command. |
+| `travel`      | Zone travel command | optional `choice_id` or structured metadata | Encodes chosen method/destination; still goes through `/action`. |
+| `shop_buy`    | Purchase command | item info inline or via `choice_id` | Deterministic commerce routed through turn pipeline. |
+| `shop_sell`   | Sell command | item info inline or via `choice_id` | Deterministic commerce routed through turn pipeline. |
+| `inventory`   | Deterministic inventory actions | item info inline or via `choice_id` | Covers take/drop/give/use when not already encoded as a `choice`. |
+| `clothing`    | Wardrobe change command | clothing info inline or via `choice_id` | Covers put on/take off/slot state changes if UI bypasses a pre-authored choice. |
 
 ### Movement & Travel
 - Local movement appears as `choices` with `type: "movement"` (e.g., `move_cafe_counter`).

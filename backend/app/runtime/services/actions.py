@@ -52,7 +52,6 @@ class ActionService:
                 self.effect_resolver.apply_effects(effects)
             if getattr(choice, "goto", None):
                 state.current_node = choice.goto
-                ctx.current_node = self.runtime.index.nodes.get(choice.goto, ctx.current_node)
 
         # Event choices take priority
         for choice in ctx.event_choices:

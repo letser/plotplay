@@ -21,6 +21,10 @@ class TimeService:
 
         current_minutes = self._hhmm_to_minutes(state.time.time_hhmm or "00:00")
         total = current_minutes + minutes
+
+        if total >= 24 * 60:
+            self._trigger_day_end_effects()
+
         day_advanced = total >= 24 * 60
         total %= 24 * 60
         state.time.time_hhmm = self._minutes_to_hhmm(total)
@@ -31,6 +35,7 @@ class TimeService:
 
         if day_advanced:
             state.time.day += 1
+            self._trigger_day_start_effects()
 
         return {
             "minutes": minutes,
@@ -61,7 +66,7 @@ class TimeService:
                     decay_value = meter_def.decay_per_slot
                 if decay_value:
                     self.runtime.effect_resolver.apply_effects(
-                        [MeterChangeEffect(target=char_id, meter=meter_id, op="add", value=decay_value)]
+                        [MeterChangeEffect(target=char_id, meter=meter_id, op="add", value=decay_value, cap_per_turn=False)]
                     )
 
     def _resolve_slot(self, total_minutes: int, fallback: str | None) -> str | None:
@@ -86,3 +91,13 @@ class TimeService:
     def _minutes_to_hhmm(value: int) -> str:
         value %= 24 * 60
         return f"{value // 60:02d}:{value % 60:02d}"
+
+    def _trigger_day_end_effects(self) -> None:
+        effects = getattr(self.runtime.game.time, "day_end_effects", None) or getattr(self.runtime.game, "day_end_effects", None)
+        if effects:
+            self.runtime.effect_resolver.apply_effects(effects)
+
+    def _trigger_day_start_effects(self) -> None:
+        effects = getattr(self.runtime.game.time, "day_start_effects", None) or getattr(self.runtime.game, "day_start_effects", None)
+        if effects:
+            self.runtime.effect_resolver.apply_effects(effects)

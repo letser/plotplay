@@ -49,5 +49,8 @@ class TurnContext:
     day_advanced: bool = False
     slot_advanced: bool = False
 
+    # Meter bookkeeping (per-turn caps)
+    meter_deltas: dict[str, dict[str, float]] = field(default_factory=dict)
+
     # Condition helpers (e.g., gate map)
     condition_context: dict[str, Any] = field(default_factory=dict)

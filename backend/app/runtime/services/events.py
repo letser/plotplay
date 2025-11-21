@@ -41,6 +41,8 @@ class EventPipeline:
         random_pool: list[Event] = []
 
         for event in self.runtime.game.events:
+            if event.once_per_game and event.id in state.events_history:
+                continue
             if self._on_cooldown(event, state):
                 continue
             if not self._is_eligible(event, evaluator):
@@ -65,6 +67,8 @@ class EventPipeline:
         result = EventResult(choices=[], narratives=[], events_fired=[])
         for event in triggered:
             result.events_fired.append(event.id)
+            if event.id not in state.events_history:
+                state.events_history.append(event.id)
             if event.beats:
                 result.narratives.extend(event.beats)
             if event.choices:
@@ -129,13 +133,11 @@ class EventPipeline:
     # Helpers
     # ------------------------------------------------------------------ #
     def _is_eligible(self, event: Event, evaluator) -> bool:
-        if event.when:
-            return evaluator.evaluate(event.when)
-        if event.when_all:
-            return evaluator.evaluate_all(event.when_all)
-        if event.when_any:
-            return evaluator.evaluate_any(event.when_any)
-        return event.probability is not None  # random events w/out conditions
+        if not evaluator.evaluate_object_conditions(event):
+            return False
+        if event.probability is None:
+            return True
+        return event.probability > 0
 
     def _on_cooldown(self, event: Event, state) -> bool:
         remaining = state.cooldowns.get(event.id, 0)

@@ -58,6 +58,7 @@ class ConditionEvaluator:
         self.extra_context = extra_context or {}
         self.rng = random.Random(state_manager.state.rng_seed)
         self._eval_context: dict[str, Any] | None = None
+        self.logger = getattr(state_manager, "logger", None)
 
     # --------------------------------------------------------------------- #
     # Public API
@@ -173,6 +174,16 @@ class ConditionEvaluator:
             return True
         if lowered in {"false", "never"}:
             return False
+        if "'" in trimmed:
+            if self.logger:
+                self.logger.debug("Condition uses single quotes; only double quotes are allowed. Expression=%s", trimmed)
+            return default
+
+        # Guard extremely long expressions to avoid pathological parsing
+        if len(trimmed) > 512:
+            if self.logger:
+                self.logger.debug("Condition too long; returning default for safety.")
+            return default
 
         # Build context if not already built
         if self._eval_context is None:
@@ -182,6 +193,8 @@ class ConditionEvaluator:
             tree = ast.parse(trimmed, mode="eval")
             return self._eval_node(tree.body)
         except Exception:
+            if self.logger:
+                self.logger.debug("Condition evaluation failed; expression=%s", trimmed)
             return default
 
     # --------------------------------------------------------------------- #
@@ -409,6 +422,8 @@ class ConditionEvaluator:
             if left is None or right is None:
                 return False
             if isinstance(node.op, ast.Div) and right == 0:
+                if self.logger:
+                    self.logger.debug("Division by zero in condition expression.")
                 return False
             return op(left, right)
 

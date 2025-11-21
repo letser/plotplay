@@ -16,7 +16,19 @@ from typing import Any, Literal
 class PlayerAction:
     """Represents a single player action request."""
 
-    action_type: Literal["say", "do", "choice", "use", "give"]
+    action_type: Literal[
+        "say",
+        "do",
+        "choice",
+        "use",
+        "give",
+        "move",
+        "travel",
+        "shop_buy",
+        "shop_sell",
+        "inventory",
+        "clothing",
+    ]
     action_text: str | None = None
     choice_id: str | None = None
     item_id: str | None = None

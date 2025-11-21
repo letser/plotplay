@@ -789,11 +789,16 @@ class GameValidator:
             "inventory_remove",
             "inventory_take",
             "inventory_drop",
+            "inventory_give",
         }:
-            target = self._effect_value(effect, "target")
+            target_field = "target"
+            target = self._effect_value(effect, target_field)
+            source = self._effect_value(effect, "source")
             item_type = self._effect_value(effect, "item_type")
             item_id = self._effect_value(effect, "item")
-            self._require_character(target, context, "target")
+            if effect_type == "inventory_give":
+                self._require_character(source, context, "source")
+            self._require_character(target, context, target_field)
             self._validate_inventory_effect_item(item_type, item_id, context)
 
         elif effect_type == "inventory_purchase":

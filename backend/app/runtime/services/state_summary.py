@@ -31,6 +31,7 @@ class StateSummaryService:
                     "min": meter_def.min,
                     "max": meter_def.max,
                     "icon": getattr(meter_def, "icon", None),
+                    "format": getattr(meter_def, "format", None),
                 }
             return meters
 
@@ -80,9 +81,13 @@ class StateSummaryService:
             },
         }
 
-        clothing_state = state.clothing_states.get("player")
-        if clothing_state:
-            summary["clothing"] = {"player": clothing_state}
+        clothing_snapshot = {
+            char_id: snapshot
+            for char_id, snapshot in state.clothing_states.items()
+            if snapshot
+        }
+        if clothing_snapshot:
+            summary["clothing"] = clothing_snapshot
 
         economy = getattr(game, "economy", None)
         if economy and getattr(economy, "enabled", False):
