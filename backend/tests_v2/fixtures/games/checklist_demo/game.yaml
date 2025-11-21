@@ -1,0 +1,383 @@
+meta:
+  id: "checklist_demo"
+  title: "Checklist Demo Fixture"
+  version: "0.0.1"
+  authors: ["Test Suite"]
+  nsfw_allowed: false
+
+narration:
+  pov: "first"
+  tense: "present"
+  paragraphs: "2-3"
+
+rng_seed: 1337
+
+start:
+  location: "quad"
+  node: "intro"
+  day: 1
+  time: "08:00"
+
+time:
+  slots_enabled: true
+  slots: ["morning", "afternoon", "evening", "night"]
+  slot_windows:
+    morning: { start: "06:00", end: "11:59" }
+    afternoon: { start: "12:00", end: "17:59" }
+    evening: { start: "18:00", end: "21:59" }
+    night: { start: "22:00", end: "05:59" }
+  categories:
+    instant: 0
+    quick: 5
+    standard: 12
+    travel: 20
+  defaults:
+    conversation: "standard"
+    choice: "quick"
+    movement: "travel"
+    default: "standard"
+    cap_per_visit: 45
+
+economy:
+  enabled: true
+  starting_money: 20
+  max_money: 200
+  currency_name: "coin"
+  currency_symbol: "¤"
+
+meters:
+  player:
+    energy:
+      min: 0
+      max: 100
+      default: 50
+      visible: true
+      thresholds:
+        tired: { min: 0, max: 29 }
+        normal: { min: 30, max: 69 }
+        energized: { min: 70, max: 100 }
+    mood:
+      min: 0
+      max: 10
+      default: 5
+      visible: true
+  template:
+    trust:
+      min: 0
+      max: 100
+      default: 10
+      visible: false
+
+flags:
+  met_alex:
+    type: "bool"
+    default: false
+    visible: true
+  route:
+    type: "string"
+    default: "neutral"
+    allowed_values: ["neutral", "friendly", "romance"]
+  hidden_clue:
+    type: "bool"
+    default: false
+    visible: false
+    reveal_when: "flags.met_alex == true"
+
+items:
+  - id: "coffee"
+    name: "Coffee"
+    value: 5
+    stackable: true
+    droppable: true
+    consumable: true
+    use_text: "Take a sip of coffee."
+    on_use:
+      - type: "meter_change"
+        target: "player"
+        meter: "energy"
+        op: "add"
+        value: 5
+      - type: "advance_time"
+        minutes: 5
+  - id: "map"
+    name: "Campus Map"
+    value: 1
+    stackable: false
+    droppable: true
+    can_give: true
+    on_give:
+      - type: "flag_set"
+        key: "hidden_clue"
+        value: true
+  - id: "keycard"
+    name: "Keycard"
+    value: 20
+    stackable: false
+    droppable: false
+    locked: true
+    when: "flags.hidden_clue == true"
+
+wardrobe:
+  slots: ["top", "bottom", "accessory"]
+  items:
+    - id: "jacket"
+      name: "Light Jacket"
+      value: 15
+      occupies: ["top"]
+      conceals: []
+      can_open: true
+      look:
+        intact: "A light jacket."
+    - id: "jeans"
+      name: "Jeans"
+      value: 20
+      occupies: ["bottom"]
+      conceals: []
+      look:
+        intact: "A pair of jeans."
+    - id: "dress"
+      name: "Simple Dress"
+      value: 25
+      occupies: ["top", "bottom"]
+      conceals: ["accessory"]
+      can_open: true
+      look:
+        intact: "A simple dress."
+        opened: "The dress is open."
+  outfits:
+    - id: "casual"
+      name: "Casual Outfit"
+      items:
+        jacket: "intact"
+        jeans: "intact"
+      grant_items: true
+    - id: "formal"
+      name: "Formal Outfit"
+      items:
+        dress: "intact"
+      grant_items: true
+
+characters:
+  - id: "player"
+    name: "Player"
+    age: 21
+    gender: "unspecified"
+    pronouns: ["they", "them"]
+    appearance: "The protagonist."
+    dialogue_style: "neutral"
+
+  - id: "alex"
+    name: "Alex"
+    age: 22
+    gender: "nonbinary"
+    pronouns: ["they", "them"]
+    dialogue_style: "concise"
+    appearance: "Relaxed classmate."
+    personality:
+      summary: "Curious and easygoing."
+    meters:
+      trust:
+        min: 0
+        max: 100
+        default: 15
+        visible: false
+    gates:
+      - id: "accept_chat"
+        when: "meters.alex.trust >= 10"
+        acceptance: "Alex is open to chat."
+    clothing:
+      outfit: "casual"
+      items:
+        jacket: "intact"
+        jeans: "intact"
+    inventory:
+      items:
+        coffee: 1
+        keycard: 1
+    schedule:
+      - location: "quad"
+        when: "time.slot in ['morning','afternoon']"
+    movement:
+      willing_zones:
+        - zone: "campus"
+        - zone: "downtown"
+
+zones:
+  - id: "campus"
+    name: "Campus"
+    summary: "Small campus loop."
+    privacy: "medium"
+    time_category: "travel"
+    access:
+      discovered: true
+    connections:
+      - to: ["downtown"]
+        methods: ["walk"]
+        distance: 1
+    locations:
+      - id: "quad"
+        name: "Campus Quad"
+        summary: "Open space for students."
+        privacy: "medium"
+        access:
+          discovered: true
+        connections:
+          - to: "cafe"
+            direction: "n"
+      - id: "cafe"
+        name: "Campus Cafe"
+        summary: "Cozy stop for drinks."
+        privacy: "medium"
+        access:
+          discovered: false
+          discovered_when: "flags.met_alex == true"
+        connections:
+          - to: "quad"
+            direction: "s"
+        inventory:
+          items:
+            coffee: 2
+        shop:
+          name: "Cafe Counter"
+          can_buy: "true"
+          can_sell: "true"
+          multiplier_buy: "1.0"
+          multiplier_sell: "0.5"
+          inventory:
+            items:
+              coffee: 3
+
+  - id: "downtown"
+    name: "Downtown"
+    summary: "Nearby downtown area."
+    privacy: "medium"
+    time_category: "travel"
+    connections:
+      - to: ["campus"]
+        methods: ["walk"]
+        distance: 1
+    locations:
+      - id: "library"
+        name: "Public Library"
+        summary: "Quiet place to read."
+        privacy: "high"
+        access:
+          discovered: false
+          discovered_when: "flags.met_alex == true"
+        inventory:
+          items:
+            map: 1
+
+movement:
+  base_unit: "minutes"
+  use_entry_exit: false
+  methods:
+    - name: "walk"
+      category: "travel"
+
+arcs:
+  - id: "friendship"
+    title: "Friendship Arc"
+    character: "alex"
+    stages:
+      - id: "met"
+        title: "Met Alex"
+        when: "flags.met_alex == true"
+        on_enter:
+          - type: "flag_set"
+            key: "route"
+            value: "friendly"
+      - id: "comfortable"
+        title: "Comfortable Chat"
+        when: "meters.alex.trust >= 20"
+        on_enter:
+          - type: "unlock"
+            actions: ["unlock_cafe_route"]
+
+modifiers:
+  stacking:
+    mood: "highest"
+  library:
+    - id: "caffeinated"
+      name: "Caffeinated"
+      group: "mood"
+      priority: 1
+      duration: 60
+      time_multiplier: 0.9
+      on_enter:
+        - type: "meter_change"
+          target: "player"
+          meter: "energy"
+          op: "add"
+          value: 10
+    - id: "sleepy"
+      name: "Sleepy"
+      group: "mood"
+      priority: 0
+      duration: 30
+      when: "time.slot == 'night'"
+      clamp_meters:
+        energy: { min: 0, max: 60 }
+
+actions:
+  - id: "drink_coffee"
+    prompt: "Drink coffee"
+    category: "utility"
+    when: "has_item('player', 'coffee')"
+    effects:
+      - type: "inventory_remove"
+        target: "player"
+        item_type: "item"
+        item: "coffee"
+        count: 1
+      - type: "meter_change"
+        target: "player"
+        meter: "energy"
+        op: "add"
+        value: 5
+  - id: "unlock_cafe_route"
+    prompt: "Ask Alex about the cafe"
+    category: "dialogue"
+    when: "flags.met_alex == true"
+    effects:
+      - type: "unlock"
+        locations: ["cafe"]
+      - type: "unlock"
+        items: ["keycard"]
+
+events:
+  - id: "random_chat"
+    title: "Chance meeting"
+    type: "event"
+    probability: 50
+    cooldown: 2
+    on_enter:
+      - type: "meter_change"
+        target: "player"
+        meter: "energy"
+        op: "subtract"
+        value: 2
+    choices:
+      - id: "wave"
+        prompt: "Wave at a passerby"
+        time_category: "quick"
+        on_select:
+          - type: "meter_change"
+            target: "player"
+            meter: "energy"
+            op: "subtract"
+            value: 1
+  - id: "quiet_hours"
+    title: "Quiet Hours"
+    type: "event"
+    probability: 0
+    when: "time.slot == 'night'"
+    on_enter:
+      - type: "apply_modifier"
+        target: "player"
+        modifier_id: "sleepy"
+      - type: "advance_time"
+        minutes: 15
+
+includes:
+  - "content/story.yaml"

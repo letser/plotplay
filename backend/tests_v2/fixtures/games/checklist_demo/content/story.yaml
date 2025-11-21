@@ -1,0 +1,179 @@
+nodes:
+  - id: "intro"
+    type: "scene"
+    title: "First Day"
+    beats:
+      - "You arrive on campus with energy to spare."
+    characters_present: ["alex"]
+    on_enter:
+      - type: "inventory_add"
+        target: "player"
+        item_type: "item"
+        item: "map"
+        count: 1
+    choices:
+      - id: "greet_alex"
+        prompt: "Greet Alex"
+        time_category: "standard"
+        on_select:
+          - type: "meter_change"
+            target: "alex"
+            meter: "trust"
+            op: "add"
+            value: 5
+          - type: "flag_set"
+            key: "met_alex"
+            value: true
+          - type: "goto"
+            node: "campus_hub"
+      - id: "wander"
+        prompt: "Wander the quad"
+        time_category: "quick"
+        on_select:
+          - type: "move"
+            direction: "n"
+          - type: "goto"
+            node: "campus_hub"
+
+  - id: "campus_hub"
+    type: "hub"
+    title: "Campus Hub"
+    beats:
+      - "You take in the campus surroundings."
+    choices:
+      - id: "grab_coffee"
+        prompt: "Grab a coffee from the cafe"
+        time_category: "standard"
+        on_select:
+          - type: "inventory_take"
+            target: "player"
+            item_type: "item"
+            item: "coffee"
+            count: 1
+          - type: "advance_time"
+            minutes: 10
+      - id: "chat_alex"
+        prompt: "Chat with Alex"
+        time_category: "standard"
+        on_select:
+          - type: "goto"
+            node: "chat_alex"
+      - id: "change_outfit"
+        prompt: "Change into formal outfit"
+        time_category: "quick"
+        on_select:
+          - type: "outfit_put_on"
+            target: "player"
+            item: "formal"
+          - type: "clothing_state"
+            target: "player"
+            item: "dress"
+            condition: "opened"
+          - type: "goto"
+            node: "wardrobe_test"
+      - id: "trigger_random"
+        prompt: "Wait for something to happen"
+        time_category: "standard"
+        on_select:
+          - type: "random"
+            choices:
+              - weight: 70
+                effects:
+                  - type: "meter_change"
+                    target: "player"
+                    meter: "mood"
+                    op: "add"
+                    value: 1
+              - weight: 30
+                effects:
+                  - type: "advance_time"
+                    minutes: 15
+      - id: "end_day"
+        prompt: "Call it a day"
+        time_category: "standard"
+        on_select:
+          - type: "goto"
+            node: "ending_exit"
+
+  - id: "chat_alex"
+    type: "scene"
+    title: "Chat with Alex"
+    beats:
+      - "You talk about classes and plans."
+    on_enter:
+      - type: "apply_modifier"
+        target: "player"
+        modifier_id: "caffeinated"
+        duration: 60
+    choices:
+      - id: "give_map"
+        prompt: "Give Alex the map"
+        time_cost: 5
+        on_select:
+          - type: "inventory_give"
+            source: "player"
+            target: "alex"
+            item_type: "item"
+            item: "map"
+            count: 1
+          - type: "goto"
+            node: "ending_exit"
+      - id: "ask_for_keycard"
+        prompt: "Ask Alex for the keycard"
+        time_category: "quick"
+        on_select:
+          - type: "conditional"
+            when: "flags.hidden_clue == true"
+            then:
+              - type: "unlock"
+                items: ["keycard"]
+              - type: "inventory_add"
+                target: "player"
+                item_type: "item"
+                item: "keycard"
+                count: 1
+            otherwise:
+              - type: "flag_set"
+                key: "hidden_clue"
+                value: true
+      - id: "wrap_up"
+        prompt: "Wrap up chat"
+        time_category: "quick"
+        on_select:
+          - type: "goto"
+            node: "campus_hub"
+
+  - id: "wardrobe_test"
+    type: "scene"
+    title: "Wardrobe and modifiers"
+    beats:
+      - "You adjust your outfit and feel the change."
+    on_enter:
+      - type: "apply_modifier"
+        target: "player"
+        modifier_id: "caffeinated"
+        duration: 30
+    choices:
+      - id: "remove_dress"
+        prompt: "Remove the dress"
+        time_category: "quick"
+        on_select:
+          - type: "clothing_take_off"
+            target: "player"
+            item: "dress"
+          - type: "goto"
+            node: "campus_hub"
+      - id: "take_off_outfit"
+        prompt: "Take off outfit"
+        time_category: "quick"
+        on_select:
+          - type: "outfit_take_off"
+            target: "player"
+            item: "formal"
+          - type: "goto"
+            node: "campus_hub"
+
+  - id: "ending_exit"
+    type: "ending"
+    title: "Done for now"
+    ending_id: "demo_complete"

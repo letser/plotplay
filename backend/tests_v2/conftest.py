@@ -12,6 +12,7 @@ from pathlib import Path
 import pytest
 
 from app.core.loader import GameLoader
+from app.core.validator import GameValidator
 from app.runtime.engine import PlotPlayEngine
 from app.runtime.types import PlayerAction
 from app.services.mock_ai_service import MockAIService
@@ -27,6 +28,24 @@ def games_dir() -> Path:
 def loader(games_dir: Path) -> GameLoader:
     """GameLoader pointing at the repo games directory."""
     return GameLoader(games_dir=games_dir)
+
+
+@pytest.fixture(scope="session")
+def fixtures_dir() -> Path:
+    """Root path for test-only fixture data (YAML games, etc.)."""
+    return Path(__file__).resolve().parent / "fixtures"
+
+
+@pytest.fixture(scope="session")
+def fixture_games_dir(fixtures_dir: Path) -> Path:
+    """Path to the test fixture games."""
+    return fixtures_dir / "games"
+
+
+@pytest.fixture
+def fixture_loader(fixture_games_dir: Path) -> GameLoader:
+    """GameLoader scoped to the test fixture games."""
+    return GameLoader(games_dir=fixture_games_dir)
 
 
 @pytest.fixture
@@ -56,6 +75,29 @@ async def started_engine(engine_factory):
     Yields (engine, initial_turn_result).
     """
     engine = engine_factory("sandbox", session_id="sandbox-session")
+    initial_result = await engine.start()
+    return engine, initial_result
+
+
+@pytest.fixture
+def fixture_engine_factory(mock_ai_service, fixture_loader: GameLoader):
+    """
+    Factory bound to the test fixture games directory.
+    """
+
+    def _create(game_id: str = "checklist_demo", session_id: str = "fixture-session") -> PlotPlayEngine:
+        game_def = fixture_loader.load_game(game_id)
+        # Explicit validator run for clarity in tests that want to assert preconditions
+        GameValidator(game_def).validate()
+        return PlotPlayEngine(game_def, session_id=session_id, ai_service=mock_ai_service)
+
+    return _create
+
+
+@pytest.fixture
+async def started_fixture_engine(fixture_engine_factory):
+    """Start a fixture-backed engine and return (engine, initial turn result)."""
+    engine = fixture_engine_factory()
     initial_result = await engine.start()
     return engine, initial_result
 
