@@ -46,10 +46,16 @@
 - **Shared Types**: `runtime/types.py` defines `PlayerAction` and `TurnResult` aligned with the API contract.
 - **Next Steps**: Flesh out `TurnManager` and the supporting runtime services (actions, choices, events, effects, inventory, time, etc.) according to the architecture outlined earlier, then wire the API to use this new package when ready.
 
-### Stage 5 Plan
+### Stage 5 Status
 - **New Test Suite Namespace**: Created `backend/tests_v2/` with its own `conftest.py`, avoiding any dependency on the legacy test tree.
 - **Core Fixtures**: Added fixtures for `GameLoader`, `MockAIService`, an engine factory that instantiates the new `PlotPlayEngine`, an async `started_engine` helper, and a `player_action` builder.
 - **Usage**: All upcoming tests (unit + integration + scenarios) will live under `tests_v2/` and rely on these fixtures, ensuring the new runtime is exercised in isolation. The legacy `backend/tests/` directory remains untouched until the cutover.
 
 ### Stage 6 Status
-- **Complete**: New runtime modules (engine/session/turn manager/services) implement the full turn pipeline per spec: action formatting, deterministic effects, events, AI writer/checker integration with delta application, node transitions, modifiers (auto-activation + ticking), discoveries, arc progression, spec-compliant time costs/visit caps/decay, movement, and state snapshots. Commerce flows (take/drop/give/purchase/sell) now run through the dedicated `TradeService` instead of legacy shortcuts. API exposes only the unified `/start` and `/action` (plus streaming variants); deterministic legacy endpoints have been removed.
+- **Engine Implemented, Needs Validation**: New runtime modules under `backend/app/runtime/` implement the turn pipeline, but the implementation is not fully verified; Stage 6 remains in-progress until checklist gaps are closed.
+- **Checklist Coverage**: `docs/checklist.md` now enumerates required behaviors; engine features must be audited against it and corrected where missing.
+- **API Surface**: Unified `/start` and `/action` endpoints are in place (with streaming variants), and deterministic legacy endpoints have been removed; keep verifying parity with the contract.
+
+### Stage 7 Status
+- **Test Suite In Progress**: `backend/tests_v2/` hosts the new tests aligned to `docs/checklist.md`, but many are currently skipped stubs pointing at missing runtime behaviors.
+- **Execution Strategy**: Work through tests one by one, enabling them by implementing/fixing the runtime until all checklist cases pass.
