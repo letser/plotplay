@@ -43,11 +43,15 @@ async def test_shop_purchase_path(started_fixture_engine):
 async def test_item_use_applies_effects(started_fixture_engine):
     """Verify Item use applies effects."""
     engine, initial = started_fixture_engine
-    # intro on_enter gives a map and movement choice gives coffee; ingest coffee to test on_use
-    movement_choice = next(choice for choice in initial.choices if choice["type"] == "movement")
-    moved = await engine.process_action(PlayerAction(action_type="choice", choice_id=movement_choice["id"]))
-    # use coffee item directly
+    # Ensure player has coffee, then use it
+    engine.runtime.effect_resolver.apply_effects(
+        [
+            {"type": "inventory_add", "target": "player", "item_type": "item", "item": "coffee", "count": 1}
+        ]
+    )
     use_action = PlayerAction(action_type="use", item_id="coffee", target="player")
+    state = engine.runtime.state_manager.state
+    start_energy = state.characters["player"].meters["energy"]
     result = await engine.process_action(use_action)
     meters = result.state_summary["meters"]["player"]
-    assert meters["energy"]["value"] >= 50
+    assert meters["energy"]["value"] == start_energy + 5

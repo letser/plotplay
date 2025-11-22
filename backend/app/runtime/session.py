@@ -56,6 +56,11 @@ class SessionRuntime:
     time_service: object | None = field(default=None)
     modifier_service: object | None = field(default=None)
     trade_service: object | None = field(default=None)
+    movement_service: object | None = field(default=None)
+    clothing_service: object | None = field(default=None)
+
+    # Per-turn context holder set by TurnManager
+    current_context: object | None = field(default=None, repr=False)
 
     def __post_init__(self) -> None:
         self.logger = setup_session_logger(self.session_id)

@@ -1,23 +1,24 @@
-fastapi==0.119.0
-uvicorn[standard]==0.37.0
-pydantic==2.12.0
-pydantic-settings==2.11.0
+fastapi
+uvicorn[standard]
+pydantic
+pydantic-settings
 #sqlalchemy==2.0.44
 #alembic==1.16.5
 #asyncpg==0.30.0
 #redis==6.4.0
-httpx==0.28.1
-pyyaml==6.0.3
-python-multipart==0.0.20
-python-jose[cryptography]==3.5.0
-passlib[bcrypt]==1.7.4
-python-dotenv==1.1.1
+httpx
+pyyaml
+python-multipart
+python-jose[cryptography]
+passlib[bcrypt]
+python-dotenv
 #pydevd-pycharm
 
 # Testing requirements for PlotPlay
 pytest>=7.4.0
-pytest-asyncio>=0.21.0
-pytest-mock>=3.11.0
-pytest-cov>=4.1.0
-pytest-timeout>=2.1.0
-pytest-xdist>=3.3.0  # For parallel test execution
+pytest-sugar
+pytest-asyncio
+pytest-mock
+pytest-cov
+pytest-timeout
+pytest-xdist  # For parallel test execution

@@ -23,11 +23,11 @@ def test_dsl_functions_has_and_discovery(fixture_loader):
     evaluator = state_manager.create_evaluator()
 
     # Player starts without map (it is added via intro on_enter after start)
-    assert evaluator.evaluate("has('player','map')") is False
+    assert evaluator.evaluate('has("player","map")') is False
     # Quad is discovered at start, cafe/library are gated
-    assert evaluator.evaluate("discovered('quad')") is True
-    assert evaluator.evaluate("discovered('cafe')") is False
-    assert evaluator.evaluate("discovered('library')") is False
+    assert evaluator.evaluate('discovered("quad")') is True
+    assert evaluator.evaluate('discovered("cafe")') is False
+    assert evaluator.evaluate('discovered("library")') is False
 
 
 def test_dsl_clothing_and_unlock_helpers(fixture_loader):
@@ -40,10 +40,16 @@ def test_dsl_clothing_and_unlock_helpers(fixture_loader):
     assert evaluator.evaluate("unlocked('ending','demo_complete')") is False
 
 
-@pytest.mark.skip(reason="rand() determinism and function coverage to be finalized with runtime RNG hook")
 def test_dsl_rand_probability(fixture_loader):
     """Verify Dsl rand probability."""
     game = fixture_loader.load_game("checklist_demo")
     state_manager = StateManager(game)
+    # Seed RNG for determinism
+    state_manager.state.rng_seed = 1
     evaluator = state_manager.create_evaluator()
     assert evaluator.evaluate("rand(0.0)") is False
+    assert evaluator.evaluate("rand(1.0)") is True
+    # With seed=1 the first random() call is ~0.134 -> should pass p=0.5
+    assert evaluator.evaluate("rand(0.5)") is True
+    assert evaluator.evaluate("rand(-1)") is False
+    assert evaluator.evaluate("rand('bad')") is False

@@ -14,22 +14,21 @@ def test_discovery_rules_defined(fixture_loader):
 
 
 @pytest.mark.asyncio
-async def test_movement_choice_includes_direction(started_fixture_engine):
+async def test_movement_choice_includes_direction(fixture_engine_factory):
     """Verify Movement choice includes direction."""
-    _, initial = started_fixture_engine
+    engine = fixture_engine_factory(game_id="time_cases")
+    initial = await engine.start()
     movement_choice = next(choice for choice in initial.choices if choice["type"] == "movement")
     assert "metadata" in movement_choice
     assert movement_choice["metadata"].get("direction") is not None
 
 
 @pytest.mark.asyncio
-async def test_zone_travel_and_discovery_progression(started_fixture_engine):
+async def test_zone_travel_and_discovery_progression(fixture_engine_factory):
     """Verify Zone travel and discovery progression."""
-    engine, initial = started_fixture_engine
-    greet = next(choice for choice in initial.choices if choice["id"] == "greet_alex")
-    await engine.process_action(PlayerAction(action_type="choice", choice_id=greet["id"]))
-    hub_turn = await engine.process_action(PlayerAction(action_type="do", action_text="Look around the hub"))
-    movement_choice = next(choice for choice in hub_turn.choices if choice["type"] == "movement")
+    engine = fixture_engine_factory(game_id="time_cases")
+    initial = await engine.start()
+    movement_choice = next(choice for choice in initial.choices if choice["type"] == "movement")
     await engine.process_action(PlayerAction(action_type="choice", choice_id=movement_choice["id"]))
     state = engine.runtime.state_manager.state
-    assert "cafe" in state.discovered_locations
+    assert "loc_b" in state.discovered_locations

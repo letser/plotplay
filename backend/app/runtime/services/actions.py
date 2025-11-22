@@ -29,6 +29,13 @@ class ActionService:
             if not action.item_id:
                 raise ValueError("use action requires item_id")
             self._handle_use_item(action.item_id)
+        elif action.action_type == "shop_buy":
+            self._handle_shop_buy(action)
+        elif action.action_type == "shop_sell":
+            self._handle_shop_sell(action)
+        elif action.action_type == "do":
+            # For side-effect-only turns, reevaluate gates after context is created.
+            return
         elif action.action_type == "give":
             if not action.item_id or not action.target:
                 raise ValueError("give action requires item_id and target")
@@ -109,5 +116,55 @@ class ActionService:
         if not self.inventory:
             raise RuntimeError("Inventory service not available")
         hooks = self.inventory.give_item("player", target, item_id)
+        if hooks:
+            self.effect_resolver.apply_effects(hooks)
+
+    def _handle_shop_buy(self, action) -> None:
+        if not self.trade:
+            raise ValueError("Trade service not available for shop_buy")
+        source = None
+        count = 1
+        if getattr(action, "extra", None):
+            source = action.extra.get("source")
+            count = action.extra.get("count", 1)
+        hooks = self.trade.purchase(
+            type(
+                "PurchaseProxy",
+                (),
+                {
+                    "target": action.target or "player",
+                    "source": source or self.runtime.state_manager.state.current_location,
+                    "item_type": self.inventory.get_item_type(action.item_id) if self.inventory else "item",
+                    "item": action.item_id,
+                    "count": count,
+                    "price": None,
+                },
+            )
+        )
+        if hooks:
+            self.effect_resolver.apply_effects(hooks)
+
+    def _handle_shop_sell(self, action) -> None:
+        if not self.trade:
+            raise ValueError("Trade service not available for shop_sell")
+        source = None
+        count = 1
+        if getattr(action, "extra", None):
+            source = action.extra.get("source")
+            count = action.extra.get("count", 1)
+        hooks = self.trade.sell(
+            type(
+                "SellProxy",
+                (),
+                {
+                    "source": source or "player",
+                    "target": action.target or self.runtime.state_manager.state.current_location,
+                    "item_type": self.inventory.get_item_type(action.item_id) if self.inventory else "item",
+                    "item": action.item_id,
+                    "count": count,
+                    "price": None,
+                },
+            )
+        )
         if hooks:
             self.effect_resolver.apply_effects(hooks)

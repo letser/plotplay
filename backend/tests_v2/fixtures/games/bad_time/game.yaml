@@ -1,0 +1,60 @@
+meta:
+  id: "bad_time"
+  title: "Bad Time"
+  version: "0.0.1"
+  authors: ["Test"]
+
+start:
+  location: "loc1"
+  node: "node_a"
+  day: 1
+  time: null
+
+time:
+  week_days: [mon, tue, wed, thu, fri]
+  start_day: mon
+  slots_enabled: true
+  slots: [morning, afternoon]
+  slot_windows:
+    morning: { start: "08:00", end: "10:00" }
+    afternoon: { start: "09:00", end: "11:00" }
+  categories:
+    standard: -5
+  defaults:
+    conversation: "standard"
+    choice: "standard"
+    movement: "standard"
+    default: "standard"
+    cap_per_visit: 60
+
+movement:
+  base_unit: "minutes"
+  methods:
+    - name: "walk"
+      category: "standard"
+
+zones:
+  - id: "zone1"
+    name: "Zone 1"
+    locations:
+      - id: "loc1"
+        name: "Loc1"
+
+characters:
+  - id: "player"
+    name: "Player"
+    age: 18
+    gender: "unspecified"
+    pronouns: ["they"]
+
+nodes:
+  - id: "node_a"
+    type: "scene"
+    title: "Node A"
+    choices:
+      - id: "finish"
+        prompt: "Finish"
+        time_category: "standard"
+        on_select:
+          - type: "advance_time"
+            minutes: 1

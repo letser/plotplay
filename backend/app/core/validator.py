@@ -221,6 +221,7 @@ class GameValidator:
         """Validates the 'start' block of the game manifest."""
         start_node = self.game.start.node
         start_location = self.game.start.location
+        start_time = self.game.start.time
 
         if start_node not in self.node_ids:
             self.errors.append(
@@ -243,10 +244,16 @@ class GameValidator:
             )
 
         # Validate time configuration
-        if not self.game.start.time:
+        if not start_time:
             self.errors.append(
                 "[Start] > start.time must be defined (HH:MM format)."
             )
+        else:
+            minutes = self._parse_time_minutes(str(start_time))
+            if minutes is None:
+                self.errors.append(
+                    "[Start] > start.time must be within 00:00-23:59."
+                )
 
     def _validate_time(self) -> None:
         """Validates time system configuration."""
@@ -294,6 +301,44 @@ class GameValidator:
                 self.errors.append(
                     f"[Movement] > Method '{method.name}' references undefined category '{method.category}'."
                 )
+
+        # Validate week/day configuration
+        if time_config.week_days:
+            if len(time_config.week_days) != 7:
+                self.errors.append("[Time] > week_days must contain exactly 7 entries.")
+            if time_config.start_day and time_config.start_day not in time_config.week_days:
+                self.errors.append(
+                    f"[Time] > start_day '{time_config.start_day}' must be one of week_days."
+                )
+
+        # Validate slot windows are non-overlapping and well-formed
+        if time_config.slot_windows:
+            windows: list[tuple[str, int, int]] = []
+            for slot, window in time_config.slot_windows.items():
+                start_min = self._parse_time_minutes(window.start)
+                end_min = self._parse_time_minutes(window.end)
+                if start_min is None or end_min is None:
+                    self.errors.append(
+                        f"[Time] > slot_windows[{slot}] has invalid HH:MM values."
+                    )
+                    continue
+
+                segments = self._expand_slot_window(start_min, end_min)
+                for seg_start, seg_end in segments:
+                    if seg_end <= seg_start:
+                        self.errors.append(
+                            f"[Time] > slot_windows[{slot}] end must be after start."
+                        )
+                    windows.append((slot, seg_start, seg_end))
+
+            for i in range(len(windows)):
+                slot_i, start_i, end_i = windows[i]
+                for j in range(i + 1, len(windows)):
+                    slot_j, start_j, end_j = windows[j]
+                    if self._segments_overlap(start_i, end_i, start_j, end_j):
+                        self.errors.append(
+                            f"[Time] > slot_windows '{slot_i}' overlaps with '{slot_j}'."
+                        )
 
     def _validate_zones_and_locations(self) -> None:
         """Validate zone-level and location-level references."""
@@ -603,19 +648,7 @@ class GameValidator:
         to_visit = [self.game.start.node]
 
         # Extract goto effects from all nodes
-        node_edges: dict[str, set[str]] = defaultdict(set)
-        for node in self.game.nodes:
-            targets = self._extract_goto_targets(node.on_enter)
-            targets.update(self._extract_goto_targets(node.on_exit))
-
-            for choice in node.choices or []:
-                targets.update(self._extract_goto_targets(choice.on_select))
-            for choice in node.dynamic_choices or []:
-                targets.update(self._extract_goto_targets(choice.on_select))
-            for trigger in node.triggers or []:
-                targets.update(self._extract_goto_targets(trigger.on_select))
-
-            node_edges[node.id].update(targets)
+        node_edges = self._build_node_graph()
 
         # BFS to find all reachable nodes
         while to_visit:
@@ -632,6 +665,73 @@ class GameValidator:
                     f"[Node: {node.id}] > Node is unreachable from start node '{self.game.start.node}'."
                 )
 
+        self._detect_node_cycles(node_edges)
+
+    def _build_node_graph(self) -> dict[str, set[str]]:
+        """Collect goto edges between nodes for reachability and cycle checks."""
+        node_edges: dict[str, set[str]] = defaultdict(set)
+        for node in self.game.nodes:
+            targets = self._extract_goto_targets(node.on_enter)
+            targets.update(self._extract_goto_targets(node.on_exit))
+
+            for choice in node.choices or []:
+                targets.update(self._extract_goto_targets(choice.on_select))
+            for choice in node.dynamic_choices or []:
+                targets.update(self._extract_goto_targets(choice.on_select))
+            for trigger in node.triggers or []:
+                targets.update(self._extract_goto_targets(trigger.on_select))
+
+            node_edges[node.id].update(targets)
+        return node_edges
+
+    def _detect_node_cycles(self, node_edges: dict[str, set[str]]) -> None:
+        """Warn when a strongly connected component has no exit to other nodes."""
+        index = 0
+        indices: dict[str, int] = {}
+        low_links: dict[str, int] = {}
+        stack: list[str] = []
+        on_stack: set[str] = set()
+        cycles: list[set[str]] = []
+
+        def strong_connect(node_id: str) -> None:
+            nonlocal index
+            indices[node_id] = index
+            low_links[node_id] = index
+            index += 1
+            stack.append(node_id)
+            on_stack.add(node_id)
+
+            for target in node_edges.get(node_id, set()):
+                if target not in indices:
+                    strong_connect(target)
+                    low_links[node_id] = min(low_links[node_id], low_links[target])
+                elif target in on_stack:
+                    low_links[node_id] = min(low_links[node_id], indices[target])
+
+            if low_links[node_id] == indices[node_id]:
+                _component: set[str] = set()
+                while True:
+                    popped = stack.pop()
+                    on_stack.remove(popped)
+                    _component.add(popped)
+                    if popped == node_id:
+                        break
+                if len(_component) > 1 or (len(_component) == 1 and node_id in node_edges.get(node_id, set())):
+                    cycles.append(_component)
+
+        for node in self.node_ids:
+            if node not in indices:
+                strong_connect(node)
+
+        for component in cycles:
+            outgoing = set()
+            for node in component:
+                outgoing.update(node_edges.get(node, set()))
+            outgoing -= component
+            if not outgoing and not (component & self.ending_node_ids):
+                self.warnings.append(
+                    f"[Nodes] > Circular transitions detected with no exit: {sorted(component)}."
+                )
     def _validate_zone_connectivity(self) -> None:
         """Warn if zones are completely isolated (no connections)."""
         if len(self.zone_ids) <= 1:
@@ -1006,6 +1106,37 @@ class GameValidator:
     # --------------------------------------------------------------------- #
     # Supporting utilities
     # --------------------------------------------------------------------- #
+
+    @staticmethod
+    def _parse_time_minutes(hhmm: str | None) -> int | None:
+        """Parse HH:MM strings into minutes since midnight; returns None if invalid."""
+        if not hhmm or not isinstance(hhmm, str):
+            return None
+        try:
+            parts = hhmm.split(":")
+            if len(parts) != 2:
+                return None
+            hour, minute = int(parts[0]), int(parts[1])
+            if hour < 0 or hour > 23 or minute < 0 or minute > 59:
+                return None
+            return hour * 60 + minute
+        except Exception:
+            return None
+
+    @staticmethod
+    def _expand_slot_window(start_min: int, end_min: int) -> list[tuple[int, int]]:
+        """
+        Expand a slot window into one or two segments to handle wrap-around windows (e.g., 22:00-05:59).
+        Returns a list of (start, end) minute tuples with end exclusive.
+        """
+        if end_min >= start_min:
+            return [(start_min, end_min)]
+        return [(start_min, 24 * 60), (0, end_min)]
+
+    @staticmethod
+    def _segments_overlap(a_start: int, a_end: int, b_start: int, b_end: int) -> bool:
+        """Return True if two [start, end) segments overlap."""
+        return max(a_start, b_start) < min(a_end, b_end)
 
     def _check_duplicates(self, values: Iterable[str], context: str) -> None:
         """Detect duplicates in a list of identifiers."""

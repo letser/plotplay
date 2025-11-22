@@ -1,0 +1,240 @@
+meta:
+  id: "time_cases"
+  title: "Time Cases Fixture"
+  version: "0.0.1"
+  authors: ["Test Suite"]
+
+start:
+  location: "loc_a"
+  node: "priority_tests"
+  day: 1
+  time: "08:00"
+
+time:
+  slots_enabled: true
+  slots: ["morning", "afternoon"]
+  slot_windows:
+    morning: { start: "06:00", end: "11:59" }
+    afternoon: { start: "12:00", end: "17:59" }
+  categories:
+    instant: 0
+    trivial: 2
+    quick: 5
+    standard: 10
+    significant: 30
+    major: 60
+  defaults:
+    conversation: "standard"
+    choice: "quick"
+    movement: "standard"
+    default: "standard"
+    cap_per_visit: 20
+  day_end_effects:
+    - type: "meter_change"
+      target: "player"
+      meter: "energy"
+      op: "subtract"
+      value: 2
+  day_start_effects:
+    - type: "meter_change"
+      target: "player"
+      meter: "energy"
+      op: "add"
+      value: 3
+
+movement:
+  base_unit: "minutes"
+  use_entry_exit: false
+  methods:
+    - name: "walk"
+      category: "quick"
+      active: true
+    - name: "run"
+      time_cost: 20
+      active: true
+    - name: "bike"
+      speed: 30
+      active: true
+    - name: "bus"
+      category: "significant"
+      active: false
+
+meters:
+  player:
+    energy:
+      min: 0
+      max: 100
+      default: 50
+      visible: true
+      decay_per_slot: -1
+      decay_per_day: -5
+
+characters:
+  - id: "player"
+    name: "Player"
+    age: 21
+    gender: "unspecified"
+    pronouns: ["they"]
+
+zones:
+  - id: "zone_a"
+    name: "Zone A"
+    time_category: "standard"
+    connections:
+      - to: ["zone_b"]
+        methods: ["walk", "run", "bike", "bus"]
+        distance: 2.5
+    locations:
+      - id: "loc_a"
+        name: "Loc A"
+        access:
+          discovered: true
+        connections:
+          - to: "loc_b"
+            direction: "e"
+      - id: "loc_b"
+        name: "Loc B"
+        access:
+          discovered: true
+  - id: "zone_b"
+    name: "Zone B"
+    time_category: "standard"
+    locations:
+      - id: "loc_c"
+        name: "Loc C"
+        access:
+          discovered: true
+
+modifiers:
+  library:
+    - id: "quick_mod"
+      name: "Quick"
+      duration: 5
+      time_multiplier: 0.5
+      when: "false"
+    - id: "slow_mod"
+      name: "Slow"
+      duration: 5
+      time_multiplier: 1.5
+      when: "false"
+
+flags:
+  met_alex:
+    type: "bool"
+    default: false
+
+nodes:
+  - id: "priority_tests"
+    type: "scene"
+    title: "Priority Tests"
+    choices:
+      - id: "explicit_cost"
+        prompt: "Spend explicit time"
+        time_cost: 20
+        on_select:
+          - type: "flag_set"
+            key: "met_alex"
+            value: true
+      - id: "category_major"
+        prompt: "Spend major category time"
+        time_category: "major"
+        on_select:
+          - type: "meter_change"
+            target: "player"
+            meter: "energy"
+            op: "add"
+            value: 0
+      - id: "apply_modifiers"
+        prompt: "Apply time modifiers"
+        on_select:
+          - type: "apply_modifier"
+            target: "player"
+            modifier_id: "quick_mod"
+          - type: "apply_modifier"
+            target: "player"
+            modifier_id: "slow_mod"
+      - id: "goto_behavior"
+        prompt: "Go to behavior node"
+        on_select:
+          - type: "goto"
+            node: "node_behavior"
+      - id: "travel_run"
+        prompt: "Run to Loc C"
+        time_category: "standard"
+        on_select:
+          - type: "travel_to"
+            location: "loc_c"
+            method: "run"
+      - id: "travel_bike"
+        prompt: "Bike to Loc C"
+        time_category: "standard"
+        on_select:
+          - type: "travel_to"
+            location: "loc_c"
+            method: "bike"
+      - id: "travel_walk"
+        prompt: "Walk to Loc C"
+        time_category: "standard"
+        on_select:
+          - type: "travel_to"
+            location: "loc_c"
+            method: "walk"
+      - id: "travel_bus"
+        prompt: "Bus to Loc C"
+        time_category: "standard"
+        on_select:
+          - type: "travel_to"
+            location: "loc_c"
+            method: "bus"
+      - id: "goto_cap"
+        prompt: "Go to cap node"
+        on_select:
+          - type: "goto"
+            node: "cap_node"
+
+  - id: "node_behavior"
+    type: "scene"
+    title: "Behavior Node"
+    time_behavior:
+      conversation: "instant"
+      choice: "quick"
+      default: "trivial"
+      movement: "trivial"
+      cap_per_visit: 5
+    choices:
+      - id: "finish_behavior"
+        prompt: "Finish behavior"
+        on_select:
+          - type: "meter_change"
+            target: "player"
+            meter: "energy"
+            op: "add"
+            value: 0
+
+  - id: "cap_node"
+    type: "scene"
+    title: "Cap Node"
+    choices:
+      - id: "spend_standard"
+        prompt: "Spend standard time"
+        time_category: "standard"
+        on_select:
+          - type: "meter_change"
+            target: "player"
+            meter: "energy"
+            op: "add"
+            value: 0
+      - id: "explicit_large"
+        prompt: "Spend explicit large time"
+        time_cost: 30
+        on_select:
+          - type: "meter_change"
+            target: "player"
+            meter: "energy"
+            op: "add"
+            value: 0
+      - id: "goto_behavior_from_cap"
+        prompt: "Go to behavior"
+        on_select:
+          - type: "goto"
+            node: "node_behavior"

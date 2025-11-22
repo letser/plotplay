@@ -1,0 +1,289 @@
+meta:
+  id: "modifier_auto"
+  title: "Modifier Auto Activation Fixture"
+  version: "0.0.1"
+  authors: ["Test Suite"]
+
+start:
+  location: "home"
+  node: "hub"
+  day: 1
+  time: "08:00"
+
+time:
+  slots_enabled: true
+  slots: ["morning", "afternoon", "night"]
+  slot_windows:
+    morning: { start: "06:00", end: "11:59" }
+    afternoon: { start: "12:00", end: "17:59" }
+    night: { start: "18:00", end: "23:59" }
+  categories:
+    instant: 0
+    quick: 5
+    standard: 10
+    long: 30
+  defaults:
+    conversation: "standard"
+    choice: "quick"
+    movement: "standard"
+    default: "standard"
+    cap_per_visit: 30
+
+movement:
+  base_unit: "minutes"
+  use_entry_exit: false
+  methods:
+    - name: "walk"
+      category: "standard"
+      active: true
+
+meters:
+  player:
+    energy:
+      min: 0
+      max: 100
+      default: 80
+      visible: true
+    focus:
+      min: 0
+      max: 100
+      default: 10
+      visible: true
+  template:
+    trust:
+      min: 0
+      max: 100
+      default: 60
+      visible: true
+
+flags:
+  block_flirt:
+    type: "bool"
+    default: false
+  force_help:
+    type: "bool"
+    default: false
+  limit_energy:
+    type: "bool"
+    default: false
+  night_active:
+    type: "bool"
+    default: false
+
+characters:
+  - id: "player"
+    name: "Player"
+    age: 21
+    gender: "unspecified"
+    pronouns: ["they"]
+  - id: "jamie"
+    name: "Jamie"
+    age: 22
+    gender: "nonbinary"
+    pronouns: ["they"]
+    gates:
+      - id: "flirt_gate"
+        when: "meters.jamie.trust >= 50"
+        acceptance: "Jamie flirts back."
+        refusal: "Jamie holds back."
+      - id: "help_gate"
+        when: "meters.jamie.trust >= 20"
+        acceptance: "Jamie agrees to help."
+
+zones:
+  - id: "residential"
+    name: "Residential"
+    time_category: "standard"
+    connections:
+      - to: ["campus"]
+        methods: ["walk"]
+        distance: 1
+    locations:
+      - id: "home"
+        name: "Home"
+        access:
+          discovered: true
+  - id: "campus"
+    name: "Campus"
+    time_category: "standard"
+    connections:
+      - to: ["residential"]
+        methods: ["walk"]
+        distance: 1
+    locations:
+      - id: "quad"
+        name: "Campus Quad"
+        access:
+          discovered: true
+
+modifiers:
+  stacking:
+    trust: "highest"
+  library:
+    - id: "night_owl"
+      when: "time.slot == \"night\" and \"{character}\" == \"player\""
+      on_enter:
+        - type: "flag_set"
+          key: "night_active"
+          value: true
+        - type: "meter_change"
+          target: "player"
+          meter: "focus"
+          op: "add"
+          value: 5
+      on_exit:
+        - type: "flag_set"
+          key: "night_active"
+          value: false
+    - id: "low_energy"
+      when_any:
+        - "meters.player.energy < 30"
+      duration: 45
+      on_enter:
+        - type: "meter_change"
+          target: "player"
+          meter: "focus"
+          op: "subtract"
+          value: 2
+      on_exit:
+        - type: "meter_change"
+          target: "player"
+          meter: "focus"
+          op: "add"
+          value: 2
+    - id: "campus_focus"
+      when_any:
+        - "location.zone == \"campus\""
+        - "location.id == \"quad\""
+      time_multiplier: 0.9
+    - id: "trust_guard"
+      group: "trust"
+      priority: 1
+      when: "meters.{character}.trust >= 50"
+    - id: "gate_blocker"
+      when: "flags.block_flirt"
+      disallow_gates: ["flirt_gate"]
+    - id: "gate_forcer"
+      when: "flags.force_help"
+      allow_gates: ["help_gate"]
+    - id: "clamp_energy"
+      when: "flags.limit_energy"
+      clamp_meters:
+        energy: { min: 10, max: 60 }
+    - id: "complex_mod"
+      when_all:
+        - "time.slot == \"night\""
+        - "location.zone == \"campus\""
+        - "meters.player.energy < 40"
+    - id: "manual_boost"
+      duration: 15
+      time_multiplier: 0.8
+
+nodes:
+  - id: "hub"
+    type: "scene"
+    title: "Home Hub"
+    choices:
+      - id: "lower_energy"
+        prompt: "Push yourself and get tired"
+        on_select:
+          - type: "meter_change"
+            target: "player"
+            meter: "energy"
+            op: "subtract"
+            value: 60
+      - id: "raise_energy"
+        prompt: "Rest and recover"
+        on_select:
+          - type: "meter_change"
+            target: "player"
+            meter: "energy"
+            op: "add"
+            value: 50
+      - id: "set_block"
+        prompt: "Feel awkward about flirting"
+        on_select:
+          - type: "flag_set"
+            key: "block_flirt"
+            value: true
+      - id: "clear_block"
+        prompt: "Relax about flirting"
+        on_select:
+          - type: "flag_set"
+            key: "block_flirt"
+            value: false
+      - id: "force_help"
+        prompt: "Ask for guaranteed help"
+        on_select:
+          - type: "flag_set"
+            key: "force_help"
+            value: true
+      - id: "clear_force"
+        prompt: "Stop forcing help"
+        on_select:
+          - type: "flag_set"
+            key: "force_help"
+            value: false
+      - id: "limit_on"
+        prompt: "Impose a limit on energy"
+        on_select:
+          - type: "flag_set"
+            key: "limit_energy"
+            value: true
+      - id: "limit_off"
+        prompt: "Remove energy limit"
+        on_select:
+          - type: "flag_set"
+            key: "limit_energy"
+            value: false
+      - id: "trust_down"
+        prompt: "Betray Jamie's trust"
+        on_select:
+          - type: "meter_change"
+            target: "jamie"
+            meter: "trust"
+            op: "subtract"
+            value: 50
+      - id: "trust_up"
+        prompt: "Earn Jamie's trust"
+        on_select:
+          - type: "meter_change"
+            target: "jamie"
+            meter: "trust"
+            op: "add"
+            value: 50
+      - id: "apply_manual"
+        prompt: "Drink an espresso"
+        on_select:
+          - type: "apply_modifier"
+            target: "player"
+            modifier_id: "manual_boost"
+            duration: 15
+      - id: "go_campus"
+        prompt: "Head to campus"
+        on_select:
+          - type: "travel_to"
+            location: "quad"
+            method: "walk"
+      - id: "go_home"
+        prompt: "Return home"
+        on_select:
+          - type: "travel_to"
+            location: "home"
+            method: "walk"
+      - id: "wait_long"
+        prompt: "Pass a lot of time"
+        time_cost: 720
+        on_select:
+          - type: "flag_set"
+            key: "night_active"
+            value: false
+      - id: "mod_choice"
+        prompt: "Reflect on tiredness"
+        when: "\"low_energy\" in modifiers.player"
+        on_select:
+          - type: "meter_change"
+            target: "player"
+            meter: "focus"
+            op: "add"
+            value: 1

@@ -12,13 +12,18 @@ def test_arc_history_defined(fixture_loader):
     assert len(arc.stages) >= 2
 
 
-@pytest.mark.skip(reason="Runtime arc history/milestone tracking assertions pending.")
 @pytest.mark.asyncio
 async def test_arc_milestones_recorded(started_fixture_engine):
     """
     Spec coverage: on_enter/on_exit effects, stage progression, history list.
     """
-    engine, _ = started_fixture_engine
-    await engine.process_action(PlayerAction(action_type="do", action_text="Progress arc"))
+    engine, initial_result = started_fixture_engine
+    greet_choice = next(choice for choice in initial_result.choices if choice["id"] == "greet_alex")
+
+    result = await engine.process_action(PlayerAction(action_type="choice", choice_id=greet_choice["id"]))
     arc_state = engine.runtime.state_manager.state.arcs.get("friendship")
-    _ = arc_state.history
+
+    assert arc_state is not None
+    assert arc_state.stage == "met"
+    assert "met" in (arc_state.history or [])
+    assert "met" in result.milestones_reached

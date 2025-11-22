@@ -48,6 +48,12 @@ class StateSummaryService:
             if active_mods:
                 modifiers[char_id] = [mod.get("id") for mod in active_mods if mod.get("id")]
 
+        gates_snapshot: dict[str, dict] = {}
+        for char_id, char_state in state.characters.items():
+            gates_data = getattr(char_state, "gates_full", None) or getattr(char_state, "gates", None)
+            if gates_data:
+                gates_snapshot[char_id] = dict(gates_data)
+
         inventory_snapshot: dict[str, dict] = {}
         for char_id, char_state in state.characters.items():
             inventory_snapshot[char_id] = dict(char_state.inventory.items)
@@ -74,6 +80,7 @@ class StateSummaryService:
             },
             "flags": flags,
             "modifiers": modifiers,
+            "gates": gates_snapshot,
             "inventory": inventory_snapshot,
             "discovered": {
                 "zones": list(state.discovered_zones),
@@ -81,11 +88,16 @@ class StateSummaryService:
             },
         }
 
-        clothing_snapshot = {
-            char_id: snapshot
-            for char_id, snapshot in state.clothing_states.items()
-            if snapshot
-        }
+        clothing_snapshot = {}
+        for char_id, snapshot in state.clothing_states.items():
+            if not snapshot:
+                continue
+            char_state = state.characters.get(char_id)
+            clothing_snapshot[char_id] = {
+                "outfit": char_state.clothing.outfit if char_state else None,
+                "items": dict(getattr(char_state.clothing, "items", {})) if char_state else {},
+                **snapshot,
+            }
         if clothing_snapshot:
             summary["clothing"] = clothing_snapshot
 

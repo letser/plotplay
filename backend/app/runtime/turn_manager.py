@@ -87,6 +87,8 @@ class TurnManager:
 
         # Execute deterministic action effects before events/AI.
         self.action_service.execute(ctx, action)
+        # Re-evaluate gates after state changes so DSL context reflects new values.
+        self._evaluate_gates(ctx)
 
         event_result = self.event_pipeline.process_events(ctx)
         ctx.event_choices.extend(event_result.choices)
@@ -203,6 +205,7 @@ class TurnManager:
             char_state = self.runtime.state_manager.state.characters.get(character.id)
             if char_state is not None:
                 char_state.gates = {gate_id: result for gate_id, result in gate_results.items() if result}
+                char_state.gates_full = gate_results
 
         ctx.condition_context["gates"] = active_gates
         ctx.active_gates = active_gates
@@ -265,7 +268,7 @@ class TurnManager:
         if not self.time_service:
             return
         minutes = self._calculate_time_minutes(ctx)
-        info = self.time_service.advance_minutes(minutes)
+        info = self.time_service.advance_minutes(minutes, apply_decay=False)
         ctx.time_advanced_minutes += info["minutes"]
         ctx.day_advanced = ctx.day_advanced or info.get("day_advanced", False)
         ctx.slot_advanced = ctx.slot_advanced or info.get("slot_advanced", False)
@@ -285,7 +288,7 @@ class TurnManager:
         category = ctx.time_category_resolved or fallback_category
 
         minutes = ctx.time_explicit_minutes if ctx.time_explicit_minutes is not None else self._category_to_minutes(category)
-        minutes = self._apply_time_modifiers(minutes)
+        minutes = self._apply_time_modifiers(minutes, ctx)
 
         if minutes <= 0:
             return 0
@@ -308,13 +311,14 @@ class TurnManager:
             return None
         return int(cap)
 
-    def _apply_time_modifiers(self, minutes: int) -> int:
+    def _apply_time_modifiers(self, minutes: int, ctx: TurnContext | None = None) -> int:
         if minutes <= 0 or not self.modifier_service:
             return max(0, minutes)
         state = self.runtime.state_manager.state
         total_multiplier = 1.0
         library = getattr(self.modifier_service, "library", {})
-        for active_list in getattr(state, "modifiers", {}).values():
+        baseline_mods = ctx.snapshot_state.get("modifiers", {}) if ctx else getattr(state, "modifiers", {})
+        for active_list in baseline_mods.values():
             for mod in active_list or []:
                 mod_def = library.get(mod.get("id"))
                 if mod_def and getattr(mod_def, "time_multiplier", None):
@@ -666,6 +670,7 @@ class TurnManager:
                 if meter_id in meters_state:
                     meter_parts.append(f"{meter_id}: {meters_state[meter_id]}/{meter_def.max}")
             gates = ctx.active_gates.get(char_id, {})
+            gate_text = "; ".join(f"{gate_id}:{'on' if val else 'off'}" for gate_id, val in gates.items())
             mods = [m.get("id") for m in state.modifiers.get(char_id, []) if m.get("id")]
             clothing = state.clothing_states.get(char_id, {})
             cards.append(
@@ -673,7 +678,7 @@ class TurnManager:
                 f"Appearance: {getattr(char_def, 'appearance', '')}\n"
                 f"Personality: {getattr(char_def, 'personality', '')}\n"
                 f"Meters: {', '.join(meter_parts)}\n"
-                f"Gates: {gates}\n"
+                f"Gates: {gate_text}\n"
                 f"Modifiers: {mods}\n"
                 f"Clothing: {clothing}"
             )

@@ -1,0 +1,98 @@
+meta:
+  id: "gate_cases"
+  title: "Gate Cases Fixture"
+  version: "0.0.1"
+  authors: ["Test Suite"]
+
+rng_seed: 7
+
+start:
+  location: "home"
+  node: "hub"
+  day: 1
+  time: "08:00"
+
+time:
+  slots_enabled: true
+  slots: ["morning", "evening"]
+  slot_windows:
+    morning: { start: "06:00", end: "11:59" }
+    evening: { start: "18:00", end: "23:59" }
+  categories:
+    quick: 5
+    standard: 10
+  defaults:
+    conversation: "standard"
+    choice: "quick"
+    movement: "quick"
+    default: "standard"
+    cap_per_visit: 30
+
+meters:
+  player:
+    trust:
+      min: 0
+      max: 100
+      default: 10
+      visible: true
+
+flags:
+  greet_done:
+    type: "bool"
+    default: false
+  gate_trigger:
+    type: "bool"
+    default: false
+
+characters:
+  - id: "player"
+    name: "Player"
+    age: 21
+    gender: "unspecified"
+    pronouns: ["they"]
+  - id: "sam"
+    name: "Sam"
+    age: 22
+    gender: "nonbinary"
+    pronouns: ["they"]
+    gates:
+      - id: "chat_gate"
+        when: "flags.greet_done == true"
+        acceptance: "Sam is ready to chat."
+        refusal: "Sam is not in the mood."
+      - id: "trust_gate"
+        when: "meters.player.trust >= 20"
+        acceptance: "Sam trusts you now."
+        refusal: "Sam doesn't trust you yet."
+
+zones:
+  - id: "zone_a"
+    name: "Zone A"
+    locations:
+      - id: "home"
+        name: "Home"
+        access:
+          discovered: true
+
+nodes:
+  - id: "hub"
+    type: "scene"
+    title: "Gate Hub"
+    characters_present: ["sam"]
+    choices:
+      - id: "say_hi"
+        prompt: "Say hi to Sam"
+        time_category: "quick"
+        on_select:
+          - type: "flag_set"
+            key: "greet_done"
+            value: true
+      - id: "raise_trust"
+        prompt: "Be supportive"
+        time_category: "quick"
+        on_select:
+          - type: "meter_change"
+            target: "player"
+            meter: "trust"
+            op: "add"
+            value: 15

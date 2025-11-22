@@ -103,6 +103,54 @@ async def started_fixture_engine(fixture_engine_factory):
 
 
 @pytest.fixture
+def fixture_game(fixture_loader: GameLoader):
+    """Loaded modifier_auto fixture game definition."""
+    game_def = fixture_loader.load_game("modifier_auto")
+    GameValidator(game_def).validate()
+    return game_def
+
+
+@pytest.fixture
+async def started_mod_engine(fixture_engine_factory):
+    """Start the modifier_auto fixture engine."""
+    engine = fixture_engine_factory(game_id="modifier_auto", session_id="modifier-session")
+    initial_result = await engine.start()
+    return engine, initial_result
+
+
+@pytest.fixture
+def fixture_event_game(fixture_loader: GameLoader):
+    """Loaded event_cases fixture game definition."""
+    game_def = fixture_loader.load_game("event_cases")
+    GameValidator(game_def).validate()
+    return game_def
+
+
+@pytest.fixture
+def fixture_gate_game(fixture_loader: GameLoader):
+    """Loaded gate_cases fixture game definition."""
+    game_def = fixture_loader.load_game("gate_cases")
+    GameValidator(game_def).validate()
+    return game_def
+
+
+@pytest.fixture
+async def started_event_engine(fixture_engine_factory):
+    """Start the event_cases fixture engine."""
+    engine = fixture_engine_factory(game_id="event_cases", session_id="event-session")
+    initial_result = await engine.start()
+    return engine, initial_result
+
+
+@pytest.fixture
+async def started_gate_engine(fixture_engine_factory):
+    """Start the gate_cases fixture engine."""
+    engine = fixture_engine_factory(game_id="gate_cases", session_id="gate-session")
+    initial_result = await engine.start()
+    return engine, initial_result
+
+
+@pytest.fixture
 def player_action():
     """Helper to construct PlayerAction instances with sensible defaults."""
 

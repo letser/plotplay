@@ -49,6 +49,7 @@ class PlotPlayEngine:
         self.trade_service = TradeService(self.runtime)
         self.modifier_service = ModifierService(self.runtime)
         self.clothing_service = ClothingService(self.runtime)
+        self.clothing_service.inventory = self.inventory_service
         self.effect_resolver = EffectResolver(
             runtime=self.runtime,
             inventory=self.inventory_service,
@@ -65,12 +66,14 @@ class PlotPlayEngine:
         # expose for other services
         self.runtime.inventory_service = self.inventory_service
         self.runtime.effect_resolver = self.effect_resolver
+        self.runtime.movement_service = self.movement_service
         self.runtime.choice_builder = self.choice_builder
         self.runtime.state_summary_service = self.state_summary
         self.runtime.discovery_service = self.discovery_service
         self.runtime.time_service = self.time_service
         self.runtime.modifier_service = self.modifier_service
         self.runtime.trade_service = self.trade_service
+        self.runtime.clothing_service = self.clothing_service
 
         self.turn_manager = TurnManager(self.runtime)
 

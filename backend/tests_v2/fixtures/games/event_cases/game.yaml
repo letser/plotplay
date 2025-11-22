@@ -1,0 +1,186 @@
+meta:
+  id: "event_cases"
+  title: "Event Cases Fixture"
+  version: "0.0.1"
+  authors: ["Test Suite"]
+
+rng_seed: 2
+
+start:
+  location: "home"
+  node: "hub"
+  day: 1
+  time: "08:00"
+
+time:
+  slots_enabled: true
+  slots: ["morning", "afternoon", "night"]
+  slot_windows:
+    morning: { start: "06:00", end: "11:59" }
+    afternoon: { start: "12:00", end: "17:59" }
+    night: { start: "18:00", end: "23:59" }
+  categories:
+    quick: 5
+    standard: 10
+  defaults:
+    conversation: "standard"
+    choice: "quick"
+    movement: "quick"
+    default: "standard"
+    cap_per_visit: 30
+
+movement:
+  base_unit: "minutes"
+  use_entry_exit: false
+  methods:
+    - name: "walk"
+      category: "quick"
+      active: true
+
+meters:
+  player:
+    energy:
+      min: 0
+      max: 100
+      default: 50
+      visible: true
+
+flags:
+  trigger_event:
+    type: "bool"
+    default: false
+  conditional_fired:
+    type: "bool"
+    default: false
+  scheduled_fired:
+    type: "bool"
+    default: false
+  random_low_fired:
+    type: "bool"
+    default: false
+  random_high_fired:
+    type: "bool"
+    default: false
+
+characters:
+  - id: "player"
+    name: "Player"
+    age: 21
+    gender: "unspecified"
+    pronouns: ["they"]
+
+zones:
+  - id: "zone_a"
+    name: "Zone A"
+    time_category: "standard"
+    locations:
+      - id: "home"
+        name: "Home"
+        access:
+          discovered: true
+
+nodes:
+  - id: "hub"
+    type: "scene"
+    title: "Event Hub"
+    beats:
+      - "You wait to see what happens."
+    choices:
+      - id: "set_trigger"
+        prompt: "Set conditional trigger"
+        time_cost: 0
+        on_select:
+          - type: "flag_set"
+            key: "trigger_event"
+            value: true
+      - id: "clear_trigger"
+        prompt: "Clear conditional trigger"
+        time_cost: 0
+        on_select:
+          - type: "flag_set"
+            key: "trigger_event"
+            value: false
+      - id: "skip_to_night"
+        prompt: "Wait until night"
+        time_cost: 600
+        on_select:
+          - type: "meter_change"
+            target: "player"
+            meter: "energy"
+            op: "add"
+            value: 0
+      - id: "idle"
+        prompt: "Idle"
+        time_cost: 0
+        on_select:
+          - type: "meter_change"
+            target: "player"
+            meter: "energy"
+            op: "add"
+            value: 0
+
+events:
+  - id: "random_low"
+    title: "Random Low"
+    type: "event"
+    probability: 10
+    cooldown: 2
+    beats:
+      - "A minor random event occurs."
+    on_enter:
+      - type: "flag_set"
+        key: "random_low_fired"
+        value: true
+      - type: "meter_change"
+        target: "player"
+        meter: "energy"
+        op: "subtract"
+        value: 1
+    choices:
+      - id: "event_wave"
+        prompt: "Wave at the surprise"
+        on_select:
+          - type: "meter_change"
+            target: "player"
+            meter: "energy"
+            op: "subtract"
+            value: 1
+
+  - id: "random_high"
+    title: "Random High"
+    type: "event"
+    probability: 30
+    beats:
+      - "A significant random event happens."
+    on_enter:
+      - type: "flag_set"
+        key: "random_high_fired"
+        value: true
+      - type: "meter_change"
+        target: "player"
+        meter: "energy"
+        op: "add"
+        value: 2
+
+  - id: "conditional_event"
+    title: "Conditional Event"
+    type: "event"
+    when: "flags.trigger_event == true"
+    cooldown: 1
+    beats:
+      - "The conditional event fires."
+    on_enter:
+      - type: "flag_set"
+        key: "conditional_fired"
+        value: true
+
+  - id: "scheduled_event"
+    title: "Scheduled Event"
+    type: "event"
+    when: "time.slot == \"night\""
+    beats:
+      - "The night event arrives."
+    on_enter:
+      - type: "flag_set"
+        key: "scheduled_fired"
+        value: true

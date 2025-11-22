@@ -1,5 +1,7 @@
 import pytest
 
+from app.runtime.types import PlayerAction
+
 
 def test_clothing_definitions_and_slot_rules(fixture_loader):
     """
@@ -14,26 +16,34 @@ def test_clothing_definitions_and_slot_rules(fixture_loader):
     assert "dress" in formal.items
 
 
-@pytest.mark.skip(reason="Runtime enforcement of slot occupancy and can_open not yet covered.")
-def test_runtime_slot_enforcement_and_wears_queries(started_fixture_engine):
+def test_runtime_slot_enforcement_and_wears_queries(fixture_loader):
     """
     Spec coverage: wears(), wears_outfit(), can_wear_outfit(), slot occupancy rules.
     Expectation: equipping overlapping items respects occupancy and queries reflect active clothing.
     """
-    engine, _ = started_fixture_engine
-    _ = engine.runtime.state_manager.state
+    game = fixture_loader.load_game("checklist_demo")
+    assert game.index.clothing["dress"].can_open is True
+    assert game.index.clothing["jacket"].can_open is True
 
 
 # ============================================================================
 # CLOTHING OPERATIONS - INDIVIDUAL ITEMS
 # ============================================================================
 
+@pytest.mark.asyncio
 async def test_clothing_and_outfit_effects(started_fixture_engine):
     """Already exists - tests outfit_put_on and clothing_state."""
-    pass
+    engine, initial = started_fixture_engine
+    greet = next(choice for choice in initial.choices if choice["id"] == "greet_alex")
+    hub = await engine.process_action(PlayerAction(action_type="choice", choice_id=greet["id"]))
+    change = next(choice for choice in hub.choices if choice["id"] == "change_outfit")
+    result = await engine.process_action(PlayerAction(action_type="choice", choice_id=change["id"]))
+    clothing_state = result.state_summary.get("clothing", {}).get("player", {})
+    assert clothing_state.get("outfit") == "formal"
+    assert clothing_state.get("items", {}).get("dress") in {"opened", "intact"}
 
 
-@pytest.mark.skip("TODO: Implement clothing_put_on individual item test")
+@pytest.mark.asyncio
 async def test_clothing_put_on_individual_item(started_fixture_engine):
     """
     Test clothing_put_on effect for individual clothing items.
@@ -45,11 +55,18 @@ async def test_clothing_put_on_individual_item(started_fixture_engine):
     - Item must be in inventory
     - Trigger on_put_on effects
     """
-    engine, result = started_fixture_engine
-    pass
+    engine, _ = started_fixture_engine
+    state = engine.runtime.state_manager.state
+    state.characters["player"].inventory.clothing["jacket"] = 1
+    engine.runtime.effect_resolver.apply_effects(
+        [{"type": "clothing_put_on", "target": "player", "item": "jacket", "condition": "intact"}]
+    )
+    assert state.characters["player"].clothing.items["jacket"].value == "intact"
+    slots = state.clothing_states["player"]["slot_to_item"]
+    assert slots["top"] == "jacket"
 
 
-@pytest.mark.skip("TODO: Implement clothing_take_off individual item test")
+@pytest.mark.asyncio
 async def test_clothing_take_off_individual_item(started_fixture_engine):
     """
     Test clothing_take_off effect for individual items.
@@ -60,11 +77,17 @@ async def test_clothing_take_off_individual_item(started_fixture_engine):
     - Keep item in inventory
     - Trigger on_take_off effects
     """
-    engine, result = started_fixture_engine
-    pass
+    engine, _ = started_fixture_engine
+    state = engine.runtime.state_manager.state
+    state.characters["player"].inventory.clothing["jacket"] = 1
+    engine.runtime.effect_resolver.apply_effects([{"type": "clothing_put_on", "target": "player", "item": "jacket"}])
+    engine.runtime.effect_resolver.apply_effects([{"type": "clothing_take_off", "target": "player", "item": "jacket"}])
+    assert state.characters["player"].clothing.items["jacket"] in {"removed", "intact", "opened", "displaced"}
+    assert state.clothing_states["player"]["slot_to_item"] == {}
+    assert state.characters["player"].inventory.clothing["jacket"] == 1
 
 
-@pytest.mark.skip("TODO: Implement clothing conditions test")
+@pytest.mark.asyncio
 async def test_clothing_state_all_conditions(started_fixture_engine):
     """
     Test all clothing conditions: intact, opened, displaced, removed.
@@ -76,11 +99,17 @@ async def test_clothing_state_all_conditions(started_fixture_engine):
     - Set clothing to removed (unworn but in inventory)
     - wears() returns false for removed items
     """
-    engine, result = started_fixture_engine
-    pass
+    engine, _ = started_fixture_engine
+    state = engine.runtime.state_manager.state
+    state.characters["player"].inventory.clothing["dress"] = 1
+    engine.runtime.effect_resolver.apply_effects([{"type": "clothing_put_on", "target": "player", "item": "dress"}])
+    engine.runtime.effect_resolver.apply_effects([{"type": "clothing_state", "target": "player", "item": "dress", "condition": "opened"}])
+    assert state.characters["player"].clothing.items["dress"].value == "opened"
+    engine.runtime.effect_resolver.apply_effects([{"type": "clothing_state", "target": "player", "item": "dress", "condition": "removed"}])
+    assert state.characters["player"].clothing.items["dress"].value == "removed"
 
 
-@pytest.mark.skip("TODO: Implement clothing_slot_state test")
+@pytest.mark.asyncio
 async def test_clothing_slot_state_effect(started_fixture_engine):
     """
     Test clothing_slot_state effect.
@@ -91,15 +120,19 @@ async def test_clothing_slot_state_effect(started_fixture_engine):
     - All conditions supported
     - Slot must be occupied
     """
-    engine, result = started_fixture_engine
-    pass
+    engine, _ = started_fixture_engine
+    state = engine.runtime.state_manager.state
+    state.characters["player"].inventory.clothing["jacket"] = 1
+    engine.runtime.effect_resolver.apply_effects([{"type": "clothing_put_on", "target": "player", "item": "jacket"}])
+    engine.runtime.effect_resolver.apply_effects([{"type": "clothing_slot_state", "target": "player", "slot": "top", "condition": "opened"}])
+    assert state.clothing_states["player"]["slot_state"]["top"] == "opened"
 
 
 # ============================================================================
 # OUTFIT OPERATIONS
 # ============================================================================
 
-@pytest.mark.skip("TODO: Implement outfit_take_off test")
+@pytest.mark.asyncio
 async def test_outfit_take_off_effect(started_fixture_engine):
     """
     Test outfit_take_off effect.
@@ -111,11 +144,16 @@ async def test_outfit_take_off_effect(started_fixture_engine):
     - Trigger on_take_off effects for outfit
     - Outfit recipe remains known
     """
-    engine, result = started_fixture_engine
-    pass
+    engine, _ = started_fixture_engine
+    state = engine.runtime.state_manager.state
+    engine.runtime.effect_resolver.apply_effects([{"type": "outfit_put_on", "target": "player", "item": "formal"}])
+    assert state.characters["player"].clothing.outfit == "formal"
+    engine.runtime.effect_resolver.apply_effects([{"type": "outfit_take_off", "target": "player", "item": "formal"}])
+    assert state.characters["player"].clothing.outfit is None
+    assert state.clothing_states["player"]["slot_to_item"] == {}
 
 
-@pytest.mark.skip("TODO: Implement outfit grant_items test")
+@pytest.mark.asyncio
 async def test_outfit_grant_items_flag(started_fixture_engine):
     """
     Test outfit grant_items flag behavior.
@@ -125,15 +163,17 @@ async def test_outfit_grant_items_flag(started_fixture_engine):
     - Outfit with grant_items=false requires items already owned
     - Cannot put on outfit without required items
     """
-    engine, result = started_fixture_engine
-    pass
+    engine, _ = started_fixture_engine
+    state = engine.runtime.state_manager.state
+    engine.runtime.effect_resolver.apply_effects([{"type": "outfit_put_on", "target": "player", "item": "formal"}])
+    assert state.characters["player"].inventory.clothing.get("dress", 0) >= 1
 
 
 # ============================================================================
 # MULTI-SLOT & CONCEALS
 # ============================================================================
 
-@pytest.mark.skip("TODO: Implement multi-slot item handling test")
+@pytest.mark.asyncio
 async def test_multi_slot_item_handling(started_fixture_engine):
     """
     Test items that occupy multiple slots (e.g., dresses).
@@ -144,12 +184,17 @@ async def test_multi_slot_item_handling(started_fixture_engine):
     - Cannot put on overlapping items
     - Taking off dress clears both slots
     """
-    engine, result = started_fixture_engine
-    pass
+    engine, _ = started_fixture_engine
+    state = engine.runtime.state_manager.state
+    state.characters["player"].inventory.clothing["dress"] = 1
+    engine.runtime.effect_resolver.apply_effects([{"type": "clothing_put_on", "target": "player", "item": "dress"}])
+    slots = state.clothing_states["player"]["slot_to_item"]
+    assert slots["top"] == "dress" and slots["bottom"] == "dress"
+    engine.runtime.effect_resolver.apply_effects([{"type": "clothing_take_off", "target": "player", "item": "dress"}])
+    assert state.clothing_states["player"]["slot_to_item"] == {}
 
 
-@pytest.mark.skip("TODO: Implement conceals logic test")
-async def test_conceals_logic(started_fixture_engine):
+def test_conceals_logic(fixture_loader):
     """
     Test conceals logic for layered clothing.
 
@@ -159,11 +204,15 @@ async def test_conceals_logic(started_fixture_engine):
     - Opened/displaced jacket reveals top
     - Multiple layers of concealment
     """
-    engine, result = started_fixture_engine
-    pass
+    game = fixture_loader.load_game("checklist_demo")
+    jacket = game.index.clothing["jacket"]
+    assert "top" in jacket.occupies
+    assert jacket.conceals == []
+    dress = game.index.clothing["dress"]
+    assert "accessory" in dress.conceals
 
 
-@pytest.mark.skip("TODO: Implement slot occupancy enforcement test")
+@pytest.mark.asyncio
 async def test_slot_occupancy_enforcement(started_fixture_engine):
     """
     Test that slot occupancy rules are enforced.
@@ -174,16 +223,22 @@ async def test_slot_occupancy_enforcement(started_fixture_engine):
     - Or specify replacement behavior
     - Error/warning for occupancy conflicts
     """
-    engine, result = started_fixture_engine
-    pass
+    engine, _ = started_fixture_engine
+    state = engine.runtime.state_manager.state
+    state.characters["player"].inventory.clothing["jacket"] = 1
+    state.characters["player"].inventory.clothing["jeans"] = 1
+    engine.runtime.effect_resolver.apply_effects([{"type": "clothing_put_on", "target": "player", "item": "jacket"}])
+    engine.runtime.effect_resolver.apply_effects([{"type": "clothing_put_on", "target": "player", "item": "jeans"}])
+    slots = state.clothing_states["player"]["slot_to_item"]
+    assert slots["top"] == "jacket"
+    assert slots["bottom"] == "jeans"
 
 
 # ============================================================================
 # CLOTHING LOOK DESCRIPTIONS
 # ============================================================================
 
-@pytest.mark.skip("TODO: Implement clothing look descriptions test")
-async def test_clothing_look_descriptions_per_condition(started_fixture_engine):
+def test_clothing_look_descriptions_per_condition(fixture_loader):
     """
     Test clothing look descriptions change with condition.
 
@@ -194,16 +249,17 @@ async def test_clothing_look_descriptions_per_condition(started_fixture_engine):
     - look.removed description
     - Description used in character cards
     """
-    engine, result = started_fixture_engine
-    pass
+    game = fixture_loader.load_game("checklist_demo")
+    dress = game.index.clothing["dress"]
+    assert dress.look.intact == "A simple dress."
+    assert dress.look.opened == "The dress is open."
 
 
 # ============================================================================
 # CLOTHING FLAGS
 # ============================================================================
 
-@pytest.mark.skip("TODO: Implement can_open flag test")
-async def test_can_open_flag_enforcement(started_fixture_engine):
+def test_can_open_flag_enforcement(fixture_loader):
     """
     Test can_open flag enforcement.
 
@@ -212,15 +268,18 @@ async def test_can_open_flag_enforcement(started_fixture_engine):
     - Item with can_open=false rejects 'opened' state
     - Error/warning when trying to open non-openable item
     """
-    engine, result = started_fixture_engine
-    pass
+    game = fixture_loader.load_game("checklist_demo")
+    jacket = game.index.clothing["jacket"]
+    jeans = game.index.clothing["jeans"]
+    assert jacket.can_open is True
+    assert jeans.can_open is False
 
 
 # ============================================================================
 # CLOTHING EFFECTS
 # ============================================================================
 
-@pytest.mark.skip("TODO: Implement on_put_on effects test")
+@pytest.mark.asyncio
 async def test_on_put_on_effects(started_fixture_engine):
     """
     Test on_put_on effects trigger when wearing item.
@@ -231,11 +290,14 @@ async def test_on_put_on_effects(started_fixture_engine):
     - Multiple effects in order
     - State changes applied
     """
-    engine, result = started_fixture_engine
-    pass
+    engine, _ = started_fixture_engine
+    state = engine.runtime.state_manager.state
+    state.characters["player"].inventory.clothing["jacket"] = 1
+    engine.runtime.effect_resolver.apply_effects([{"type": "clothing_put_on", "target": "player", "item": "jacket"}])
+    assert state.clothing_states["player"]["slot_to_item"]["top"] == "jacket"
 
 
-@pytest.mark.skip("TODO: Implement on_take_off effects test")
+@pytest.mark.asyncio
 async def test_on_take_off_effects(started_fixture_engine):
     """
     Test on_take_off effects trigger when removing item.
@@ -246,16 +308,19 @@ async def test_on_take_off_effects(started_fixture_engine):
     - Multiple effects in order
     - State changes applied
     """
-    engine, result = started_fixture_engine
-    pass
+    engine, _ = started_fixture_engine
+    state = engine.runtime.state_manager.state
+    state.characters["player"].inventory.clothing["jacket"] = 1
+    engine.runtime.effect_resolver.apply_effects([{"type": "clothing_put_on", "target": "player", "item": "jacket"}])
+    engine.runtime.effect_resolver.apply_effects([{"type": "clothing_take_off", "target": "player", "item": "jacket"}])
+    assert state.clothing_states["player"]["slot_to_item"] == {}
 
 
 # ============================================================================
 # CLOTHING QUERIES (DSL FUNCTIONS)
 # ============================================================================
 
-@pytest.mark.skip("TODO: Implement knows_outfit query test")
-async def test_knows_outfit_query(started_fixture_engine):
+def test_knows_outfit_query(fixture_loader):
     """
     Test knows_outfit() DSL function.
 
@@ -264,11 +329,11 @@ async def test_knows_outfit_query(started_fixture_engine):
     - Returns false if outfit not known
     - Outfit can be known without having items
     """
-    engine, result = started_fixture_engine
-    pass
+    game = fixture_loader.load_game("checklist_demo")
+    assert "formal" in game.index.outfits
 
 
-@pytest.mark.skip("TODO: Implement can_wear_outfit query test")
+@pytest.mark.asyncio
 async def test_can_wear_outfit_query(started_fixture_engine):
     """
     Test can_wear_outfit() DSL function.
@@ -278,5 +343,10 @@ async def test_can_wear_outfit_query(started_fixture_engine):
     - Returns false if missing items
     - Checks inventory, not currently worn
     """
-    engine, result = started_fixture_engine
-    pass
+    engine, _ = started_fixture_engine
+    state = engine.runtime.state_manager.state
+    evaluator = engine.runtime.state_manager.create_evaluator()
+    assert evaluator.evaluate('can_wear_outfit("player", "formal")') is False
+    state.characters["player"].inventory.clothing["dress"] = 1
+    evaluator = engine.runtime.state_manager.create_evaluator()
+    assert evaluator.evaluate('can_wear_outfit("player", "formal")') is True

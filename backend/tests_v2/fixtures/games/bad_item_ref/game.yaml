@@ -1,0 +1,67 @@
+meta:
+  id: "bad_item_ref"
+  title: "Bad Item Reference"
+  version: "0.0.1"
+  authors: ["Test"]
+
+start:
+  location: "loc1"
+  node: "node_a"
+  day: 1
+  time: "08:00"
+
+time:
+  slots_enabled: false
+  categories:
+    standard: 10
+  defaults:
+    conversation: "standard"
+    choice: "standard"
+    movement: "standard"
+    default: "standard"
+    cap_per_visit: 60
+
+movement:
+  base_unit: "minutes"
+  methods:
+    - name: "walk"
+      category: "standard"
+
+zones:
+  - id: "zone1"
+    name: "Zone 1"
+    locations:
+      - id: "loc1"
+        name: "Loc1"
+
+characters:
+  - id: "player"
+    name: "Player"
+    age: 18
+    gender: "unspecified"
+    pronouns: ["they"]
+  - id: "alex"
+    name: "Alex"
+    age: 22
+    gender: "unspecified"
+    pronouns: ["they"]
+
+items:
+  - id: "coffee"
+    name: "Coffee"
+    value: 5
+
+nodes:
+  - id: "node_a"
+    type: "scene"
+    title: "Node A"
+    choices:
+      - id: "give_bad"
+        prompt: "Give bad item"
+        time_category: "standard"
+        on_select:
+          - type: "inventory_add"
+            target: "alex"
+            item_type: "item"
+            item: "unknown_item"
+            count: 1

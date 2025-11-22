@@ -21,6 +21,13 @@ class PresenceService:
 
         evaluator = self.runtime.state_manager.create_evaluator()
 
+        # Add characters explicitly listed on the current node
+        current_node = self.runtime.index.nodes.get(state.current_node)
+        if current_node and getattr(current_node, "characters_present", None):
+            for char_id in current_node.characters_present:
+                if char_id != "player":
+                    present.append(char_id)
+
         for character in self.runtime.index.characters.values():
             if character.id == "player" or not character.schedule:
                 continue

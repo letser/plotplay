@@ -12,7 +12,7 @@ class TimeService:
     def __init__(self, runtime: SessionRuntime) -> None:
         self.runtime = runtime
 
-    def advance_minutes(self, minutes: int) -> dict:
+    def advance_minutes(self, minutes: int, *, apply_decay: bool = True) -> dict:
         state = self.runtime.state_manager.state
         if minutes <= 0:
             return {"minutes": 0, "slot_advanced": False, "day_advanced": False}
@@ -37,9 +37,16 @@ class TimeService:
             state.time.day += 1
             self._trigger_day_start_effects()
 
+        slot_advanced = (new_slot is not None and new_slot != previous_slot)
+
+        if apply_decay:
+            self._apply_meter_decay("slot" if slot_advanced else None)
+            if day_advanced:
+                self._apply_meter_decay("day")
+
         return {
             "minutes": minutes,
-            "slot_advanced": (new_slot is not None and new_slot != previous_slot),
+            "slot_advanced": slot_advanced,
             "day_advanced": day_advanced,
         }
 
@@ -50,9 +57,12 @@ class TimeService:
         if slot_advanced:
             self._apply_meter_decay("slot")
 
-    def _apply_meter_decay(self, decay_type: str) -> None:
+    def _apply_meter_decay(self, decay_type: str | None) -> None:
         state = self.runtime.state_manager.state
         index = self.runtime.index
+
+        if decay_type is None:
+            return
 
         for char_id, char_state in state.characters.items():
             for meter_id, value in list(char_state.meters.items()):

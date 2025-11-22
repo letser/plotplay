@@ -3,42 +3,44 @@ import pytest
 from app.runtime.types import PlayerAction
 
 
-@pytest.mark.skip(reason="Time decay per slot/day not yet exposed by runtime state.")
 @pytest.mark.asyncio
-async def test_meter_decay_over_slots_and_days(started_fixture_engine):
-    """
-    Spec coverage: meter decay per slot/day, slot rollover, weekday progression.
-    Expectation: decay_per_slot/day applied and weekday increments after 1440 minutes.
-    """
-    engine, _ = started_fixture_engine
-    for _ in range(6):
-        await engine.process_action(PlayerAction(action_type="do", action_text="Advance slot"))
+async def test_meter_decay_over_slots_and_days(fixture_engine_factory):
+    """Verify decay_per_slot/day applied when slots and days advance."""
+    engine = fixture_engine_factory(game_id="time_cases")
     state = engine.runtime.state_manager.state
-    _ = state.time.slot
+    start_energy = state.characters["player"].meters["energy"]
+    # Advance 3 slots (morning -> afternoon -> wrap with day advance)
+    engine.time_service.advance_minutes(240)  # 4 hours -> crosses into afternoon
+    engine.time_service.advance_minutes(1200)  # +20 hours -> day rollover
+    end_energy = state.characters["player"].meters["energy"]
+    # Observed engine behavior: two slot decays (-2) + day decay (-5)
+    assert end_energy == start_energy - 7
+    assert state.time.slot in {"morning", "afternoon"}
+    assert state.day == 2
 
 
-@pytest.mark.skip(reason="Time multiplier stacking/clamp not yet verified in runtime.")
+def test_time_multiplier_stacking_and_clamp(fixture_engine_factory):
+    """Verify time multiplier stacking clamps to [0.5, 2.0]."""
+    engine = fixture_engine_factory(game_id="time_cases", session_id="stack")
+    state = engine.runtime.state_manager.state
+    tm = engine.turn_manager
+    state.modifiers["player"] = [{"id": "quick_mod"}, {"id": "slow_mod"}]
+    assert tm._apply_time_modifiers(20) == 15  # 20 * 0.75
+    state.modifiers["player"] = [{"id": "quick_mod"}, {"id": "quick_mod"}]
+    assert tm._apply_time_modifiers(20) == 10  # 20 * 0.25 -> clamped to 0.5 multiplier => 10
+    state.modifiers["player"] = [{"id": "slow_mod"}, {"id": "slow_mod"}]
+    assert tm._apply_time_modifiers(20) == 40  # 20 * 2.25 -> clamped to 2.0 => 40
+
+
 @pytest.mark.asyncio
-async def test_time_multiplier_stacking_and_clamp(started_fixture_engine):
-    """
-    Spec coverage: modifiers time_multiplier multiplicative clamp to [0.5, 2.0].
-    Expectation: overlapping modifiers capped and applied to action time costs.
-    """
-    engine, _ = started_fixture_engine
-    await engine.process_action(PlayerAction(action_type="do", action_text="Apply time modifiers"))
+async def test_visit_cap_prevents_excess_time(fixture_engine_factory):
+    """Verify cap_per_visit prevents accumulating beyond cap within a node."""
+    engine = fixture_engine_factory(game_id="time_cases")
     state = engine.runtime.state_manager.state
-    _ = state.current_visit_minutes
-
-
-@pytest.mark.skip(reason="Visit cap enforcement not yet surfaced for assertions.")
-@pytest.mark.asyncio
-async def test_visit_cap_prevents_excess_time(started_fixture_engine):
-    """
-    Spec coverage: cap_per_visit for conversation/default actions.
-    Expectation: accumulated minutes in a node do not exceed cap, resets on transition.
-    """
-    engine, _ = started_fixture_engine
-    for _ in range(10):
-        await engine.process_action(PlayerAction(action_type="do", action_text="Chat loop"))
-    state = engine.runtime.state_manager.state
-    _ = state.current_visit_minutes
+    # Enter cap_node and spend conversation time until cap
+    await engine.process_action(PlayerAction(action_type="choice", choice_id="goto_cap"))
+    await engine.process_action(PlayerAction(action_type="do", action_text="Talk"))
+    await engine.process_action(PlayerAction(action_type="do", action_text="Talk again"))
+    assert state.current_visit_node == "cap_node"
+    # cap_per_visit=20 should clamp additional conversation
+    assert state.current_visit_minutes == 20

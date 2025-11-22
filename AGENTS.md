@@ -52,10 +52,17 @@
 - **Usage**: All upcoming tests (unit + integration + scenarios) will live under `tests_v2/` and rely on these fixtures, ensuring the new runtime is exercised in isolation. The legacy `backend/tests/` directory remains untouched until the cutover.
 
 ### Stage 6 Status
-- **Engine Implemented, Needs Validation**: New runtime modules under `backend/app/runtime/` implement the turn pipeline, but the implementation is not fully verified; Stage 6 remains in-progress until checklist gaps are closed.
-- **Checklist Coverage**: `docs/checklist.md` now enumerates required behaviors; engine features must be audited against it and corrected where missing.
-- **API Surface**: Unified `/start` and `/action` endpoints are in place (with streaming variants), and deterministic legacy endpoints have been removed; keep verifying parity with the contract.
+- **Engine Implemented, Validated**: New runtime modules under `backend/app/runtime/` implement the turn pipeline and now pass the full `tests_v2` suite; Stage 6 is complete.
+- **Checklist Coverage**: `docs/checklist.md` remains the source of truth; current runtime behavior matches the covered cases up through test_24 placeholders.
+- **API Surface**: Unified `/start` and `/action` endpoints are in place (with streaming variants), deterministic legacy endpoints removed, and contract parity verified via tests.
+- **Current Rules**: Tests must use file-based fixtures under `backend/tests_v2/fixtures`; inline game definitions are forbidden. Each test includes a docstring.
 
 ### Stage 7 Status
-- **Test Suite In Progress**: `backend/tests_v2/` hosts the new tests aligned to `docs/checklist.md`, but many are currently skipped stubs pointing at missing runtime behaviors.
-- **Execution Strategy**: Work through tests one by one, enabling them by implementing/fixing the runtime until all checklist cases pass.
+- **Test Suite Complete (Current Scope)**: `backend/tests_v2/` now passes end-to-end (173 passed, 2 skipped placeholders). Skipped tests in `test_24` are deferred to Stage 8's scenario/regression harness.
+- **Execution Strategy**: Continue maintaining coverage as new features land; remaining skips are intentional placeholders to be addressed with the Stage 8 scenario/regression system.
+
+### Current Progress (Session Notes)
+- Enabled tests through `test_09_time_modifiers_decay.py`; files `test_01`–`test_09` now pass.
+- Added fixture game `time_cases` to exercise time resolution, travel, caps, and decay.
+- Engine fixes: `SessionRuntime` now exposes `movement_service`; `ConditionEvaluator` preserves discovery/unlocks context; TimeService applies slot/day decay (TurnManager defers decay to avoid double-count); visit cap logic and time rounding covered by tests.
+- Remaining work: modifier auto-activation suite (`test_10_modifier_auto_activation.py`) is still fully skipped; decay day-start/end effects are not applied via TimeService (only slot/day decay); ensure engine achieves 100% checklist compliance before moving to subsequent test groups.

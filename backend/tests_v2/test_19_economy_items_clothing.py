@@ -25,7 +25,10 @@ def test_item_lock_and_on_give_effects(fixture_loader):
 async def test_clothing_and_outfit_effects(started_fixture_engine):
     """Verify Clothing and outfit effects."""
     engine, initial = started_fixture_engine
-    change = next(choice for choice in initial.choices if choice["id"] == "change_outfit")
+    # Unlock hub choices by greeting Alex first
+    greet = next(choice for choice in initial.choices if choice["id"] == "greet_alex")
+    hub = await engine.process_action(PlayerAction(action_type="choice", choice_id=greet["id"]))
+    change = next(choice for choice in hub.choices if choice["id"] == "change_outfit")
     result = await engine.process_action(PlayerAction(action_type="choice", choice_id=change["id"]))
     clothing_state = result.state_summary.get("clothing", {}).get("player", {})
     assert clothing_state.get("outfit") == "formal"

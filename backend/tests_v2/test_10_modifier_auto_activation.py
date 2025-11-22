@@ -11,300 +11,316 @@ This test file covers Section 13 of the checklist:
 
 import pytest
 
+from app.runtime.types import PlayerAction
+
+
+def active_mod_ids(state, char_id: str = "player") -> list[str]:
+    return [mod.get("id") for mod in state.modifiers.get(char_id, [])]
+
 
 # ============================================================================
 # MODIFIER LOADING
 # ============================================================================
 
-@pytest.mark.skip("TODO: Implement modifier condition loading test")
-async def test_load_modifier_activation_conditions(fixture_game):
-    """
-    Verify that modifier activation conditions are loaded.
 
-    Should test:
-    - when (single condition)
-    - when_all (all conditions)
-    - when_any (any conditions)
-    - Duration defaults
-    - Condition expressions parsed correctly
-    """
-    pass
-
-
-@pytest.mark.skip("TODO: Implement modifier effects loading test")
-async def test_load_modifier_effects_on_enter_on_exit(fixture_game):
-    """
-    Verify that modifier on_enter/on_exit effects are loaded.
-
-    Should test:
-    - on_enter effect list
-    - on_exit effect list
-    - Effect types and parameters
-    """
-    pass
+def test_load_modifier_activation_conditions(fixture_game):
+    """Verify activation conditions (when/when_all/when_any) load correctly."""
+    mods = {mod.id: mod for mod in fixture_game.modifiers.library}
+    night_when = mods["night_owl"].when
+    assert 'time.slot == "night"' in night_when
+    assert '"{character}" == "player"' in night_when
+    assert mods["low_energy"].when_any == ['meters.player.energy < 30']
+    assert mods["low_energy"].duration == 45
+    assert mods["complex_mod"].when_all == [
+        'time.slot == "night"',
+        'location.zone == "campus"',
+        'meters.player.energy < 40',
+    ]
+    assert mods["trust_guard"].when == 'meters.{character}.trust >= 50'
 
 
-@pytest.mark.skip("TODO: Implement modifier gate constraints loading test")
-async def test_load_modifier_gate_constraints(fixture_game):
-    """
-    Verify that modifier gate constraints are loaded.
-
-    Should test:
-    - disallow_gates list
-    - allow_gates list
-    - Gate IDs validated
-    """
-    pass
+def test_load_modifier_effects_on_enter_on_exit(fixture_game):
+    """Verify on_enter/on_exit effects are parsed with correct types."""
+    mods = {mod.id: mod for mod in fixture_game.modifiers.library}
+    night = mods["night_owl"]
+    assert len(night.on_enter) == 2
+    assert night.on_enter[0]["type"] == "flag_set"
+    assert night.on_enter[1]["type"] == "meter_change"
+    assert len(night.on_exit) == 1
+    assert night.on_exit[0]["type"] == "flag_set"
 
 
-@pytest.mark.skip("TODO: Implement modifier meter clamps loading test")
-async def test_load_modifier_meter_clamps(fixture_game):
-    """
-    Verify that modifier meter clamps are loaded.
+def test_load_modifier_gate_constraints(fixture_game):
+    """Verify allow_gates/disallow_gates load with expected gate ids."""
+    mods = {mod.id: mod for mod in fixture_game.modifiers.library}
+    blocker = mods["gate_blocker"]
+    forcer = mods["gate_forcer"]
+    assert blocker.disallow_gates == ["flirt_gate"]
+    assert forcer.allow_gates == ["help_gate"]
 
-    Should test:
-    - clamp_meters dictionary
-    - Min/max values per meter
-    - Meter IDs validated
-    """
-    pass
+
+def test_load_modifier_meter_clamps(fixture_game):
+    """Verify clamp_meters definitions load min/max bounds."""
+    mods = {mod.id: mod for mod in fixture_game.modifiers.library}
+    clamp = mods["clamp_energy"]
+    assert "energy" in clamp.clamp_meters
+    assert clamp.clamp_meters["energy"].min == 10
+    assert clamp.clamp_meters["energy"].max == 60
 
 
 # ============================================================================
 # AUTO-ACTIVATION
 # ============================================================================
 
-@pytest.mark.skip("TODO: Implement modifier condition evaluation test")
-async def test_evaluate_modifier_when_conditions_each_turn(started_fixture_engine):
-    """
-    Verify that modifier conditions are evaluated each turn.
 
-    Should test:
-    - All modifier definitions checked
-    - Conditions evaluated against current state
-    - Re-evaluation every turn
-    """
-    engine, result = started_fixture_engine
-    pass
+@pytest.mark.asyncio
+async def test_evaluate_modifier_when_conditions_each_turn(started_mod_engine):
+    """Re-evaluate modifier conditions every turn for each character."""
+    engine, _ = started_mod_engine
+    state = engine.runtime.state_manager.state
+    assert "trust_guard" in active_mod_ids(state, "jamie")
 
+    await engine.process_action(PlayerAction(action_type="choice", choice_id="trust_down"))
+    assert "trust_guard" not in active_mod_ids(state, "jamie")
 
-@pytest.mark.skip("TODO: Implement modifier activation test")
-async def test_activate_modifiers_when_conditions_become_true(started_fixture_engine):
-    """
-    Verify that modifiers activate when conditions become true.
-
-    Should test:
-    - Modifier not active initially
-    - State changes make condition true
-    - Modifier activates automatically
-    - Modifier added to character's active modifiers list
-    """
-    engine, result = started_fixture_engine
-    pass
+    await engine.process_action(PlayerAction(action_type="choice", choice_id="trust_up"))
+    assert "trust_guard" in active_mod_ids(state, "jamie")
 
 
-@pytest.mark.skip("TODO: Implement modifier deactivation test")
-async def test_deactivate_modifiers_when_conditions_become_false(started_fixture_engine):
-    """
-    Verify that modifiers deactivate when conditions become false.
+@pytest.mark.asyncio
+async def test_activate_modifiers_when_conditions_become_true(started_mod_engine):
+    """Activate auto modifiers once conditions flip to true."""
+    engine, _ = started_mod_engine
+    state = engine.runtime.state_manager.state
+    assert "low_energy" not in active_mod_ids(state)
 
-    Should test:
-    - Modifier active initially
-    - State changes make condition false
-    - Modifier deactivates automatically
-    - Modifier removed from character's active modifiers list
-    """
-    engine, result = started_fixture_engine
-    pass
+    await engine.process_action(PlayerAction(action_type="choice", choice_id="lower_energy"))
+    assert "low_energy" in active_mod_ids(state)
+    assert "low_energy" in state.characters["player"].modifiers
 
 
-@pytest.mark.skip("TODO: Implement on_enter effect test")
-async def test_trigger_on_enter_effects_when_activated(started_fixture_engine):
-    """
-    Verify that on_enter effects trigger when modifier activates.
+@pytest.mark.asyncio
+async def test_deactivate_modifiers_when_conditions_become_false(started_mod_engine):
+    """Deactivate auto modifiers when their conditions stop matching."""
+    engine, _ = started_mod_engine
+    state = engine.runtime.state_manager.state
 
-    Should test:
-    - on_enter effects execute
-    - Effects applied to state
-    - Effects execute once per activation
-    - Multiple effects in order
-    """
-    engine, result = started_fixture_engine
-    pass
+    await engine.process_action(PlayerAction(action_type="choice", choice_id="lower_energy"))
+    assert "low_energy" in active_mod_ids(state)
+
+    await engine.process_action(PlayerAction(action_type="choice", choice_id="raise_energy"))
+    assert "low_energy" not in active_mod_ids(state)
+    assert "low_energy" not in state.characters["player"].modifiers
 
 
-@pytest.mark.skip("TODO: Implement on_exit effect test")
-async def test_trigger_on_exit_effects_when_deactivated(started_fixture_engine):
-    """
-    Verify that on_exit effects trigger when modifier deactivates.
+@pytest.mark.asyncio
+async def test_trigger_on_enter_effects_when_activated(started_mod_engine):
+    """on_enter effects fire once when the modifier activates."""
+    engine, _ = started_mod_engine
+    state = engine.runtime.state_manager.state
+    start_focus = state.characters["player"].meters["focus"]
 
-    Should test:
-    - on_exit effects execute on deactivation
-    - on_exit effects execute on duration expiration
-    - Effects applied to state
-    - Effects execute once per deactivation
-    """
-    engine, result = started_fixture_engine
-    pass
+    await engine.process_action(PlayerAction(action_type="choice", choice_id="wait_long"))
+    assert state.time.slot == "night"
+    await engine.process_action(PlayerAction(action_type="do", action_text="linger at night"))
+    assert "night_owl" in active_mod_ids(state)
+    assert state.flags["night_active"] is True
+    assert state.characters["player"].meters["focus"] == start_focus + 5
+
+    await engine.process_action(PlayerAction(action_type="do", action_text="linger again"))
+    assert state.characters["player"].meters["focus"] == start_focus + 5
+
+
+@pytest.mark.asyncio
+async def test_trigger_on_exit_effects_when_deactivated(started_mod_engine):
+    """on_exit effects fire when modifier deactivates."""
+    engine, _ = started_mod_engine
+    state = engine.runtime.state_manager.state
+
+    await engine.process_action(PlayerAction(action_type="choice", choice_id="wait_long"))
+    await engine.process_action(PlayerAction(action_type="do", action_text="activate night mod"))
+    assert "night_owl" in active_mod_ids(state)
+
+    engine.time_service.advance_minutes(720)
+    await engine.process_action(PlayerAction(action_type="do", action_text="new morning"))
+
+    assert "night_owl" not in active_mod_ids(state)
+    assert state.flags["night_active"] is False
 
 
 # ============================================================================
 # GATE CONSTRAINTS
 # ============================================================================
 
-@pytest.mark.skip("TODO: Implement disallow_gates test")
-async def test_apply_disallow_gates_disable_gates(started_fixture_engine):
-    """
-    Verify that disallow_gates disables specified gates.
 
-    Should test:
-    - Active modifier with disallow_gates
-    - Specified gates become inactive
-    - Gates blocked even if conditions met
-    - Multiple gates can be disallowed
-    - Gates restore when modifier deactivates
-    """
-    engine, result = started_fixture_engine
-    pass
+@pytest.mark.asyncio
+async def test_apply_disallow_gates_disable_gates(started_mod_engine):
+    """disallow_gates removes gates while modifier active and restores later."""
+    engine, _ = started_mod_engine
+    state = engine.runtime.state_manager.state
+    assert "flirt_gate" in state.characters["jamie"].gates
+
+    await engine.process_action(PlayerAction(action_type="choice", choice_id="set_block"))
+    await engine.process_action(PlayerAction(action_type="do", action_text="refresh gates"))
+
+    assert "gate_blocker" in active_mod_ids(state)
+    assert "flirt_gate" not in state.characters["jamie"].gates
+
+    await engine.process_action(PlayerAction(action_type="choice", choice_id="clear_block"))
+    await engine.process_action(PlayerAction(action_type="do", action_text="refresh gates again"))
+    assert "flirt_gate" in state.characters["jamie"].gates
 
 
-@pytest.mark.skip("TODO: Implement allow_gates test")
-async def test_apply_allow_gates_force_gates(started_fixture_engine):
-    """
-    Verify that allow_gates forces specified gates active.
+@pytest.mark.asyncio
+async def test_apply_allow_gates_force_gates(started_mod_engine):
+    """allow_gates forces gates active even if underlying condition fails."""
+    engine, _ = started_mod_engine
+    state = engine.runtime.state_manager.state
 
-    Should test:
-    - Active modifier with allow_gates
-    - Specified gates become active
-    - Gates active even if conditions not met
-    - Multiple gates can be forced
-    - Gates restore when modifier deactivates
-    """
-    engine, result = started_fixture_engine
-    pass
+    await engine.process_action(PlayerAction(action_type="choice", choice_id="trust_down"))
+    await engine.process_action(PlayerAction(action_type="do", action_text="refresh gates"))
+    assert "help_gate" not in state.characters["jamie"].gates
+
+    await engine.process_action(PlayerAction(action_type="choice", choice_id="force_help"))
+    await engine.process_action(PlayerAction(action_type="do", action_text="apply allow gates"))
+    assert "gate_forcer" in active_mod_ids(state)
+    assert "help_gate" in state.characters["jamie"].gates
+
+    await engine.process_action(PlayerAction(action_type="choice", choice_id="clear_force"))
+    await engine.process_action(PlayerAction(action_type="do", action_text="clear allow gates"))
+    assert "help_gate" not in state.characters["jamie"].gates
 
 
 # ============================================================================
 # METER CLAMPS
 # ============================================================================
 
-@pytest.mark.skip("TODO: Implement clamp_meters test")
-async def test_apply_clamp_meters_enforce_temporary_bounds(started_fixture_engine):
-    """
-    Verify that clamp_meters enforces temporary meter bounds.
 
-    Should test:
-    - Active modifier with clamp_meters
-    - Meter values clamped to temporary min/max
-    - Meter changes respect clamps
-    - Multiple meters can be clamped
-    - Clamps removed when modifier deactivates
-    - Original meter bounds unchanged
-    """
-    engine, result = started_fixture_engine
-    pass
+@pytest.mark.asyncio
+async def test_apply_clamp_meters_enforce_temporary_bounds(started_mod_engine):
+    """clamp_meters enforces temporary bounds while active and lifts after."""
+    engine, _ = started_mod_engine
+    state = engine.runtime.state_manager.state
+
+    await engine.process_action(PlayerAction(action_type="choice", choice_id="limit_on"))
+    assert "clamp_energy" in active_mod_ids(state)
+
+    await engine.process_action(PlayerAction(action_type="choice", choice_id="lower_energy"))
+    assert state.characters["player"].meters["energy"] == 20
+
+    await engine.process_action(PlayerAction(action_type="choice", choice_id="raise_energy"))
+    assert state.characters["player"].meters["energy"] == 60
+
+    await engine.process_action(PlayerAction(action_type="choice", choice_id="limit_off"))
+    await engine.process_action(PlayerAction(action_type="choice", choice_id="raise_energy"))
+    assert state.characters["player"].meters["energy"] > 60
 
 
 # ============================================================================
 # DSL CONTEXT EXPOSURE
 # ============================================================================
 
-@pytest.mark.skip("TODO: Implement modifiers in DSL context test")
-async def test_expose_active_modifiers_in_condition_context(started_fixture_engine):
-    """
-    Verify that active modifiers are exposed in DSL condition context.
 
-    Should test:
-    - modifiers.char_id list accessible
-    - Modifier IDs in list
-    - "modifier_id in modifiers.char_id" expressions work
-    - Used in node conditions
-    - Used in choice conditions
-    - Used in effect guards
-    """
-    engine, result = started_fixture_engine
-    pass
+@pytest.mark.asyncio
+async def test_expose_active_modifiers_in_condition_context(started_mod_engine):
+    """Active modifiers are visible to DSL conditions (choices/nodes)."""
+    engine, _ = started_mod_engine
+
+    result = await engine.process_action(PlayerAction(action_type="choice", choice_id="lower_energy"))
+    assert any(choice["id"] == "mod_choice" for choice in result.choices)
+
+    await engine.process_action(PlayerAction(action_type="choice", choice_id="raise_energy"))
+    result = await engine.process_action(PlayerAction(action_type="do", action_text="check choices"))
+    assert not any(choice["id"] == "mod_choice" for choice in result.choices)
 
 
 # ============================================================================
 # AUTO-ACTIVATION SCENARIOS
 # ============================================================================
 
-@pytest.mark.skip("TODO: Implement time-based activation test")
-async def test_time_based_modifier_activates_at_night(started_fixture_engine):
-    """
-    Verify that time-based modifiers activate at correct time.
 
-    Should test:
-    - Modifier with "time.slot == 'night'"
-    - Inactive during day
-    - Activates when night begins
-    - Deactivates when morning begins
-    """
-    engine, result = started_fixture_engine
-    pass
+@pytest.mark.asyncio
+async def test_time_based_modifier_activates_at_night(started_mod_engine):
+    """Time-based modifier toggles as slot moves between day/night."""
+    engine, _ = started_mod_engine
+    state = engine.runtime.state_manager.state
+    assert "night_owl" not in active_mod_ids(state)
 
+    await engine.process_action(PlayerAction(action_type="choice", choice_id="wait_long"))
+    await engine.process_action(PlayerAction(action_type="do", action_text="enter night"))
+    assert "night_owl" in active_mod_ids(state)
 
-@pytest.mark.skip("TODO: Implement meter-based activation test")
-async def test_meter_based_modifier_activates_on_threshold(started_fixture_engine):
-    """
-    Verify that meter-based modifiers activate when meter crosses threshold.
-
-    Should test:
-    - Modifier with "meters.player.energy < 30"
-    - Inactive when energy high
-    - Activates when energy drops below 30
-    - Deactivates when energy rises above 30
-    """
-    engine, result = started_fixture_engine
-    pass
+    engine.time_service.advance_minutes(720)
+    await engine.process_action(PlayerAction(action_type="do", action_text="new day"))
+    assert "night_owl" not in active_mod_ids(state)
 
 
-@pytest.mark.skip("TODO: Implement location-based activation test")
-async def test_location_based_modifier_activates_in_zone(started_fixture_engine):
-    """
-    Verify that location-based modifiers activate in specific zones.
+@pytest.mark.asyncio
+async def test_meter_based_modifier_activates_on_threshold(started_mod_engine):
+    """Meter threshold activates/deactivates modifier as values cross boundary."""
+    engine, _ = started_mod_engine
+    state = engine.runtime.state_manager.state
+    assert "low_energy" not in active_mod_ids(state)
 
-    Should test:
-    - Modifier with "location.zone == 'campus'"
-    - Inactive in other zones
-    - Activates when entering campus
-    - Deactivates when leaving campus
-    """
-    engine, result = started_fixture_engine
-    pass
+    await engine.process_action(PlayerAction(action_type="choice", choice_id="lower_energy"))
+    assert "low_energy" in active_mod_ids(state)
+
+    await engine.process_action(PlayerAction(action_type="choice", choice_id="raise_energy"))
+    assert "low_energy" not in active_mod_ids(state)
 
 
-@pytest.mark.skip("TODO: Implement complex condition activation test")
-async def test_complex_condition_modifier_activation(started_fixture_engine):
-    """
-    Verify that modifiers with complex conditions activate correctly.
+@pytest.mark.asyncio
+async def test_location_based_modifier_activates_in_zone(started_mod_engine):
+    """Location/zone conditions activate modifiers when entering/leaving zones."""
+    engine, _ = started_mod_engine
+    state = engine.runtime.state_manager.state
+    assert "campus_focus" not in active_mod_ids(state)
 
-    Should test:
-    - when_all with multiple conditions
-    - when_any with multiple conditions
-    - Combination of meter, time, location conditions
-    - Activation/deactivation as conditions change
-    """
-    engine, result = started_fixture_engine
-    pass
+    await engine.process_action(PlayerAction(action_type="choice", choice_id="go_campus"))
+    assert "campus_focus" in active_mod_ids(state)
+    assert state.current_zone == "campus"
+
+    await engine.process_action(PlayerAction(action_type="choice", choice_id="go_home"))
+    assert "campus_focus" not in active_mod_ids(state)
+    assert state.current_zone == "residential"
+
+
+@pytest.mark.asyncio
+async def test_complex_condition_modifier_activation(started_mod_engine):
+    """when_all with time/location/meter requirements activates only when all match."""
+    engine, _ = started_mod_engine
+    state = engine.runtime.state_manager.state
+
+    await engine.process_action(PlayerAction(action_type="choice", choice_id="lower_energy"))
+    await engine.process_action(PlayerAction(action_type="choice", choice_id="go_campus"))
+    await engine.process_action(PlayerAction(action_type="choice", choice_id="wait_long"))
+    await engine.process_action(PlayerAction(action_type="do", action_text="after night travel"))
+    assert "complex_mod" in active_mod_ids(state)
+
+    await engine.process_action(PlayerAction(action_type="choice", choice_id="raise_energy"))
+    assert "complex_mod" not in active_mod_ids(state)
 
 
 # ============================================================================
 # INTEGRATION WITH MANUAL APPLICATION
 # ============================================================================
 
-@pytest.mark.skip("TODO: Implement auto vs manual activation test")
-async def test_auto_activation_coexists_with_manual_application(started_fixture_engine):
-    """
-    Verify that auto-activated and manually applied modifiers coexist.
 
-    Should test:
-    - Auto-activated modifier from condition
-    - Manually applied modifier via apply_modifier effect
-    - Both active simultaneously
-    - Auto-activated modifier can deactivate
-    - Manually applied modifier respects duration
-    """
-    engine, result = started_fixture_engine
-    pass
+@pytest.mark.asyncio
+async def test_auto_activation_coexists_with_manual_application(started_mod_engine):
+    """Auto and manual modifiers coexist; auto can drop while manual respects duration."""
+    engine, _ = started_mod_engine
+    state = engine.runtime.state_manager.state
+
+    await engine.process_action(PlayerAction(action_type="choice", choice_id="apply_manual"))
+    assert "manual_boost" in active_mod_ids(state)
+
+    await engine.process_action(PlayerAction(action_type="choice", choice_id="lower_energy"))
+    assert {"manual_boost", "low_energy"}.issubset(set(active_mod_ids(state)))
+
+    await engine.process_action(PlayerAction(action_type="choice", choice_id="raise_energy"))
+    assert "low_energy" not in active_mod_ids(state)
+    assert "manual_boost" in active_mod_ids(state)
+
+    await engine.process_action(PlayerAction(action_type="choice", choice_id="wait_long"))
+    assert "manual_boost" not in active_mod_ids(state)

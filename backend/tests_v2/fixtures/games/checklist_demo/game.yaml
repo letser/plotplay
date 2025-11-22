@@ -29,7 +29,7 @@ time:
   categories:
     instant: 0
     quick: 5
-    standard: 12
+    standard: 10
     travel: 20
   defaults:
     conversation: "standard"

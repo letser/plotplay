@@ -130,7 +130,7 @@ class ConditionEvaluator:
             return False
 
         when_any = getattr(rule_obj, 'when_any', None)
-        if when_any is not None:
+        if when_any:
             return self.evaluate_any(when_any)
 
         return True
@@ -149,7 +149,7 @@ class ConditionEvaluator:
             return False
         if when_all and not self.evaluate_all(when_all):
             return False
-        if when_any is not None:
+        if when_any:
             return self.evaluate_any(when_any)
         return True
 
@@ -207,6 +207,14 @@ class ConditionEvaluator:
 
         # Merge extra context (e.g., gate values, temporary vars)
         context.update(self.extra_context)
+
+        # Preserve data namespaces that share names with functions
+        discovered_data = context.get("discovered")
+        unlocked_data = context.get("unlocked")
+        if discovered_data is not None:
+            context["_discovered_data"] = discovered_data
+        if unlocked_data is not None:
+            context["_unlocked_data"] = unlocked_data
 
         # Add function bindings
         context.update({
@@ -319,7 +327,7 @@ class ConditionEvaluator:
 
     def _discovered(self, zone_or_location_id: str) -> bool:
         """Check if zone or location is discovered."""
-        discovered = self._eval_context.get("discovered", {})
+        discovered = self._eval_context.get("_discovered_data") or {}
         return (
             zone_or_location_id in discovered.get("zones", set()) or
             zone_or_location_id in discovered.get("locations", set())
@@ -327,7 +335,7 @@ class ConditionEvaluator:
 
     def _unlocked(self, category: str, id: str) -> bool:
         """Check if item is unlocked."""
-        unlocked = self._eval_context.get("unlocked", {})
+        unlocked = self._eval_context.get("_unlocked_data") or {}
         if category == "ending":
             return id in unlocked.get("endings", [])
         elif category == "action":
