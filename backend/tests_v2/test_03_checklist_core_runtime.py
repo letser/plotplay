@@ -5,6 +5,7 @@ from app.runtime.types import PlayerAction
 
 @pytest.mark.asyncio
 async def test_start_returns_choices_and_state(started_fixture_engine):
+    """Verify Start returns choices and state."""
     engine, initial = started_fixture_engine
     assert initial.state_summary["location"]["id"] == "quad"
     assert initial.state_summary["location"]["zone"] == "campus"
@@ -15,6 +16,7 @@ async def test_start_returns_choices_and_state(started_fixture_engine):
 
 @pytest.mark.asyncio
 async def test_greeting_progresses_flags_and_arcs(started_fixture_engine):
+    """Verify Greeting progresses flags and arcs."""
     engine, initial = started_fixture_engine
     greet_choice = next(choice for choice in initial.choices if choice["id"] == "greet_alex")
     result = await engine.process_action(
@@ -31,6 +33,7 @@ async def test_greeting_progresses_flags_and_arcs(started_fixture_engine):
 
 @pytest.mark.asyncio
 async def test_inventory_and_modifier_effects_apply_through_choices(started_fixture_engine):
+    """Verify Inventory and modifier effects apply through choices."""
     engine, initial = started_fixture_engine
     # Move into chat_alex then give map to exercise inventory_give + apply_modifier + time advance
     chat_choice = next(choice for choice in initial.choices if choice["id"] == "greet_alex")

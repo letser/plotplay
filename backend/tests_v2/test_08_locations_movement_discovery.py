@@ -4,6 +4,7 @@ from app.runtime.types import PlayerAction
 
 
 def test_discovery_rules_defined(fixture_loader):
+    """Verify Discovery rules defined."""
     game = fixture_loader.load_game("checklist_demo")
     campus = next(zone for zone in game.zones if zone.id == "campus")
     assert campus.access.discovered is True
@@ -14,6 +15,7 @@ def test_discovery_rules_defined(fixture_loader):
 
 @pytest.mark.asyncio
 async def test_movement_choice_includes_direction(started_fixture_engine):
+    """Verify Movement choice includes direction."""
     _, initial = started_fixture_engine
     movement_choice = next(choice for choice in initial.choices if choice["type"] == "movement")
     assert "metadata" in movement_choice
@@ -22,6 +24,7 @@ async def test_movement_choice_includes_direction(started_fixture_engine):
 
 @pytest.mark.asyncio
 async def test_zone_travel_and_discovery_progression(started_fixture_engine):
+    """Verify Zone travel and discovery progression."""
     engine, initial = started_fixture_engine
     greet = next(choice for choice in initial.choices if choice["id"] == "greet_alex")
     await engine.process_action(PlayerAction(action_type="choice", choice_id=greet["id"]))

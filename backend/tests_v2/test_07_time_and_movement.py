@@ -5,6 +5,7 @@ from app.runtime.types import PlayerAction
 
 @pytest.mark.asyncio
 async def test_start_time_slot_and_defaults(started_fixture_engine):
+    """Verify Start time slot and defaults."""
     _, initial = started_fixture_engine
     time_info = initial.state_summary["time"]
     # Starts at day 1, morning slot per fixture config
@@ -15,6 +16,7 @@ async def test_start_time_slot_and_defaults(started_fixture_engine):
 
 @pytest.mark.asyncio
 async def test_movement_choice_advances_location_and_time(started_fixture_engine):
+    """Verify Movement choice advances location and time."""
     engine, initial = started_fixture_engine
     movement_choice = next(choice for choice in initial.choices if choice["type"] == "movement")
     result = await engine.process_action(
@@ -28,6 +30,7 @@ async def test_movement_choice_advances_location_and_time(started_fixture_engine
 
 @pytest.mark.asyncio
 async def test_zone_travel_connection_metadata(started_fixture_engine):
+    """Verify Zone travel connection metadata."""
     engine, initial = started_fixture_engine
     # travel between zones should be available once discoveries allow; this asserts metadata shape
     movement_choice = next(choice for choice in initial.choices if choice["type"] == "movement")

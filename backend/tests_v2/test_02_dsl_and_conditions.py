@@ -4,6 +4,7 @@ from app.core.state import StateManager
 
 
 def test_dsl_basic_operators_and_paths(fixture_loader):
+    """Verify Dsl basic operators and paths."""
     game = fixture_loader.load_game("checklist_demo")
     state_manager = StateManager(game)
     evaluator = state_manager.create_evaluator()
@@ -16,6 +17,7 @@ def test_dsl_basic_operators_and_paths(fixture_loader):
 
 
 def test_dsl_functions_has_and_discovery(fixture_loader):
+    """Verify Dsl functions has and discovery."""
     game = fixture_loader.load_game("checklist_demo")
     state_manager = StateManager(game)
     evaluator = state_manager.create_evaluator()
@@ -29,6 +31,7 @@ def test_dsl_functions_has_and_discovery(fixture_loader):
 
 
 def test_dsl_clothing_and_unlock_helpers(fixture_loader):
+    """Verify Dsl clothing and unlock helpers."""
     game = fixture_loader.load_game("checklist_demo")
     state_manager = StateManager(game)
     evaluator = state_manager.create_evaluator()
@@ -39,6 +42,7 @@ def test_dsl_clothing_and_unlock_helpers(fixture_loader):
 
 @pytest.mark.skip(reason="rand() determinism and function coverage to be finalized with runtime RNG hook")
 def test_dsl_rand_probability(fixture_loader):
+    """Verify Dsl rand probability."""
     game = fixture_loader.load_game("checklist_demo")
     state_manager = StateManager(game)
     evaluator = state_manager.create_evaluator()

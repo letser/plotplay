@@ -5,6 +5,7 @@ from app.runtime.types import PlayerAction
 
 @pytest.mark.asyncio
 async def test_inventory_give_effect_executes(started_fixture_engine):
+    """Verify Inventory give effect executes."""
     engine, initial = started_fixture_engine
     greet = next(choice for choice in initial.choices if choice["id"] == "greet_alex")
     await engine.process_action(PlayerAction(action_type="choice", choice_id=greet["id"]))
@@ -19,6 +20,7 @@ async def test_inventory_give_effect_executes(started_fixture_engine):
 
 @pytest.mark.asyncio
 async def test_shop_purchase_path(started_fixture_engine):
+    """Verify Shop purchase path."""
     engine, initial = started_fixture_engine
     # take a deterministic choice to unlock cafe (greet alex)
     greet = next(choice for choice in initial.choices if choice["id"] == "greet_alex")
@@ -39,6 +41,7 @@ async def test_shop_purchase_path(started_fixture_engine):
 
 @pytest.mark.asyncio
 async def test_item_use_applies_effects(started_fixture_engine):
+    """Verify Item use applies effects."""
     engine, initial = started_fixture_engine
     # intro on_enter gives a map and movement choice gives coffee; ingest coffee to test on_use
     movement_choice = next(choice for choice in initial.choices if choice["type"] == "movement")

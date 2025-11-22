@@ -5,6 +5,7 @@ from app.core.validator import GameValidator
 
 
 def test_fixture_game_loads_and_validates(fixture_loader):
+    """Verify Fixture game loads and validates."""
     game = fixture_loader.load_game("checklist_demo")
     assert game.meta.id == "checklist_demo"
     GameValidator(game).validate()
@@ -14,6 +15,7 @@ def test_fixture_game_loads_and_validates(fixture_loader):
 
 
 def test_fixture_game_has_expected_start_state(fixture_loader):
+    """Verify Fixture game has expected start state."""
     game = fixture_loader.load_game("checklist_demo")
     state = game.index
     # start location/node exist and are wired into indices
@@ -23,6 +25,7 @@ def test_fixture_game_has_expected_start_state(fixture_loader):
 
 
 def test_loader_rejects_unknown_game(tmp_path, loader):
+    """Verify Loader rejects unknown game."""
     game_dir = tmp_path / "bad_game"
     game_dir.mkdir()
     manifest = game_dir / "game.yaml"

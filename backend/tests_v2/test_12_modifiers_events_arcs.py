@@ -5,6 +5,7 @@ from app.runtime.types import PlayerAction
 
 @pytest.mark.asyncio
 async def test_modifier_applied_and_expires(started_fixture_engine):
+    """Verify Modifier applied and expires."""
     engine, initial = started_fixture_engine
     greet = next(choice for choice in initial.choices if choice["id"] == "greet_alex")
     await engine.process_action(PlayerAction(action_type="choice", choice_id=greet["id"]))
@@ -22,6 +23,7 @@ async def test_modifier_applied_and_expires(started_fixture_engine):
 
 @pytest.mark.asyncio
 async def test_arc_progression_triggers_on_flag(started_fixture_engine):
+    """Verify Arc progression triggers on flag."""
     engine, initial = started_fixture_engine
     greet = next(choice for choice in initial.choices if choice["id"] == "greet_alex")
     await engine.process_action(PlayerAction(action_type="choice", choice_id=greet["id"]))
@@ -32,6 +34,7 @@ async def test_arc_progression_triggers_on_flag(started_fixture_engine):
 
 @pytest.mark.asyncio
 async def test_event_cooldown_and_random_trigger(started_fixture_engine):
+    """Verify Event cooldown and random trigger."""
     engine, _ = started_fixture_engine
     # Force several turns to give random event chances; we just assert no errors and cooldown tracking exists
     for _ in range(3):
