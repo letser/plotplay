@@ -93,3 +93,34 @@
 - **Writer Prompt Format**: Shows "Story so far: [summary]" + "Recent scene: [last N narratives]" instead of bullet points. More coherent narrative context.
 - **Test Suite**: Updated `test_25_memory_system.py` with 10 comprehensive tests. All 200 tests passing (2 skipped placeholders).
 - **Implementation**: Memory parsing in `TurnManager._apply_memory_updates()`, conditional summary requests in `PromptBuilder.build_checker_prompt()`, summary display in `_build_turn_context_envelope()`.
+
+### Scenario Testing System & Movement Actions (Latest Session)
+- **Scenario Testing System**: IMPLEMENTED. Full scenario testing framework based on `SCENARIO_TESTING_PLAN.md`:
+  - **Module**: `app/scenarios/` with models, loader, runner, validators, mock AI service, and reporter
+  - **Console Script**: `scripts/run_scenario.py` for running test scenarios with rich output
+  - **Inline Mocks**: Support for both inline mocks (`writer: "text"`, `checker: {}`) and referenced mocks for cleaner scenario authoring
+  - **Documentation**: Comprehensive `docs/scenario_authoring_guide.md` covering all action types, validation, and best practices
+- **Movement Actions**: COMPLETE. Three explicit movement action types with full validation:
+  - **`move`**: Compass direction movement (n/s/e/w/ne/se/sw/nw/u/d) with direction normalization
+  - **`goto`**: Direct location targeting within a zone
+  - **`travel`**: Inter-zone travel with exit/entry validation when `use_entry_exit=true`
+  - **Companion Support**: All movement actions support `with_characters` list for moving with NPCs
+  - **NPC Willingness**: Gate-based validation (`follow_player`, `follow_player_{action}`) ensures NPCs consent to movement
+  - **Action Formatting**: Human-readable action summaries for prompts/logs
+  - **API Documentation**: `docs/api_contract.md` updated with comprehensive movement action documentation
+- **Test Coverage**: 23 comprehensive unit tests in `test_26_movement_validation.py`:
+  - Compass direction normalization and all 10 compass directions
+  - Exit/entry validation for zone travel
+  - NPC willingness checks (generic and action-specific)
+  - Action service handlers for move/goto/travel
+  - All tests passing
+- **Bug Fixes**: Fixed `UnboundLocalError` in `travel_to_zone` where `current_zone` was used before definition
+- **State Summary**: Added `current_node` field to state_summary for better scenario validation
+
+### Stage 8: Next Steps
+- **Comprehensive Scenario Creation**: Create 3-4 comprehensive test scenarios to validate all engine features end-to-end:
+  - Each scenario should exercise multiple systems (movement, inventory, time, events, AI, modifiers, etc.)
+  - Cover edge cases and feature interactions
+  - Demonstrate proper game authoring patterns
+  - Serve as regression tests and documentation
+- **Target**: Build scenarios under `scenarios/comprehensive/` that test the complete engine behavior with realistic multi-turn gameplay flows
