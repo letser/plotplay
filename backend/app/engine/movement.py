@@ -49,7 +49,53 @@ class MovementService:
         state.present_characters = present
         engine._update_npc_presence()
 
-    async def move_local(self, destination_id: str) -> bool:
+    async def move_by_direction(self, direction: str, companions: list[str] | None = None) -> dict[str, Any] | None:
+        """
+        Move in a compass direction (n, s, e, w, ne, se, sw, nw, u, d).
+
+        Args:
+            direction: Compass direction
+            companions: List of character IDs to move with
+
+        Returns:
+            Movement result dict or None if no connection in that direction
+        """
+        state = self.engine.state_manager.state
+        current_location = self.engine.get_location(state.current_location)
+        if not current_location or not current_location.connections:
+            return None
+
+        # Normalize direction (handle variants like "north" -> "n")
+        direction_map = {
+            "north": "n", "n": "n",
+            "south": "s", "s": "s",
+            "east": "e", "e": "e",
+            "west": "w", "w": "w",
+            "northeast": "ne", "ne": "ne",
+            "southeast": "se", "se": "se",
+            "southwest": "sw", "sw": "sw",
+            "northwest": "nw", "nw": "nw",
+            "up": "u", "u": "u",
+            "down": "d", "d": "d",
+        }
+        normalized_dir = direction_map.get(direction.lower())
+        if not normalized_dir:
+            self.logger.warning(f"Invalid direction: {direction}")
+            return None
+
+        # Find connection matching this direction
+        for connection in current_location.connections:
+            if connection.direction and connection.direction.value == normalized_dir:
+                # Get destination
+                targets = [connection.to] if isinstance(connection.to, str) else (connection.to or [])
+                if targets:
+                    destination_id = targets[0]  # Take first if multiple
+                    return self._execute_local_movement(destination_id, connection, companions)
+
+        self.logger.info(f"No connection in direction {normalized_dir} from {state.current_location}")
+        return None
+
+    async def move_local(self, destination_id: str, companions: list[str] | None = None) -> bool:
         """Move to a specific location within the current zone."""
         state = self.engine.state_manager.state
         current_location = self.engine.get_location(state.current_location)
@@ -59,8 +105,8 @@ class MovementService:
         for connection in current_location.connections:
             targets = [connection.to] if isinstance(connection.to, str) else (connection.to or [])
             if destination_id in targets:
-                result = self._execute_local_movement(destination_id, connection)
-                return "action_summary" in result
+                result = self._execute_local_movement(destination_id, connection, companions)
+                return "action_summary" in result if result else False
         return False
 
     async def move_zone(self, zone_id: str, method: str | None = None, entry_location_id: str | None = None) -> bool:
@@ -338,28 +384,54 @@ class MovementService:
                 return True
             return False
 
+        # Get current zone for validation
+        current_zone = engine.zones_map.get(state.current_zone)
+
+        # VALIDATION: Check origin zone exit requirements
+        if move_rules and move_rules.use_entry_exit:
+            if current_zone and current_zone.exits:
+                # Current location must be an exit location
+                if state.current_location not in current_zone.exits:
+                    self.logger.warning(
+                        f"Cannot travel from {state.current_location}: not an exit location. "
+                        f"Valid exits for {state.current_zone}: {current_zone.exits}"
+                    )
+                    return False
+
         # Determine entry location
         destination_location_id = None
 
         # Priority 1: User-specified entry location
         if entry_location_id:
             destination_location_id = entry_location_id
+            # VALIDATION: If target zone requires entry/exit, validate it's an entrance
+            if move_rules and move_rules.use_entry_exit:
+                if target_zone.entrances and destination_location_id not in target_zone.entrances:
+                    self.logger.warning(
+                        f"Cannot travel to {destination_location_id}: not an entrance to {zone_id}. "
+                        f"Valid entrances: {target_zone.entrances}"
+                    )
+                    return False
 
         # Priority 2: use_entry_exit zones with entrances defined
         elif move_rules and move_rules.use_entry_exit and target_zone.entrances:
             # Use first entrance by default
             destination_location_id = target_zone.entrances[0]
 
-        # Priority 3: First location in zone
+        # Priority 3: First location in zone (only if use_entry_exit is false)
         if not destination_location_id:
-            destination_location_id = target_zone.locations[0].id
+            if move_rules and move_rules.use_entry_exit and target_zone.entrances:
+                # Still need an entrance
+                destination_location_id = target_zone.entrances[0]
+            else:
+                # No entry/exit restrictions, use any location
+                destination_location_id = target_zone.locations[0].id
 
         # Verify the destination location exists
         if not engine.get_location(destination_location_id):
             return False
 
-        # Calculate travel time
-        current_zone = engine.zones_map.get(state.current_zone)
+        # Verify current zone exists (should already be set above)
         if not current_zone:
             return False
 

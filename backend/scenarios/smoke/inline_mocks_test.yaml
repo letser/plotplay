@@ -1,0 +1,36 @@
+metadata:
+  name: "Inline Mocks Test"
+  description: "Test inline mock syntax (writer and checker fields)"
+  game: "coffeeshop_date"
+  tags: ["smoke-test", "inline"]
+
+# No centralized mocks needed!
+
+steps:
+  - name: "Start game with inline mocks"
+    action: start
+    writer: "You arrive at the sunlit cafe patio. Alex is already there, waving."
+    checker:
+      meters: {}
+      flags: {}
+      character_memories: {}
+      safety: {ok: true}
+    expect:
+      node: "outside_cafe"
+      location: "cafe_patio"
+      present_characters: ["player", "alex"]
+
+  - name: "Greet warmly with inline mocks"
+    action: choice
+    choice_id: "greet_warmly"
+    writer: "Alex's face lights up as you approach. 'So glad you made it!' she says."
+    checker:
+      meters: {}
+      flags: {}
+      character_memories: {}
+      safety: {ok: true}
+    expect:
+      node: "order_drinks"
+      narrative_contains:
+        - "Alex"
+        - "glad"

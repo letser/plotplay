@@ -23,6 +23,7 @@ class PlayerAction:
         "use",
         "give",
         "move",
+        "goto",
         "travel",
         "shop_buy",
         "shop_sell",
@@ -33,6 +34,12 @@ class PlayerAction:
     choice_id: str | None = None
     item_id: str | None = None
     target: str | None = None
+
+    # Movement fields
+    direction: str | None = None  # For "move" action (compass: n, s, e, w, etc.)
+    location: str | None = None   # For "goto" and "travel" actions (target location ID)
+    with_characters: list[str] | None = None  # Companion character IDs for movement
+
     skip_ai: bool = False
     extra: dict[str, Any] = field(default_factory=dict)
 

@@ -38,11 +38,45 @@ class ActionFormatter:
     def format(
         self,
         action_type: str,
-        action_text: str | None,
-        choice_id: str | None,
-        item_id: str | None,
+        action_text: str | None = None,
+        choice_id: str | None = None,
+        item_id: str | None = None,
+        direction: str | None = None,
+        location: str | None = None,
+        with_characters: list[str] | None = None,
     ) -> str:
         subject = self._player_subject()
+
+        if action_type == "move" and direction:
+            direction_names = {
+                "n": "north", "s": "south", "e": "east", "w": "west",
+                "ne": "northeast", "se": "southeast", "sw": "southwest", "nw": "northwest",
+                "u": "up", "d": "down"
+            }
+            dir_name = direction_names.get(direction.lower(), direction)
+            companions_text = ""
+            if with_characters and len(with_characters) > 0:
+                companions_text = f" with {', '.join(with_characters)}"
+            verb = self._verb("move")
+            return f"{subject} {verb} {dir_name}{companions_text}."
+
+        if action_type == "goto" and location:
+            loc_def = self.runtime.index.locations.get(location)
+            loc_name = getattr(loc_def, "name", location) if loc_def else location
+            companions_text = ""
+            if with_characters and len(with_characters) > 0:
+                companions_text = f" with {', '.join(with_characters)}"
+            verb = self._verb("go")
+            return f"{subject} {verb} to {loc_name}{companions_text}."
+
+        if action_type == "travel" and location:
+            loc_def = self.runtime.index.locations.get(location)
+            loc_name = getattr(loc_def, "name", location) if loc_def else location
+            companions_text = ""
+            if with_characters and len(with_characters) > 0:
+                companions_text = f" with {', '.join(with_characters)}"
+            verb = self._verb("travel")
+            return f"{subject} {verb} to {loc_name}{companions_text}."
 
         if action_type == "use" and item_id:
             inventory = getattr(self.runtime, "inventory_service", None)

@@ -1,0 +1,40 @@
+metadata:
+  name: "Coffee Shop - Basic Flow"
+  description: "Simple smoke test verifying game starts and basic actions work"
+  game: "coffeeshop_date"
+  author: "PlotPlay Team"
+  tags: ["smoke-test", "basic"]
+
+mocks:
+  writer:
+    intro: "You step onto the sunlit cafe patio. The aroma of fresh coffee fills the air. You spot Alex at one of the tables."
+    greet: "Alex looks up from their phone and smiles warmly. 'Hey! Glad you could make it.'"
+    order: "You both head inside to order. The barista nods and gets to work, steam hissing from the espresso machine."
+
+  checker:
+    default:
+      meters: {}
+      flags: {}
+      character_memories: {}
+      safety:
+        ok: true
+
+steps:
+  - name: "Start game"
+    action: start
+    mock_writer_key: intro
+    expect:
+      node: "outside_cafe"
+      location: "cafe_patio"
+      present_characters: ["player", "alex"]
+
+  - name: "Greet Alex warmly"
+    action: choice
+    choice_id: "greet_warmly"
+    mock_writer_key: greet
+    expect:
+      node: "order_drinks"
+      present_characters: ["player", "alex"]
+      narrative_contains:
+        - "Alex"
+        - "smile"

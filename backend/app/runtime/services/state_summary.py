@@ -61,6 +61,7 @@ class StateSummaryService:
         location_def = self.runtime.index.locations.get(state.current_location)
         summary = {
             "turn": state.turn_count,
+            "current_node": state.current_node,
             "time": {
                 "day": state.day,
                 "slot": state.time.slot,

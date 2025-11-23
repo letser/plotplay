@@ -12,6 +12,7 @@ python-multipart
 python-jose[cryptography]
 passlib[bcrypt]
 python-dotenv
+typer
 #pydevd-pycharm
 
 # Testing requirements for PlotPlay

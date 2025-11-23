@@ -82,6 +82,9 @@ class TurnManager:
             action_text=action.action_text,
             choice_id=action.choice_id,
             item_id=action.item_id,
+            direction=getattr(action, "direction", None),
+            location=getattr(action, "location", None),
+            with_characters=getattr(action, "with_characters", None),
         )
 
         yield {"type": "action_summary", "content": ctx.action_summary}

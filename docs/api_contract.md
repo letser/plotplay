@@ -50,13 +50,16 @@ Response (`200 OK`):
 Runs a single turn using the unified pipeline. All gameplay actions (dialogue, movement, inventory, shopping, arc choices, etc.) must hit this endpoint.
 
 Request body fields:
-- `action_type`: `"say" | "do" | "choice" | "use" | "give" | "move" | "travel" | "shop_buy" | "shop_sell" | "inventory" | "clothing"`
+- `action_type`: `"say" | "do" | "choice" | "use" | "give" | "move" | "goto" | "travel" | "shop_buy" | "shop_sell" | "inventory" | "clothing"`
 - `action_text` (optional string) — required for `say`/`do`, optional context for others.
 - `choice_id` (optional string) — required for `choice`, pulled from prior `choices`.
 - `item_id` (optional string) — required for `use`/`give`, identifies the inventory item.
 - `target` (optional string) — used when an action is directed at a character/location.
+- `direction` (optional string) — required for `move`, compass direction (n/s/e/w/ne/se/sw/nw/u/d).
+- `location` (optional string) — required for `goto`/`travel`, destination location ID.
+- `with_characters` (optional array\<string\>) — for movement actions, character IDs to move with player.
 - `skip_ai` (optional bool) — debug/testing flag to bypass Writer/Checker.
-- `extra` (optional object) — future-proofing for structured payloads (e.g., passing travel method); the backend ignores unknown keys but leaves room for extension.
+- `extra` (optional object) — future-proofing for structured payloads; the backend ignores unknown keys but leaves room for extension.
 
 Response is the same `TurnResult` structure as `/start`.
 
@@ -77,7 +80,7 @@ If an error occurs, emit `{"type":"error","message":...}` before closing the str
 | `session_id`       | string (UUID)   | Echoes the active session. |
 | `narrative`        | string          | Combined narrative for the turn (events + AI). |
 | `choices`          | array\<Choice\> | Available actions for the next turn (node choices, movement, unlocked actions, etc.). |
-| `state_summary`    | object          | Snapshot built by `StateSummaryService` (time, location, privacy, player details, present characters, inventory, economy, etc.). |
+| `state_summary`    | object          | Snapshot built by `StateSummaryService` (includes `current_node`, `time`, `location`, `privacy`, player details, present characters, inventory, economy, etc.). |
 | `action_summary`   | string          | Human-readable description of the action the player just took. |
 | `events_fired`     | array\<string\> | Event IDs triggered during the turn. |
 | `milestones_reached` | array\<string\> | Arc milestone IDs advanced this turn. |
@@ -111,17 +114,134 @@ Frontends display these as buttons/menus. To execute a choice, call `/action` wi
 | `choice`      | Select authored choice/action | `choice_id` | Applies to node choices, event choices, unlocked actions, movement/travel options, shops, inventory actions, etc. |
 | `use`         | Consume or activate an item | `item_id`; optional `target` | Engine resolves the `on_use` effects and handles removal. |
 | `give`        | Transfer item to another character/location | `item_id`, `target` | Runs through the unified inventory give logic. |
-| `move`        | Direct movement command (when surfaced by UI) | optional `choice_id` or structured metadata | Alternative to `choice` for movement if UI sends a direct command. |
-| `travel`      | Zone travel command | optional `choice_id` or structured metadata | Encodes chosen method/destination; still goes through `/action`. |
+| `move`        | Move by compass direction | `direction`; optional `with_characters` | Compass movement (n/s/e/w/ne/se/sw/nw/u/d). Engine validates connection exists and companions are willing. |
+| `goto`        | Move to specific location within zone | `location`; optional `with_characters` | Direct location targeting. Engine validates location is reachable and companions are willing. |
+| `travel`      | Travel to different zone | `location`; optional `with_characters` | Inter-zone travel. Engine validates exit/entry restrictions if `use_entry_exit=true` and companions are willing. |
 | `shop_buy`    | Purchase command | item info inline or via `choice_id` | Deterministic commerce routed through turn pipeline. |
 | `shop_sell`   | Sell command | item info inline or via `choice_id` | Deterministic commerce routed through turn pipeline. |
 | `inventory`   | Deterministic inventory actions | item info inline or via `choice_id` | Covers take/drop/give/use when not already encoded as a `choice`. |
 | `clothing`    | Wardrobe change command | clothing info inline or via `choice_id` | Covers put on/take off/slot state changes if UI bypasses a pre-authored choice. |
 
 ### Movement & Travel
-- Local movement appears as `choices` with `type: "movement"` (e.g., `move_cafe_counter`).
-- Zone travel appears as `choices` or as structured options in the UI; once the player selects their method/entry, the client sends the corresponding `choice` action with any necessary metadata encoded in the choice definition.
-- Compass directions (N/S/E/W) are just movement choices with metadata like `{ "direction": "north" }`; the engine doesn’t need a special API.
+
+The engine supports three explicit movement action types that provide clear intent and validation:
+
+#### 1. Compass Direction Movement (`move`)
+Move in a compass direction using connections defined in the game definition.
+
+**Request:**
+```json
+{
+  "action_type": "move",
+  "direction": "n",
+  "with_characters": ["alex"]
+}
+```
+
+**Supported Directions:**
+- Cardinal: `n`, `s`, `e`, `w` (also accepts full names: `north`, `south`, etc.)
+- Intercardinal: `ne`, `se`, `sw`, `nw`
+- Vertical: `u` (up), `d` (down)
+
+**Validation:**
+- Engine verifies a connection exists in the specified direction from current location
+- If `with_characters` provided, validates all NPCs are present and willing (via `follow_player` gate)
+- Returns `400 Bad Request` if no connection exists or any companion is unwilling
+
+#### 2. Direct Location Movement (`goto`)
+Move directly to a specific location within the current zone.
+
+**Request:**
+```json
+{
+  "action_type": "goto",
+  "location": "cafe_counter",
+  "with_characters": ["alex", "emma"]
+}
+```
+
+**Validation:**
+- Engine verifies target location is reachable from current location (within same zone)
+- If `with_characters` provided, validates all NPCs are present and willing
+- Returns `400 Bad Request` if location is unreachable or any companion is unwilling
+
+#### 3. Inter-Zone Travel (`travel`)
+Travel to a location in a different zone.
+
+**Request:**
+```json
+{
+  "action_type": "travel",
+  "location": "downtown_entrance",
+  "with_characters": ["alex"]
+}
+```
+
+**Validation:**
+- If game definition has `movement.use_entry_exit: true`:
+  - **Exit validation**: Current location must be in current zone's `exits` list
+  - **Entry validation**: Target location must be in destination zone's `entrances` list
+- If `movement.use_entry_exit: false`:
+  - Any location in current zone can be an exit
+  - Any location in destination zone can be an entry point
+- If `with_characters` provided, validates all NPCs are present and willing
+- Returns `400 Bad Request` if exit/entry restrictions violated or any companion is unwilling
+
+**Error Examples:**
+```json
+{
+  "detail": "Cannot travel from cafe_patio: not an exit location. Valid exits for downtown: ['main_street']"
+}
+```
+
+```json
+{
+  "detail": "Cannot travel with alex: character unwilling to follow"
+}
+```
+
+#### NPC Companion Willingness
+
+When moving with NPCs (`with_characters` field), the engine validates willingness via character gates:
+
+**Generic Gate:**
+```yaml
+characters:
+  - id: "alex"
+    gates:
+      follow_player: true  # Willing to move with player
+```
+
+**Action-Specific Gates:**
+```yaml
+characters:
+  - id: "emma"
+    gates:
+      follow_player: true          # Willing for most movement
+      follow_player_travel: false  # But not willing to travel between zones
+```
+
+Supported gate keys:
+- `follow_player` - Generic willingness to move with player
+- `follow_player_move` - Specific to compass direction movement
+- `follow_player_goto` - Specific to direct location movement
+- `follow_player_travel` - Specific to inter-zone travel
+
+The engine checks action-specific gates first, then falls back to the generic `follow_player` gate.
+
+#### Movement via Choices
+
+In addition to explicit movement actions, movement can also be triggered via the `choice` action type when choices are auto-generated by the engine or defined in nodes:
+
+**Request:**
+```json
+{
+  "action_type": "choice",
+  "choice_id": "move_cafe_counter"
+}
+```
+
+This pattern is useful when the UI displays pre-generated movement options from the `choices` array.
 
 ### Inventory & Shopping
 - Pickup/drop/give/sell/purchase actions are also emitted as choices (types `inventory_take`, `inventory_drop`, `shop_buy`, `shop_sell`, etc.).  

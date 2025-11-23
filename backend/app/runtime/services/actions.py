@@ -40,6 +40,18 @@ class ActionService:
             if not action.item_id or not action.target:
                 raise ValueError("give action requires item_id and target")
             self._handle_give_item(action.item_id, action.target)
+        elif action.action_type == "move":
+            if not action.direction:
+                raise ValueError("move action requires direction")
+            self._handle_move_direction(action.direction, action.with_characters)
+        elif action.action_type == "goto":
+            if not action.location:
+                raise ValueError("goto action requires location")
+            self._handle_goto_location(action.location, action.with_characters)
+        elif action.action_type == "travel":
+            if not action.location:
+                raise ValueError("travel action requires location")
+            self._handle_travel(action.location, action.with_characters)
         else:
             raise ValueError(f"Unsupported action_type: {action.action_type}")
 
@@ -168,3 +180,93 @@ class ActionService:
         )
         if hooks:
             self.effect_resolver.apply_effects(hooks)
+
+    def _handle_move_direction(self, direction: str, companions: list[str] | None) -> None:
+        """Handle compass direction movement (move action)."""
+        movement_service = getattr(self.runtime, "movement_service", None)
+        if not movement_service:
+            raise RuntimeError("Movement service not available")
+
+        # Check NPC willingness if moving with companions
+        if companions:
+            self._validate_companion_willingness(companions, "move")
+
+        # Execute movement by direction
+        result = movement_service.move_by_direction(direction, companions)
+        if not result:
+            raise ValueError(f"Cannot move in direction '{direction}' from current location")
+
+    def _handle_goto_location(self, location: str, companions: list[str] | None) -> None:
+        """Handle direct location movement (goto action)."""
+        movement_service = getattr(self.runtime, "movement_service", None)
+        if not movement_service:
+            raise RuntimeError("Movement service not available")
+
+        # Check NPC willingness if moving with companions
+        if companions:
+            self._validate_companion_willingness(companions, "goto")
+
+        # Execute local movement to specific location
+        success = movement_service.move_local(location, companions)
+        if not success:
+            raise ValueError(f"Cannot move to location '{location}'")
+
+    def _handle_travel(self, location: str, companions: list[str] | None) -> None:
+        """Handle zone-to-zone travel (travel action)."""
+        movement_service = getattr(self.runtime, "movement_service", None)
+        if not movement_service:
+            raise RuntimeError("Movement service not available")
+
+        # Check NPC willingness if traveling with companions
+        if companions:
+            self._validate_companion_willingness(companions, "travel")
+
+        # Execute inter-zone travel
+        success = movement_service.travel_to_zone(
+            location_id=location,
+            with_characters=companions
+        )
+        if not success:
+            raise ValueError(f"Cannot travel to location '{location}'")
+
+    def _validate_companion_willingness(self, companions: list[str], action_context: str) -> None:
+        """
+        Validate that NPCs are willing to move with the player.
+
+        Args:
+            companions: List of character IDs
+            action_context: Context for error messages (move/goto/travel)
+
+        Raises:
+            ValueError: If any companion is unwilling or not present
+        """
+        state = self.runtime.state_manager.state
+
+        for char_id in companions:
+            # Skip player
+            if char_id == "player":
+                continue
+
+            # Check if character is present
+            if char_id not in state.present_characters:
+                raise ValueError(
+                    f"Cannot {action_context} with {char_id}: character not present"
+                )
+
+            # Check willingness via gates
+            char_state = state.characters.get(char_id)
+            if char_state:
+                gates = getattr(char_state, "gates", {}) or getattr(char_state, "gates_full", {})
+
+                # Check generic movement willingness gate
+                if "follow_player" in gates and not gates["follow_player"]:
+                    raise ValueError(
+                        f"Cannot {action_context} with {char_id}: character unwilling to follow"
+                    )
+
+                # Check specific action context gates if they exist
+                gate_key = f"follow_player_{action_context}"
+                if gate_key in gates and not gates[gate_key]:
+                    raise ValueError(
+                        f"Cannot {action_context} with {char_id}: character unwilling"
+                    )
