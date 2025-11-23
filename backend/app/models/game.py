@@ -215,7 +215,8 @@ class GameState:
     unlocked_outfits: dict[str, list[str]] = field(default_factory=dict)  # char_id -> [outfit_ids]
 
     narrative_history: list[str] = field(default_factory=list)
-    memory_log: list[dict[str, str]] = field(default_factory=list)
+    narrative_summary: str = ""  # Rolling narrative summary (updated every N AI turns)
+    ai_turns_since_summary: int = 0  # Counter for summary update interval
     turn_count: int = 0
     actions_this_slot: int = 0
     rng_seed: int = 0  # Deterministic random seed (derived from turn_count + state hash)

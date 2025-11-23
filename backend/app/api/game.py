@@ -12,6 +12,7 @@ from app.core.loader import GameLoader
 from app.core.game_engine import GameEngine
 from app.runtime.engine import PlotPlayEngine
 from app.runtime.types import PlayerAction
+from app.services.ai_service import AIService
 
 router = APIRouter()
 
@@ -64,7 +65,10 @@ async def start_game(request: StartGameRequest) -> GameResponse:
     try:
         loader = GameLoader()
         game_def = loader.load_game(request.game_id)
-        engine = PlotPlayEngine(game_def, session_id)
+        # IMPORTANT: Use real AIService (OpenRouter) for production
+        # Tests use MockAIService (see tests_v2/conftest.py)
+        ai_service = AIService()
+        engine = PlotPlayEngine(game_def, session_id, ai_service=ai_service)
 
         game_sessions[session_id] = engine
 
@@ -99,7 +103,10 @@ async def start_game_stream(request: StartGameRequest):
             loader = GameLoader()
             game_def = loader.load_game(request.game_id)
             print(f"[START] Game loaded, creating engine...")
-            engine = PlotPlayEngine(game_def, session_id)
+            # IMPORTANT: Use real AIService (OpenRouter) for production
+            # Tests use MockAIService (see tests_v2/conftest.py)
+            ai_service = AIService()
+            engine = PlotPlayEngine(game_def, session_id, ai_service=ai_service)
             print(f"[START] Engine created")
 
             game_sessions[session_id] = engine

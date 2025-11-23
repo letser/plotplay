@@ -50,7 +50,17 @@ def fixture_loader(fixture_games_dir: Path) -> GameLoader:
 
 @pytest.fixture
 def mock_ai_service():
-    """Fast mock for writer/checker calls."""
+    """
+    Fast mock AI service for tests - NO real API calls.
+
+    IMPORTANT: Tests MUST use MockAIService to ensure:
+    - Fast test execution (no network latency)
+    - Deterministic results (no AI randomness)
+    - No API costs (no OpenRouter charges)
+    - Offline testing (no internet required)
+
+    Production API uses real AIService (OpenRouter).
+    """
     return MockAIService()
 
 
@@ -59,10 +69,13 @@ def engine_factory(mock_ai_service, loader: GameLoader):
     """
     Simple factory that instantiates the new PlotPlayEngine for a given game id.
     Tests can call engine_factory('coffeeshop_date') to get a ready-to-use engine.
+
+    IMPORTANT: Always injects MockAIService (never real AIService).
     """
 
     def _create(game_id: str, session_id: str = "test-session") -> PlotPlayEngine:
         game_def = loader.load_game(game_id)
+        # IMPORTANT: Use mock_ai_service fixture (MockAIService, not real AIService)
         return PlotPlayEngine(game_def, session_id=session_id, ai_service=mock_ai_service)
 
     return _create
@@ -83,12 +96,15 @@ async def started_engine(engine_factory):
 def fixture_engine_factory(mock_ai_service, fixture_loader: GameLoader):
     """
     Factory bound to the test fixture games directory.
+
+    IMPORTANT: Always injects MockAIService (never real AIService).
     """
 
     def _create(game_id: str = "checklist_demo", session_id: str = "fixture-session") -> PlotPlayEngine:
         game_def = fixture_loader.load_game(game_id)
         # Explicit validator run for clarity in tests that want to assert preconditions
         GameValidator(game_def).validate()
+        # IMPORTANT: Use mock_ai_service fixture (MockAIService, not real AIService)
         return PlotPlayEngine(game_def, session_id=session_id, ai_service=mock_ai_service)
 
     return _create

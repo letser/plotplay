@@ -67,6 +67,7 @@ class TurnManager:
         self.state_summary = getattr(runtime, "state_summary_service", None)
         self.ai_service = getattr(runtime, "ai_service", None)
         self.trade_service = getattr(runtime, "trade_service", None)
+        self.prompt_builder = getattr(runtime, "prompt_builder", None)
 
     async def run_turn(self, action: PlayerAction) -> AsyncIterator[dict]:
         ctx = self._initialize_context()
@@ -116,6 +117,10 @@ class TurnManager:
             narrative_parts.append(ctx.action_summary)
         narrative = "\n\n".join(narrative_parts).strip()
         self.runtime.state_manager.state.narrative_history.append(narrative)
+
+        # Increment AI turn counter for memory summary tracking
+        if ctx.ai_narrative:  # Only increment on AI-powered turns
+            self.runtime.state_manager.state.ai_turns_since_summary += 1
 
         # Persist updated timestamp for state snapshots/persistence layers
         try:
@@ -386,23 +391,25 @@ class TurnManager:
 
     async def _run_ai_phase(self, ctx: TurnContext, action: PlayerAction) -> AsyncIterator[dict]:
         """Generate narrative + checker deltas via AI service."""
-        state = self.runtime.state_manager.state
-        location = self.runtime.index.locations.get(state.current_location)
-        location_label = location.name if location and getattr(location, "name", None) else state.current_location
-        node = ctx.current_node
+        # Use PromptBuilder if available, otherwise fall back to simple prompts
+        if self.prompt_builder:
+            writer_prompt = self.prompt_builder.build_writer_prompt(ctx, ctx.action_summary)
+        else:
+            # Fallback: simple prompt
+            state = self.runtime.state_manager.state
+            location = self.runtime.index.locations.get(state.current_location)
+            location_label = location.name if location and getattr(location, "name", None) else state.current_location
+            node = ctx.current_node
+            history_tail = "\n".join(self.runtime.state_manager.state.narrative_history[-3:])
 
-        character_cards = self._build_character_cards(state, ctx)
-        history_tail = "\n".join(self.runtime.state_manager.state.narrative_history[-3:])
-
-        writer_prompt = (
-            f"Scene location: {location_label}.\n"
-            f"Node type: {getattr(node, 'type', None)}\n"
-            f"Present characters: {', '.join(state.present_characters)}\n"
-            f"Character cards:\n{character_cards}\n"
-            f"Recent history:\n{history_tail}\n"
-            f"Player action: {ctx.action_summary}\n"
-            "Write the next short narrative beat (3-5 sentences)."
-        )
+            writer_prompt = (
+                f"Scene location: {location_label}.\n"
+                f"Node type: {getattr(node, 'type', None)}\n"
+                f"Present characters: {', '.join(state.present_characters)}\n"
+                f"Recent history:\n{history_tail}\n"
+                f"Player action: {ctx.action_summary}\n"
+                "Write the next short narrative beat (3-5 sentences)."
+            )
 
         chunks: list[str] = []
         try:
@@ -415,18 +422,23 @@ class TurnManager:
 
         ctx.ai_narrative = "".join(chunks).strip()
 
-        checker_prompt = (
-            "You are a strict state checker. Based on the player's action and the resulting scene, "
-            "produce a JSON object with keys meters, flags, inventory, clothing, movement, modifiers, discoveries. "
-            "Honor character gates/consent rules. Use numeric deltas where appropriate. "
-            "Current state snapshot and gates are provided for reference."
-        )
+        # Build Checker prompt with PromptBuilder if available
+        if self.prompt_builder:
+            checker_prompt = self.prompt_builder.build_checker_prompt(ctx, ctx.action_summary, ctx.ai_narrative)
+        else:
+            # Fallback: simple prompt
+            checker_prompt = (
+                "You are a strict state checker. Based on the player's action and the resulting scene, "
+                "produce a JSON object with keys meters, flags, inventory, clothing, movement, modifiers, discoveries. "
+                "Honor character gates/consent rules. Use numeric deltas where appropriate. "
+                f"Action: {ctx.action_summary}\nScene: {ctx.ai_narrative}\n"
+                f"State Snapshot: {ctx.snapshot_state}\n"
+                f"Active Gates: {ctx.active_gates}"
+            )
 
         try:
             checker_response = await self.ai_service.generate(
-                f"{checker_prompt}\nAction: {ctx.action_summary}\nScene: {ctx.ai_narrative}\n"
-                f"State Snapshot: {ctx.snapshot_state}\n"
-                f"Active Gates: {ctx.active_gates}",
+                checker_prompt,
                 json_mode=True,
                 temperature=0.2,
                 max_tokens=300,
@@ -647,39 +659,40 @@ class TurnManager:
                     for item_id, state_value in items.items():
                         effects.append(ClothingStateEffect(target=char_id, item=item_id, condition=state_value))
 
+        # Handle memory updates
+        self._apply_memory_updates(deltas)
+
         if effects:
             self.runtime.effect_resolver.apply_effects(effects)
+
+    def _apply_memory_updates(self, deltas: dict) -> None:
+        """Apply character memories and narrative summary from Checker response."""
+        from app.core.settings import GameSettings
+
+        state = self.runtime.state_manager.state
+        settings = GameSettings()
+
+        # Parse character_memories: {"alex": "Shared coffee preference", "emma": ...}
+        char_memories = deltas.get("character_memories")
+        if isinstance(char_memories, dict):
+            for char_id, memory_text in char_memories.items():
+                if not isinstance(memory_text, str) or not memory_text.strip():
+                    continue
+                # Skip player (only NPC memories)
+                if char_id == "player":
+                    continue
+                # Append to character's memory log
+                if char_id in state.characters:
+                    state.characters[char_id].memory_log.append(memory_text.strip())
+
+        # Parse narrative_summary: "Long form summary..."
+        narrative_summary = deltas.get("narrative_summary")
+        if isinstance(narrative_summary, str) and narrative_summary.strip():
+            state.narrative_summary = narrative_summary.strip()
+            # Reset counter when summary is updated
+            state.ai_turns_since_summary = 0
 
     # ------------------------------------------------------------------
     # AI helpers
     # ------------------------------------------------------------------
-    def _build_character_cards(self, state, ctx: TurnContext) -> str:
-        """Assemble lightweight character cards for present NPCs."""
-        cards: list[str] = []
-        for char_id in state.present_characters:
-            if char_id == "player":
-                continue
-            char_def = self.runtime.index.characters.get(char_id)
-            if not char_def:
-                continue
-            char_state = state.characters.get(char_id)
-            meters_state = char_state.meters if char_state else {}
-            meter_defs = self.runtime.index.template_meters
-            meter_parts = []
-            for meter_id, meter_def in meter_defs.items():
-                if meter_id in meters_state:
-                    meter_parts.append(f"{meter_id}: {meters_state[meter_id]}/{meter_def.max}")
-            gates = ctx.active_gates.get(char_id, {})
-            gate_text = "; ".join(f"{gate_id}:{'on' if val else 'off'}" for gate_id, val in gates.items())
-            mods = [m.get("id") for m in state.modifiers.get(char_id, []) if m.get("id")]
-            clothing = state.clothing_states.get(char_id, {})
-            cards.append(
-                f"{char_def.name} ({char_id})\n"
-                f"Appearance: {getattr(char_def, 'appearance', '')}\n"
-                f"Personality: {getattr(char_def, 'personality', '')}\n"
-                f"Meters: {', '.join(meter_parts)}\n"
-                f"Gates: {gate_text}\n"
-                f"Modifiers: {mods}\n"
-                f"Clothing: {clothing}"
-            )
-        return "\n\n".join(cards)
+    # Note: Character card building is now handled by PromptBuilder service

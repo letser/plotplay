@@ -1507,30 +1507,50 @@ will do certain action or behave in a certain way. They are defined as a list of
 that must be met for a character to be allowed to perform a certain action. 
 
 
-The game engine checks gates each turn and activate all gates that are met.
-Active gates can be checked by their id in expressions. Also, each gate contains narrative text 
-that will be passed to the Writer and Checker to keep character's behavior consistent.
+The game engine checks gates each turn and activates all gates whose conditions are met.
+Active gates can be checked by their id in DSL expressions. Gates also contain narrative text
+(acceptance/refusal) that guide the Writer and Checker to keep character behavior consistent.
 
 ```yaml
 gates:                        # OPTIONAL. A list of consent/behavior gates.
-  - id: `````                   # REQUIRED. Unique ID (e.g., "accept_kiss").
+  - id: "<string>"              # REQUIRED. Unique ID (e.g., "accept_kiss").
     when: "<expr>"              # OPTIONAL. A single condition that must be true.
     when_any: ["<expr>", ...]   # OPTIONAL. A list of conditions where at least one must be true.
     when_all: ["<expr>", ...]   # OPTIONAL. A list of conditions where all must be true.
-    acceptance: "<string>"      # OPTIONAL. Text to pass to Writer and Checker if a gate is active
-    refusal: "<string>"         # OPTIONAL. Text to pass to Writer and Checker if a gate is not active
+    acceptance: "<string>"      # OPTIONAL. Text to pass to Writer/Checker if gate is active
+    refusal: "<string>"         # OPTIONAL. Text to pass to Writer/Checker if gate is inactive
 ```
 > Exactly one of `when`, `when_any`, and `when_all` may be set.
-> 
-> Either `acceptance` or `refusal` must be set.`
+>
+> Either `acceptance` or `refusal` must be set.
 
-Each evaluated gate contributes one of the following objects:
- - `{ id, allow: true, text: acceptance }` if the gate is active and acceptance text is provided;
- - `{ id, allow: false, text: refusal }` if the gate is not active and refusal text is provided;
+### How Gates Work in AI Context
 
-The engine exposes this compact form in:
- - **Character cards** (for the Writer model) — used to naturally steer dialogue.
- - **Checker envelope** — used for enforcement and validation.
+Each turn, the engine evaluates all gates and includes their guidance text in character cards:
+
+1. **Active gate with acceptance text** → acceptance text is shown in "behavior:" field
+2. **Inactive gate with refusal text** → refusal text is shown in "behavior:" field
+3. **Gate with no applicable text** → skipped (not shown to AI)
+
+**Important:** Gate IDs are NEVER shown to the AI models. Only the free-text acceptance/refusal
+is included, providing meaningful behavioral guidance without burning tokens on opaque identifiers.
+
+**Example character card (seen by Writer/Checker):**
+```yaml
+card:
+  id: "emma"
+  name: "Emma"
+  behavior: "Will accept casual conversation | Will refuse intimate topics until trust builds"
+  # ^ This comes from gates, but AI never sees the gate IDs
+```
+
+The engine also exposes gate states in DSL expressions for conditional logic:
+- `gates.emma.accept_kiss == true` — check if gate is active
+- Used in node conditions, choice conditions, effect guards
+
+**Summary:**
+- **For AI context:** Gates provide free-text behavioral guidance (no IDs)
+- **For DSL logic:** Gates provide boolean state checks (by ID)
 
 ### Examples
 ```yaml

@@ -58,6 +58,7 @@ class SessionRuntime:
     trade_service: object | None = field(default=None)
     movement_service: object | None = field(default=None)
     clothing_service: object | None = field(default=None)
+    prompt_builder: object | None = field(default=None)
 
     # Per-turn context holder set by TurnManager
     current_context: object | None = field(default=None, repr=False)

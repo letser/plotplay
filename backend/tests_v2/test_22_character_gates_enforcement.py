@@ -122,14 +122,22 @@ async def test_pass_gate_info_to_writer_via_character_cards(started_gate_engine)
     Verify that gate info is included in character cards for Writer.
 
     Should test:
-    - Character card includes active gates
-    - Character card includes acceptance/refusal text
+    - Character card includes behavior guidance from gates
+    - Character card includes acceptance/refusal TEXT (not IDs)
     - Character card format matches Writer contract
     """
     engine, _ = started_gate_engine
     await engine.process_action(PlayerAction(action_type="choice", choice_id="say_hi"))
-    cards = engine.turn_manager._build_character_cards(engine.runtime.state_manager.state, engine.runtime.current_context)
-    assert "chat_gate" in cards
+    # Use PromptBuilder instead of removed TurnManager method
+    cards = engine.prompt_builder._build_character_cards_section(
+        engine.runtime.state_manager.state,
+        engine.runtime.current_context
+    )
+    # Should include behavior field with free text (not gate IDs)
+    assert "behavior:" in cards
+    # Should NOT include gate IDs (opaque identifiers)
+    assert "chat_gate" not in cards
+    assert "trust_gate" not in cards
 
 
 async def test_pass_gate_info_to_checker_for_enforcement(started_gate_engine):

@@ -28,6 +28,7 @@ from app.runtime.services.effects import EffectResolver
 from app.runtime.services.choices import ChoiceBuilder
 from app.runtime.services.state_summary import StateSummaryService
 from app.runtime.services.discovery import DiscoveryService
+from app.runtime.services.prompt_builder import PromptBuilder
 
 
 class PlotPlayEngine:
@@ -62,6 +63,7 @@ class PlotPlayEngine:
         self.choice_builder = ChoiceBuilder(self.runtime)
         self.state_summary = StateSummaryService(self.runtime)
         self.discovery_service = DiscoveryService(self.runtime)
+        self.prompt_builder = PromptBuilder(self.runtime)
 
         # expose for other services
         self.runtime.inventory_service = self.inventory_service
@@ -74,6 +76,7 @@ class PlotPlayEngine:
         self.runtime.modifier_service = self.modifier_service
         self.runtime.trade_service = self.trade_service
         self.runtime.clothing_service = self.clothing_service
+        self.runtime.prompt_builder = self.prompt_builder
 
         self.turn_manager = TurnManager(self.runtime)
 

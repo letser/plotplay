@@ -12,6 +12,10 @@ from app.core.env import BACKEND_DIR, DEFAULT_GAMES_PATH, ENV_FILE_PATH
 
 class GameSettings(BaseSettings):
     games_path: Path = Field(default=DEFAULT_GAMES_PATH)
+    memory_summary_interval: int = Field(
+        default=3,
+        description="Number of AI-powered turns between narrative summary updates"
+    )
 
     model_config = SettingsConfigDict(env_file=str(ENV_FILE_PATH), extra="ignore")
 

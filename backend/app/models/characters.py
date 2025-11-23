@@ -105,3 +105,6 @@ class CharacterState:
 
     # Active gates (gate_id -> (acceptance, refusal))
     gates: dict[str, tuple[str, str]] = field(default_factory=dict)
+
+    # Memory log (append-only history of significant interactions)
+    memory_log: list[str] = field(default_factory=list)
