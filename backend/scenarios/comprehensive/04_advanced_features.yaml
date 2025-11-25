@@ -1,0 +1,472 @@
+metadata:
+  name: "Comprehensive Test 4: Advanced Features"
+  description: "Tests modifiers (auto-activation, duration, effects), clothing system, custom actions, effects, and complex state interactions"
+  game: "sandbox"
+  author: "PlotPlay Test Suite"
+  tags: ["comprehensive", "regression", "modifiers", "clothing", "actions", "effects"]
+
+mocks:
+  writer:
+    intro: "You stand ready to test the engine's most advanced features: modifiers, clothing, and custom actions."
+    hub_open: "The systems checklist glows, highlighting the advanced features demo section."
+
+    # Modifier testing narratives
+    low_energy: "Exhaustion weighs on you. Your movements feel sluggish, your eyelids heavy."
+    eat_snack: "You tear open the energy snack and devour it. Caffeine surges through your system, sharpening your focus."
+    caffeinated: "You feel alert and energized, ready to tackle anything. Your movements are quick and efficient."
+    rest: "You find a quiet bench and rest. The break refreshes you, leaving you feeling well-rested and capable."
+
+    # Clothing system narratives
+    check_outfit: "You're wearing your casual outfit: light jacket, shirt, jeans, and sneakers. Everything fits comfortably."
+    open_jacket: "You unzip the jacket, letting it hang open. The shirt beneath is now visible."
+    close_jacket: "You zip the jacket back up, feeling the warmth return."
+    change_outfit: "You adjust your clothing, putting on the hi-vis vest. You're now wearing the industrial outfit."
+
+    # Action system narratives
+    check_phone: "You pull out your phone and check messages, the time, and your location. Two minutes pass quickly."
+    review_map: "You unfold the city map and study the zones, finding several shortcuts marked in red ink."
+    use_shortcut: "You take a shortcut through an alley, saving time on your journey."
+    share_discovery: "You share your city discoveries with enthusiasm, feeling excited about all you've learned."
+
+    # Effects demo narratives
+    effects_hub: "The effects demo hub presents multiple testing scenarios for advanced effect types."
+    weather_demo: "Random weather effects demonstrate conditional logic and state-based responses."
+    unlock_demo: "Unlock mechanics show how content gates can be dynamically opened."
+
+    # Complex state interactions
+    modifier_interaction: "Multiple modifiers stack and interact, creating nuanced states of being."
+    time_meter_flow: "Time advances, meters change, modifiers trigger - all systems working in concert."
+
+  checker:
+    default:
+      meters: {}
+      flags: {}
+      character_memories: {}
+      safety: {ok: true}
+
+    energy_drain:
+      meters:
+        player:
+          energy: -25
+      character_memories: {}
+      safety: {ok: true}
+
+    energy_restore:
+      meters:
+        player:
+          energy: 20
+      flags:
+        felt_caffeine_rush: true
+      character_memories: {}
+      safety: {ok: true}
+
+    rest_restore:
+      meters:
+        player:
+          energy: 10
+      character_memories: {}
+      safety: {ok: true}
+
+    map_unlock:
+      flags:
+        knows_shortcuts: true
+      character_memories: {}
+      safety: {ok: true}
+
+    shortcut_used:
+      flags:
+        used_shortcut: true
+      character_memories: {}
+      safety: {ok: true}
+
+    share_excitement:
+      flags:
+        shared_knowledge: true
+      meters:
+        player:
+          energy: 5
+      character_memories: {}
+      safety: {ok: true}
+
+    weather_random:
+      flags:
+        weather: "sunny"
+        enjoyed_sunshine: true
+      meters:
+        player:
+          energy: 3
+      character_memories: {}
+      safety: {ok: true}
+
+    unlock_item:
+      flags:
+        test_item_unlocked: true
+      character_memories: {}
+      safety: {ok: true}
+
+steps:
+  # Step 1: Start game
+  - name: "Start game"
+    action: start
+    mock_writer_key: intro
+    expect:
+      node: "intro"
+      location: "downtown_plaza"
+      meters:
+        player.energy: 100
+
+  # Step 2: Open hub
+  - name: "Open hub"
+    action: choice
+    choice_id: "open_checklist"
+    mock_writer_key: hub_open
+    expect:
+      node: "downtown_hub"
+
+  # PART 1: MODIFIER TESTING
+
+  # Step 3: Drain energy to trigger "tired" modifier (auto-activates at < 30)
+  - name: "Drain energy significantly"
+    action: do
+    action_text: "Engage in strenuous activity to burn energy"
+    mock_writer_key: low_energy
+    mock_checker_key: energy_drain
+    expect:
+      location: "downtown_plaza"
+      meters:
+        player.energy:
+          max: 75
+
+  # Step 4: Continue draining energy
+  - name: "Drain more energy"
+    action: do
+    action_text: "Continue physical exertion"
+    mock_writer_key: low_energy
+    mock_checker_key: energy_drain
+    expect:
+      location: "downtown_plaza"
+      meters:
+        player.energy:
+          max: 50
+      # "tired" modifier should now be active (energy < 30)
+
+  # Step 5: Drain to very low energy
+  - name: "Drain to very low energy"
+    action: do
+    action_text: "Push yourself further"
+    mock_writer_key: low_energy
+    mock_checker_key: energy_drain
+    expect:
+      location: "downtown_plaza"
+      meters:
+        player.energy:
+          max: 30
+      # "tired" modifier definitely active
+
+  # Step 6: Use energy snack (should apply "caffeinated" modifier)
+  - name: "Consume energy snack to restore energy"
+    action: use
+    item_id: "energy_snack"
+    mock_writer_key: eat_snack
+    mock_checker_key: energy_restore
+    expect:
+      location: "downtown_plaza"
+      inventory:
+        player:
+          energy_snack: 0
+      meters:
+        player.energy:
+          min: 40
+          max: 70
+      flags:
+        felt_caffeine_rush: true
+      # "caffeinated" modifier should activate (energy > 80 after restoration)
+      # "tired" modifier should deactivate
+
+  # Step 7: Verify caffeinated state
+  - name: "Observe caffeinated effects"
+    action: say
+    action_text: "Check how I feel now"
+    mock_writer_key: caffeinated
+    expect:
+      location: "downtown_plaza"
+      narrative_contains:
+        - "alert"
+      # Time multiplier should be 0.9 (10% faster)
+      # Energy clamped min 60
+
+  # Step 8: Take rest (applies "well_rested" modifier)
+  - name: "Take a short rest"
+    action: do
+    action_text: "Find a bench and rest for a while"
+    mock_writer_key: rest
+    mock_checker_key: rest_restore
+    expect:
+      location: "downtown_plaza"
+      meters:
+        player.energy:
+          min: 50
+      # "well_rested" modifier active (duration 120 min)
+      # Multiple modifiers stacking: caffeinated + well_rested
+
+  # PART 2: CLOTHING SYSTEM
+
+  # Step 9: Check current outfit
+  - name: "Check current clothing"
+    action: do
+    action_text: "Look at what I'm wearing"
+    mock_writer_key: check_outfit
+    expect:
+      location: "downtown_plaza"
+      narrative_contains:
+        - "casual"
+        - "jacket"
+
+  # Step 10: Open jacket (change clothing state)
+  - name: "Open the jacket"
+    action: do
+    action_text: "Unzip my jacket"
+    mock_writer_key: open_jacket
+    expect:
+      location: "downtown_plaza"
+      narrative_contains:
+        - "open"
+
+  # Step 11: Close jacket
+  - name: "Close the jacket"
+    action: do
+    action_text: "Zip up my jacket again"
+    mock_writer_key: close_jacket
+    expect:
+      location: "downtown_plaza"
+
+  # Step 12: Navigate to briefings to unlock outfit change
+  - name: "Review market briefing"
+    action: choice
+    choice_id: "hub_market"
+    mock_writer_key: hub_open
+    expect:
+      node: "market_briefing"
+      flags:
+        market_briefing_viewed: true
+
+  # PART 3: CUSTOM ACTIONS
+
+  # Step 13: Use check_phone action
+  - name: "Check phone action"
+    action: do
+    action_text: "Check my phone"
+    mock_writer_key: check_phone
+    expect:
+      location: "downtown_plaza"
+      flags:
+        checked_phone_recently: true
+      # Time should advance 2 minutes
+
+  # Step 14: Return to hub and navigate to get map
+  - name: "Return to hub"
+    action: choice
+    choice_id: "market_back"
+    mock_writer_key: hub_open
+    expect:
+      node: "downtown_hub"
+
+  # Step 15: Travel to suburbs to get city map
+  - name: "Travel to suburbs for map"
+    action: travel
+    zone_id: "suburbs"
+    location_id: "suburbs_main_street"
+    method: "walk"
+    mock_writer_key: hub_open
+    expect:
+      location: "suburbs_main_street"
+      zone: "suburbs"
+
+  # Step 16: Purchase city map
+  - name: "Buy city map from Mara"
+    action: say
+    action_text: "I'd like to buy a city map"
+    mock_writer_key: hub_open
+    expect:
+      location: "suburbs_main_street"
+      inventory:
+        player:
+          city_map: 1
+
+  # Step 17: Review map action (unlocks shortcuts)
+  - name: "Review city map action"
+    action: do
+    action_text: "Study the city map carefully"
+    mock_writer_key: review_map
+    mock_checker_key: map_unlock
+    expect:
+      location: "suburbs_main_street"
+      flags:
+        knows_shortcuts: true
+      # "curious" modifier should activate
+      # "review_map" action unlocked
+
+  # Step 18: Use shortcut action
+  - name: "Use shortcut action"
+    action: do
+    action_text: "Take a shortcut"
+    mock_writer_key: use_shortcut
+    mock_checker_key: shortcut_used
+    expect:
+      location: "suburbs_main_street"
+      flags:
+        used_shortcut: true
+      # No time advancement (instant travel)
+
+  # Step 19: Return and complete requirements for share_discovery
+  - name: "Return to downtown"
+    action: travel
+    zone_id: "downtown"
+    location_id: "downtown_plaza"
+    method: "walk"
+    mock_writer_key: hub_open
+    expect:
+      location: "downtown_plaza"
+
+  # Step 20: Visit park to trigger event
+  - name: "Visit park for encounter"
+    action: travel
+    zone_id: "suburbs"
+    location_id: "suburbs_park"
+    method: "walk"
+    mock_writer_key: hub_open
+    expect:
+      location: "suburbs_park"
+
+  # Step 21: Complete park encounter
+  - name: "Complete park encounter"
+    action: say
+    action_text: "Help the volunteer"
+    mock_writer_key: hub_open
+    expect:
+      node: "park_encounter"
+
+  - name: "Acknowledge park encounter"
+    action: choice
+    choice_id: "park_acknowledge"
+    mock_writer_key: hub_open
+    expect:
+      node: "downtown_hub"
+      flags:
+        park_encounter_logged: true
+
+  # Step 22: Review vendor briefing
+  - name: "Review vendor briefing"
+    action: choice
+    choice_id: "hub_vendor"
+    mock_writer_key: hub_open
+    expect:
+      node: "vendor_briefing"
+      flags:
+        vendor_briefing_viewed: true
+
+  # Step 23: Use share_discovery action (requires multiple flags)
+  - name: "Share discoveries action"
+    action: do
+    action_text: "Share my city discoveries"
+    mock_writer_key: share_discovery
+    mock_checker_key: share_excitement
+    expect:
+      location: "downtown_plaza"
+      flags:
+        shared_knowledge: true
+        market_briefing_viewed: true
+        vendor_briefing_viewed: true
+        park_encounter_logged: true
+      meters:
+        player.energy:
+          min: 50
+      # "excited" modifier should activate
+
+  # PART 4: ADVANCED EFFECTS
+
+  # Step 24: Navigate to effects demo hub
+  - name: "Navigate to effects demo"
+    action: choice
+    choice_id: "vendor_back"
+    mock_writer_key: hub_open
+    expect:
+      node: "downtown_hub"
+
+  - name: "Enter effects demo hub"
+    action: choice
+    choice_id: "hub_effects_demo"
+    mock_writer_key: effects_hub
+    expect:
+      node: "effects_demo_hub"
+      location: "downtown_plaza"
+
+  # Step 25: Test weather demo (random effects)
+  - name: "Experience weather demo"
+    action: choice
+    choice_id: "try_weather"
+    mock_writer_key: weather_demo
+    mock_checker_key: weather_random
+    expect:
+      node: "weather_demo"
+      flags:
+        weather: "sunny"
+      # Random weather should be assigned
+      # Conditional effects based on weather
+
+  # Step 26: Test unlock mechanics
+  - name: "Test unlock mechanics"
+    action: choice
+    choice_id: "weather_back"
+    mock_writer_key: effects_hub
+    expect:
+      node: "effects_demo_hub"
+
+  - name: "Navigate to unlock demo"
+    action: choice
+    choice_id: "try_unlock_lock"
+    mock_writer_key: unlock_demo
+    mock_checker_key: unlock_item
+    expect:
+      node: "unlock_lock_demo"
+      flags:
+        test_item_unlocked: true
+      # Item should be unlocked via effect
+
+  # PART 5: COMPLEX STATE VERIFICATION
+
+  # Step 27: Verify complex state with multiple modifiers, flags, and meters
+  - name: "Verify complex state interactions"
+    action: do
+    action_text: "Take stock of current state"
+    mock_writer_key: modifier_interaction
+    expect:
+      location: "downtown_plaza"
+      flags:
+        felt_caffeine_rush: true
+        knows_shortcuts: true
+        used_shortcut: true
+        shared_knowledge: true
+        market_briefing_viewed: true
+        vendor_briefing_viewed: true
+        park_encounter_logged: true
+      meters:
+        player.energy:
+          min: 40
+      # Multiple modifiers may be active
+      # All flags set correctly
+      # State coherent across all systems
+
+  # Step 28: Final verification of time, meters, and modifiers
+  - name: "Final state verification"
+    action: say
+    action_text: "Review everything - time, energy, modifiers, clothing, inventory"
+    mock_writer_key: time_meter_flow
+    expect:
+      location: "downtown_plaza"
+      inventory:
+        player:
+          phone: 1
+          city_map: 1
+      narrative_contains:
+        - "time"

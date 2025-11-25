@@ -39,8 +39,18 @@ def validate_location(actual: str | dict, expected: str):
         )
 
 
-def validate_zone(actual: str, expected: str):
-    """Validate current zone matches expected."""
+def validate_zone(actual: str | dict, expected: str):
+    """
+    Validate current zone matches expected.
+
+    Args:
+        actual: Either a zone ID string or nested in location dict
+        expected: Expected zone ID
+    """
+    # Zone might be nested in location dict
+    if isinstance(actual, dict):
+        actual = actual.get("zone", "")
+
     if actual != expected:
         raise ValidationError(
             f"Zone mismatch: expected '{expected}', got '{actual}'"
@@ -52,14 +62,21 @@ def validate_flags(actual: Dict[str, Any], expected: Dict[str, Any]):
     Validate flags match expected values.
 
     Args:
-        actual: Actual flag state
+        actual: Actual flag state (may be nested as {flag_id: {"value": ..., "label": ...}})
         expected: Expected flag values (exact match)
 
     Raises:
         ValidationError: If any flag doesn't match
     """
     for key, expected_value in expected.items():
-        actual_value = actual.get(key)
+        actual_entry = actual.get(key)
+
+        # Handle nested flag structure from state_summary
+        if isinstance(actual_entry, dict):
+            actual_value = actual_entry.get("value")
+        else:
+            actual_value = actual_entry
+
         if actual_value != expected_value:
             raise ValidationError(
                 f"Flag '{key}': expected {expected_value}, got {actual_value}"
@@ -103,7 +120,13 @@ def validate_meters(actual: Dict[str, Any], expected: Dict[str, Any]):
                 f"Meter '{meter_id}' not found for character '{char_id}'"
             )
 
-        actual_value = char_meters[meter_id]
+        meter_entry = char_meters[meter_id]
+
+        # Handle nested meter structure from state_summary
+        if isinstance(meter_entry, dict):
+            actual_value = meter_entry.get("value")
+        else:
+            actual_value = meter_entry
 
         # Validate based on expected format
         if isinstance(expected_value, dict):

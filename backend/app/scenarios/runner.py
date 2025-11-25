@@ -279,7 +279,9 @@ class ScenarioRunner:
         # Validate zone
         if expect.zone is not None:
             try:
-                validators.validate_zone(state.get("current_zone", ""), expect.zone)
+                # Zone is nested in location dict
+                location_data = state.get("location", {})
+                validators.validate_zone(location_data, expect.zone)
                 passed.append(f"zone={expect.zone}")
             except validators.ValidationError as e:
                 failed.append(str(e))

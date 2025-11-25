@@ -1,0 +1,357 @@
+metadata:
+  name: "Comprehensive Test 3: Events, Arcs, and Progression"
+  description: "Tests event triggers, arc milestone progression, flag-based unlocks, and conditional content"
+  game: "sandbox"
+  author: "PlotPlay Test Suite"
+  tags: ["comprehensive", "regression", "events", "arcs", "progression"]
+
+mocks:
+  writer:
+    intro: "You stand in the downtown plaza, ready to test the event and progression systems."
+    open_hub: "The systems checklist awaits, ready to track your progress through the city's various systems."
+    briefing_market: "The market briefing highlights downtown shopping opportunities and unlocks exploration progress."
+    briefing_vendor: "Vendor briefing notes Mara's schedule and inventory, advancing your city knowledge."
+
+    # Event-related narratives
+    travel_park: "You make your way to the suburban park, the green space opening before you."
+    park_event: "A parks volunteer waves enthusiastically, calling you over to help log playground maintenance requests."
+    park_complete: "You log the maintenance issue. The volunteer thanks you warmly before heading off."
+
+    time_evening: "The day progresses into evening. Shadows lengthen across the plaza as street lights flicker on."
+    evening_check: "You notice the time has shifted to evening - perfect for observing time-based events."
+
+    travel_downtown: "You return to the downtown plaza as evening settles over the city."
+    busker_unlocked: "You realize the evening busker event should now be available in the hub menu."
+    busker_scene: "A street musician plays mellow chords on the plaza, their music echoing off nearby buildings."
+
+    # Arc progression narratives
+    arc_progress_1: "You feel more oriented in the city now, having reviewed key locations and systems."
+    arc_progress_2: "As an active explorer, you've engaged with the city's events and people. New options open up."
+
+    # Industrial progression
+    buy_vest: "You purchase the high-visibility vest from Mara's cart. Essential safety equipment acquired."
+    travel_industrial: "You bike toward the industrial district, vest packed safely in your bag."
+    industrial_arrival: "The industrial yard spreads before you, machinery humming and forklifts moving pallets."
+    clearance_event: "A security guard notices your vest and hands you a warehouse access pass. 'You're cleared,' they say."
+
+    final_hub: "You return to the hub, ready to trigger the final warehouse sign-off."
+    industrial_ending: "With vest and pass in hand, you complete the safety walkthrough. All systems check green."
+
+  checker:
+    default:
+      meters: {}
+      flags: {}
+      character_memories: {}
+      safety: {ok: true}
+
+    energy_minor:
+      meters:
+        player:
+          energy: -3
+      character_memories: {}
+      safety: {ok: true}
+
+    energy_moderate:
+      meters:
+        player:
+          energy: -5
+      character_memories: {}
+      safety: {ok: true}
+
+    time_evening:
+      meters:
+        player:
+          energy: -8
+      character_memories: {}
+      safety: {ok: true}
+
+    park_completion:
+      flags:
+        park_encounter_logged: true
+      character_memories: {}
+      safety: {ok: true}
+
+    meet_mara:
+      flags:
+        mara_met: true
+      meters:
+        mara_vendor:
+          mood: 5
+      character_memories:
+        mara_vendor: ["Met the player"]
+      safety: {ok: true}
+
+    arc_advancement:
+      flags:
+        explorer_recognized: true
+      meters:
+        player:
+          energy: 5
+      character_memories: {}
+      safety: {ok: true}
+
+steps:
+  # Step 1: Start game
+  - name: "Start game in downtown plaza"
+    action: start
+    mock_writer_key: intro
+    expect:
+      node: "intro"
+      location: "downtown_plaza"
+      zone: "downtown"
+      flags:
+        exploration_started: false
+        park_encounter_logged: false
+        evening_busker_unlocked: false
+
+  # Step 2: Open hub (triggers exploration_started via arc on_enter)
+  - name: "Open systems checklist hub"
+    action: choice
+    choice_id: "open_checklist"
+    mock_writer_key: open_hub
+    expect:
+      node: "downtown_hub"
+      flags:
+        exploration_started: true
+
+  # Step 3: Review market briefing (advances city_explorer arc)
+  - name: "Review market briefing"
+    action: choice
+    choice_id: "hub_market"
+    mock_writer_key: briefing_market
+    expect:
+      node: "market_briefing"
+      flags:
+        market_briefing_viewed: true
+
+  # Step 4: Return to hub
+  - name: "Return to hub"
+    action: choice
+    choice_id: "market_back"
+    mock_writer_key: open_hub
+    expect:
+      node: "downtown_hub"
+
+  # Step 5: Review vendor briefing (advances city_explorer arc to "curious_explorer")
+  - name: "Review vendor briefing"
+    action: choice
+    choice_id: "hub_vendor"
+    mock_writer_key: briefing_vendor
+    expect:
+      node: "vendor_briefing"
+      flags:
+        vendor_briefing_viewed: true
+        mara_met: true
+
+  # Step 6: Return and verify arc progression
+  - name: "Return to hub after arc advancement"
+    action: choice
+    choice_id: "vendor_back"
+    mock_writer_key: open_hub
+    expect:
+      node: "downtown_hub"
+      # Arc "city_explorer" should now be at "curious_explorer" stage
+      # Should have unlocked "review_map" action
+
+  # Step 7: Travel to suburbs park (trigger park encounter event)
+  - name: "Travel to suburbs park"
+    action: travel
+    zone_id: "suburbs"
+    location_id: "suburbs_park"
+    method: "walk"
+    mock_writer_key: travel_park
+    mock_checker_key: energy_moderate
+    expect:
+      location: "suburbs_park"
+      zone: "suburbs"
+
+  # Step 8: Park encounter event should trigger automatically
+  - name: "Park volunteer encounter triggers"
+    action: say
+    action_text: "Look around the park"
+    mock_writer_key: park_event
+    expect:
+      node: "park_encounter"
+      location: "suburbs_park"
+      narrative_contains:
+        - "volunteer"
+        - "park"
+
+  # Step 9: Complete park encounter
+  - name: "Log the park maintenance issue"
+    action: choice
+    choice_id: "park_acknowledge"
+    mock_writer_key: park_complete
+    mock_checker_key: park_completion
+    expect:
+      node: "downtown_hub"
+      location: "downtown_plaza"
+      flags:
+        park_encounter_logged: true
+
+  # Step 10: Advance time to evening (for evening busker event)
+  - name: "Wait until evening"
+    action: do
+    action_text: "Spend time until evening arrives, then check the time"
+    mock_writer_key: time_evening
+    mock_checker_key: time_evening
+    expect:
+      location: "downtown_plaza"
+      # Time slot should advance to evening
+
+  # Step 11: Verify evening busker event unlocked
+  - name: "Verify evening busker event unlocked"
+    action: say
+    action_text: "Check if any new events are available now that it's evening"
+    mock_writer_key: busker_unlocked
+    expect:
+      location: "downtown_plaza"
+      flags:
+        evening_busker_unlocked: true
+        park_encounter_logged: true
+
+  # Step 12: Verify arc progression to "active_explorer"
+  - name: "Check arc progression after events"
+    action: say
+    action_text: "Review my exploration progress"
+    mock_writer_key: arc_progress_2
+    mock_checker_key: arc_advancement
+    expect:
+      location: "downtown_plaza"
+      flags:
+        explorer_recognized: true
+        park_encounter_logged: true
+        evening_busker_unlocked: true
+      # Arc "city_explorer" should now be at "active_explorer" stage
+      # Should have unlocked "use_shortcut" and "share_discovery" actions
+
+  # Step 13: Access evening busker scene
+  - name: "Visit evening busker scene"
+    action: choice
+    choice_id: "hub_evening_event"
+    mock_writer_key: busker_scene
+    expect:
+      node: "evening_busker_scene"
+      location: "downtown_plaza"
+      narrative_contains:
+        - "busker"
+        - "evening"
+
+  # Step 14: Return to hub for industrial progression
+  - name: "Return to hub for industrial test"
+    action: choice
+    choice_id: "busker_back"
+    mock_writer_key: open_hub
+    expect:
+      node: "downtown_hub"
+
+  # Step 15: Travel to suburbs to buy vest from Mara
+  - name: "Travel to suburbs main street"
+    action: travel
+    zone_id: "suburbs"
+    location_id: "suburbs_main_street"
+    method: "walk"
+    mock_writer_key: travel_park
+    mock_checker_key: energy_moderate
+    expect:
+      location: "suburbs_main_street"
+      zone: "suburbs"
+      present_characters: ["player", "mara_vendor"]
+
+  # Step 16: Purchase high-visibility vest
+  - name: "Buy high-visibility vest from Mara"
+    action: say
+    action_text: "I'd like to purchase the high-visibility vest"
+    mock_writer_key: buy_vest
+    mock_checker_key: meet_mara
+    expect:
+      location: "suburbs_main_street"
+      inventory:
+        player:
+          hi_vis_vest: 1
+
+  # Step 17: Travel to industrial zone
+  - name: "Travel to industrial yard"
+    action: travel
+    zone_id: "industrial"
+    location_id: "industrial_yard"
+    method: "bike"
+    mock_writer_key: travel_industrial
+    mock_checker_key: energy_moderate
+    expect:
+      location: "industrial_yard"
+      zone: "industrial"
+
+  # Step 18: Industrial clearance event triggers (has vest + in industrial yard)
+  - name: "Industrial clearance event triggers"
+    action: say
+    action_text: "Look for the security checkpoint"
+    mock_writer_key: clearance_event
+    expect:
+      location: "industrial_yard"
+      flags:
+        safety_clearance_ready: true
+        industrial_cleared: true
+      inventory:
+        player:
+          hi_vis_vest: 1
+          warehouse_pass: 1
+      # Arc "industrial_access" should advance to "cleared" stage
+      # Location "warehouse_interior" should now be unlocked
+
+  # Step 19: Verify arc progression unlocked warehouse interior
+  - name: "Verify warehouse interior unlocked"
+    action: move
+    direction: "w"
+    mock_writer_key: travel_industrial
+    mock_checker_key: energy_minor
+    expect:
+      location: "industrial_warehouse"
+      zone: "industrial"
+
+  # Step 20: Access the unlocked warehouse interior
+  - name: "Enter the warehouse interior section"
+    action: move
+    direction: "w"
+    mock_writer_key: travel_industrial
+    mock_checker_key: energy_minor
+    expect:
+      location: "warehouse_interior"
+      zone: "industrial"
+      # This location was locked until industrial_cleared flag was set
+
+  # Step 21: Return to hub to check final options
+  - name: "Return to downtown hub"
+    action: travel
+    zone_id: "downtown"
+    location_id: "downtown_plaza"
+    method: "bike"
+    mock_writer_key: travel_downtown
+    mock_checker_key: energy_moderate
+    expect:
+      location: "downtown_plaza"
+      zone: "downtown"
+
+  # Step 22: Verify hub_final_checks option now available
+  - name: "Verify final checks option available"
+    action: choice
+    choice_id: "open_checklist"
+    mock_writer_key: final_hub
+    expect:
+      node: "downtown_hub"
+      flags:
+        safety_clearance_ready: true
+      choices_available:
+        - "hub_final_checks"
+
+  # Step 23: Trigger industrial ending
+  - name: "Trigger warehouse sign-off ending"
+    action: choice
+    choice_id: "hub_final_checks"
+    mock_writer_key: industrial_ending
+    expect:
+      node: "industrial_ending"
+      location: "downtown_plaza"
+      narrative_contains:
+        - "warehouse"
+        - "safety"

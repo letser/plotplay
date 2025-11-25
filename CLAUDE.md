@@ -117,10 +117,61 @@
 - **Bug Fixes**: Fixed `UnboundLocalError` in `travel_to_zone` where `current_zone` was used before definition
 - **State Summary**: Added `current_node` field to state_summary for better scenario validation
 
-### Stage 8: Next Steps
-- **Comprehensive Scenario Creation**: Create 3-4 comprehensive test scenarios to validate all engine features end-to-end:
-  - Each scenario should exercise multiple systems (movement, inventory, time, events, AI, modifiers, etc.)
-  - Cover edge cases and feature interactions
-  - Demonstrate proper game authoring patterns
-  - Serve as regression tests and documentation
-- **Target**: Build scenarios under `scenarios/comprehensive/` that test the complete engine behavior with realistic multi-turn gameplay flows
+### Stage 8: Scenario Testing Infrastructure (Current Session)
+
+- **Scenario Authoring Guide**: Complete guide at `docs/scenario_authoring_guide.md` documenting YAML format, action types, expectations, and best practices
+- **Test Infrastructure Created**: Runner, validators, models, mock AI service, reporter all functional
+- **Directory Structure**: Organized as `scenarios/{smoke,features,integration,error,comprehensive}/`
+- **Initial Scenarios Authored**: 4 comprehensive scenarios created (movement/time/navigation, economy/inventory/shopping, events/arcs/progression, advanced features)
+
+#### Bugs Found and Fixed
+1. **Validator Issues** (`backend/app/scenarios/validators.py`):
+   - Fixed `validate_zone()` to handle nested `location.zone` structure from `state_summary`
+   - Fixed `validate_flags()` to handle nested `{flag_id: {"value": ..., "label": ...}}` format
+   - Fixed `validate_meters()` to handle nested `{meter_id: {"value": ..., "min": ..., "max": ...}}` format
+
+2. **Action Service Bugs** (`backend/app/runtime/services/actions.py`):
+   - Fixed `_handle_move_direction()`: Now creates `MoveEffect` object and calls `movement_service.move_relative()`
+   - Fixed `_handle_goto_location()`: Now creates `MoveToEffect` object and calls `movement_service.move_to()`
+   - Fixed `_handle_travel()`: Now creates `TravelToEffect` object and calls `movement_service.travel()`
+   - Added missing imports for `MoveEffect` and `TravelToEffect`
+
+3. **Test Coverage** (`backend/test_error_handling.py`):
+   - Engine correctly rejects invalid directions, nonexistent locations, invalid choices
+   - `use`/`give` actions don't validate item existence (may be intentional for AI flexibility)
+
+#### Test Game Analysis
+- **coffeeshop_date** (Simple): 1 zone, 2 characters, basic features, `use_entry_exit=false` - Best for basic feature testing
+- **college_romance** (Medium): 2 zones, 3 characters, events/arcs/modifiers, `use_entry_exit=false` - Best for intermediate features
+- **sandbox** (Complex): 3 zones, 3 characters, ALL features, `use_entry_exit=true` - Best for advanced testing
+
+#### Entry/Exit Point System Understanding
+- Sandbox game uses `use_entry_exit: true` which enforces realistic zone travel semantics
+- Players must navigate to designated **exit** locations before traveling to other zones
+- Travel destinations must be valid **entrance** locations in target zone
+- Example: To travel downtown→suburbs, must be at `downtown_highway_ramp` (exit) to reach `suburbs_park_entrance` (entrance)
+- This is **working as designed** per specification Section 12 (Locations & Zones)
+
+#### Current State
+- **Scenario System**: Fully functional for testing with mock AI
+- **Validators**: Fixed and handle all state_summary nested structures
+- **Action Handlers**: Fixed and create proper effect objects
+- **Test Plan**: Comprehensive coverage matrix in `backend/scenarios/TEST_PLAN.md`
+- **Directory Structure**: Created feature-organized structure ready for new scenarios
+
+#### Next Steps
+1. **Create Feature-Focused Scenarios**: Use `TEST_PLAN.md` as guide to create focused scenarios for each engine feature
+   - Movement scenarios using `coffeeshop_date` (simple, no entry/exit)
+   - Events/arcs scenarios using `college_romance` (medium complexity)
+   - Advanced feature scenarios using `sandbox` (full engine)
+2. **Refactor Comprehensive Scenarios**: Current 4 comprehensive scenarios need simplification or removal (were written before understanding entry/exit system)
+3. **Error Handling Scenarios**: Create explicit error case scenarios in `scenarios/error/`
+4. **Integration Scenarios**: Create end-to-end playthrough scenarios in `scenarios/integration/`
+
+#### Files Modified This Session
+- `backend/app/scenarios/validators.py` - Fixed nested structure handling
+- `backend/app/scenarios/runner.py` - Fixed zone extraction from location dict
+- `backend/app/runtime/services/actions.py` - Fixed all movement action handlers
+- `backend/scenarios/comprehensive/01_movement_time_navigation.yaml` - Attempted fixes (needs rework)
+- `backend/test_error_handling.py` - Created error testing script
+- `backend/scenarios/TEST_PLAN.md` - Comprehensive test coverage plan

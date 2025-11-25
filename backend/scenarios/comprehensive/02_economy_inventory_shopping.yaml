@@ -1,0 +1,273 @@
+metadata:
+  name: "Comprehensive Test 2: Economy, Inventory, and Shopping"
+  description: "Tests shopping system, money management, item acquisition, inventory operations, and vendor interactions"
+  game: "sandbox"
+  author: "PlotPlay Test Suite"
+  tags: ["comprehensive", "regression", "economy", "inventory", "shopping"]
+
+mocks:
+  writer:
+    intro: "You stand in the downtown plaza control room, ready to test the economic systems."
+    open_checklist: "The kiosk displays the systems checklist, highlighting marketplace and vendor objectives."
+    market_briefing: "The briefing explains the downtown marketplace kiosk offers snacks and drink tokens. It's time to test the purchasing flow."
+    vendor_briefing: "Mara's mobile cart in the suburbs stocks safety gear and maps during daylight hours. The high-visibility vest is key to unlocking industrial access."
+
+    # Shopping narratives
+    travel_to_shops: "You make your way through the plaza to the colorful shopping district, where the marketplace kiosk awaits."
+    browse_shop: "You examine the marketplace kiosk's offerings: coffee tokens for $4 each and energy snacks for $6 each."
+    buy_snacks: "You purchase two energy snack packs. The vendor hands them over with a smile as your wallet lightens."
+    buy_tokens: "You buy three coffee tokens, perfect for caffeinating during long testing sessions."
+    check_money: "You glance at your wallet and verify your remaining funds. Every purchase has been tracked accurately."
+
+    travel_to_vendor: "You travel to the suburbs, searching for Mara's mobile cart on the main street."
+    meet_mara: "Mara looks up from organizing her cart. 'Welcome! Looking for supplies?' she asks with a warm smile."
+    buy_vest: "You purchase the high-visibility safety vest. Mara nods approvingly. 'Essential for the industrial yard,' she notes."
+    buy_map: "You buy a city map brochure. Mara unfolds it briefly to show you the zone layouts before handing it over."
+
+    use_snack: "You tear open an energy snack pack and devour it quickly. Your energy surges back up."
+    check_inventory: "You review your current inventory, confirming all your recent purchases are accounted for."
+
+  checker:
+    default:
+      meters: {}
+      flags: {}
+      character_memories: {}
+      safety: {ok: true}
+
+    buy_items_energy:
+      meters:
+        player:
+          energy: -2
+      character_memories: {}
+      safety: {ok: true}
+
+    use_snack_restore:
+      meters:
+        player:
+          energy: 15
+      flags:
+        checked_phone_recently: true
+      character_memories: {}
+      safety: {ok: true}
+
+    meet_vendor_boost:
+      meters:
+        mara_vendor:
+          mood: 5
+        player:
+          energy: -1
+      flags:
+        mara_met: true
+      character_memories:
+        mara_vendor: ["Met the player at my cart"]
+      safety: {ok: true}
+
+steps:
+  # Step 1: Start the game
+  - name: "Start game in downtown plaza"
+    action: start
+    mock_writer_key: intro
+    expect:
+      node: "intro"
+      location: "downtown_plaza"
+      zone: "downtown"
+      inventory:
+        player:
+          phone: 1
+
+  # Step 2: Open checklist and navigate to market briefing
+  - name: "Open checklist hub"
+    action: choice
+    choice_id: "open_checklist"
+    mock_writer_key: open_checklist
+    expect:
+      node: "downtown_hub"
+
+  # Step 3: Review market briefing
+  - name: "Review marketplace briefing"
+    action: choice
+    choice_id: "hub_market"
+    mock_writer_key: market_briefing
+    expect:
+      node: "market_briefing"
+      flags:
+        market_briefing_viewed: true
+
+  # Step 4: Travel to shopping district
+  - name: "Travel to shopping district"
+    action: move
+    direction: "w"
+    mock_writer_key: travel_to_shops
+    expect:
+      location: "downtown_shops"
+      zone: "downtown"
+
+  # Step 5: Browse the marketplace shop (free action to check)
+  - name: "Browse marketplace offerings"
+    action: do
+    action_text: "Look at what the marketplace kiosk is selling"
+    mock_writer_key: browse_shop
+    expect:
+      location: "downtown_shops"
+      narrative_contains:
+        - "marketplace"
+
+  # Step 6: Purchase energy snacks (2x at $6 each = $12)
+  - name: "Buy two energy snacks from marketplace"
+    action: say
+    action_text: "I'd like to buy two energy snack packs please"
+    mock_writer_key: buy_snacks
+    mock_checker_key: buy_items_energy
+    expect:
+      location: "downtown_shops"
+      inventory:
+        player:
+          phone: 1
+          energy_snack: 2
+      narrative_contains:
+        - "snack"
+
+  # Step 7: Purchase coffee tokens (3x at $4 each = $12, total spent so far $24)
+  - name: "Buy three coffee tokens from marketplace"
+    action: say
+    action_text: "Give me three coffee tokens as well"
+    mock_writer_key: buy_tokens
+    mock_checker_key: buy_items_energy
+    expect:
+      location: "downtown_shops"
+      inventory:
+        player:
+          phone: 1
+          energy_snack: 2
+          coffee_token: 3
+      narrative_contains:
+        - "token"
+
+  # Step 8: Verify money decreased (started with $100, spent $24, should have $76)
+  - name: "Check remaining money after purchases"
+    action: do
+    action_text: "Check how much money I have left in my wallet"
+    mock_writer_key: check_money
+    expect:
+      location: "downtown_shops"
+
+  # Step 9: Navigate back to hub
+  - name: "Return to downtown plaza"
+    action: move
+    direction: "e"
+    mock_writer_key: intro
+    expect:
+      location: "downtown_plaza"
+
+  # Step 10: Review vendor briefing
+  - name: "Open vendor briefing"
+    action: choice
+    choice_id: "open_checklist"
+    mock_writer_key: open_checklist
+    expect:
+      node: "downtown_hub"
+
+  - name: "Review vendor briefing details"
+    action: choice
+    choice_id: "hub_vendor"
+    mock_writer_key: vendor_briefing
+    expect:
+      node: "vendor_briefing"
+      flags:
+        vendor_briefing_viewed: true
+
+  # Step 11: Travel to suburbs to find Mara
+  - name: "Travel to suburbs main street"
+    action: travel
+    zone_id: "suburbs"
+    location_id: "suburbs_main_street"
+    method: "walk"
+    mock_writer_key: travel_to_vendor
+    mock_checker_key: buy_items_energy
+    expect:
+      location: "suburbs_main_street"
+      zone: "suburbs"
+      present_characters: ["player", "mara_vendor"]
+
+  # Step 12: Meet Mara and greet her
+  - name: "Greet Mara at her cart"
+    action: say
+    action_text: "Hi! I'm interested in your supplies"
+    mock_writer_key: meet_mara
+    mock_checker_key: meet_vendor_boost
+    expect:
+      location: "suburbs_main_street"
+      flags:
+        mara_met: true
+      present_characters: ["player", "mara_vendor"]
+      narrative_contains:
+        - "Mara"
+
+  # Step 13: Purchase high-visibility vest ($25, total spent $49, should have $51)
+  - name: "Buy high-visibility vest from Mara"
+    action: say
+    action_text: "I'll take the high-visibility vest please"
+    mock_writer_key: buy_vest
+    mock_checker_key: buy_items_energy
+    expect:
+      location: "suburbs_main_street"
+      inventory:
+        player:
+          phone: 1
+          energy_snack: 2
+          coffee_token: 3
+          hi_vis_vest: 1
+      narrative_contains:
+        - "vest"
+
+  # Step 14: Purchase city map ($10, total spent $59, should have $41)
+  - name: "Buy city map from Mara"
+    action: say
+    action_text: "And I'll take a city map too"
+    mock_writer_key: buy_map
+    mock_checker_key: buy_items_energy
+    expect:
+      location: "suburbs_main_street"
+      inventory:
+        player:
+          phone: 1
+          energy_snack: 2
+          coffee_token: 3
+          hi_vis_vest: 1
+          city_map: 1
+      narrative_contains:
+        - "map"
+
+  # Step 15: Use consumable item (energy snack)
+  - name: "Consume one energy snack"
+    action: use
+    item_id: "energy_snack"
+    mock_writer_key: use_snack
+    mock_checker_key: use_snack_restore
+    expect:
+      location: "suburbs_main_street"
+      inventory:
+        player:
+          energy_snack: 1
+      meters:
+        player.energy:
+          min: 95
+      narrative_contains:
+        - "energy"
+
+  # Step 16: Verify final inventory state
+  - name: "Review complete inventory"
+    action: do
+    action_text: "Take stock of everything I'm carrying"
+    mock_writer_key: check_inventory
+    expect:
+      location: "suburbs_main_street"
+      inventory:
+        player:
+          phone: 1
+          energy_snack: 1
+          coffee_token: 3
+          hi_vis_vest: 1
+          city_map: 1
+      narrative_contains:
+        - "inventory"

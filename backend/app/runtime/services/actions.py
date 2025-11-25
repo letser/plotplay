@@ -4,7 +4,7 @@ Action routing for the new runtime engine.
 
 from __future__ import annotations
 
-from app.models.effects import MoveToEffect
+from app.models.effects import MoveToEffect, MoveEffect
 from app.runtime.session import SessionRuntime
 
 
@@ -192,7 +192,8 @@ class ActionService:
             self._validate_companion_willingness(companions, "move")
 
         # Execute movement by direction
-        result = movement_service.move_by_direction(direction, companions)
+        effect = MoveEffect(direction=direction, with_characters=companions or [])
+        result = movement_service.move_relative(effect)
         if not result:
             raise ValueError(f"Cannot move in direction '{direction}' from current location")
 
@@ -207,12 +208,15 @@ class ActionService:
             self._validate_companion_willingness(companions, "goto")
 
         # Execute local movement to specific location
-        success = movement_service.move_local(location, companions)
+        effect = MoveToEffect(location=location, with_characters=companions or [])
+        success = movement_service.move_to(effect)
         if not success:
             raise ValueError(f"Cannot move to location '{location}'")
 
     def _handle_travel(self, location: str, companions: list[str] | None) -> None:
         """Handle zone-to-zone travel (travel action)."""
+        from app.models.effects import TravelToEffect
+
         movement_service = getattr(self.runtime, "movement_service", None)
         if not movement_service:
             raise RuntimeError("Movement service not available")
@@ -222,10 +226,13 @@ class ActionService:
             self._validate_companion_willingness(companions, "travel")
 
         # Execute inter-zone travel
-        success = movement_service.travel_to_zone(
-            location_id=location,
-            with_characters=companions
+        # Use "walk" as default method for travel action
+        effect = TravelToEffect(
+            location=location,
+            method="walk",
+            with_characters=companions or []
         )
+        success = movement_service.travel(effect)
         if not success:
             raise ValueError(f"Cannot travel to location '{location}'")
 

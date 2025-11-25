@@ -1,0 +1,204 @@
+metadata:
+  name: "Comprehensive Test 1: Movement, Time, and Navigation"
+  description: "Tests zone travel, time advancement, location changes, movement methods, and time slot transitions"
+  game: "sandbox"
+  author: "PlotPlay Test Suite"
+  tags: ["comprehensive", "regression", "movement", "time"]
+
+mocks:
+  writer:
+    intro: "You stand in the downtown plaza control room, reviewing the systems checklist on the glowing dashboard."
+    open_checklist: "The map unfolds on the kiosk screen, displaying all the test components awaiting verification."
+    review_movement: "The movement briefing highlights your objectives: test walking, biking, and driving across all three zones."
+    back_to_hub: "You return to the main checklist hub, ready to select your next task."
+
+    # Movement narratives
+    walk_to_suburbs: "You set off on foot toward the suburbs, enjoying the steady pace through the city streets."
+    arrive_suburbs_park: "The park opens before you, with green spaces and walking paths stretching in all directions."
+    bike_to_industrial: "You hop on a bike and pedal efficiently toward the industrial district, the wind in your face."
+    arrive_industrial: "You arrive at the industrial yard, the smell of metal and machinery filling the air."
+    walk_downtown: "You walk back toward the bustling downtown area, watching the city come alive around you."
+
+    # Time advancement narratives
+    afternoon_scene: "The sun climbs higher as the morning transitions into afternoon. The city's energy shifts."
+    evening_scene: "Shadows lengthen as evening approaches. Street lights begin to flicker on across the plaza."
+
+  checker:
+    default:
+      meters: {}
+      flags: {}
+      character_memories: {}
+      safety: {ok: true}
+
+    time_passes_walking:
+      meters:
+        player:
+          energy: -5
+      character_memories: {}
+      safety: {ok: true}
+
+    time_passes_biking:
+      meters:
+        player:
+          energy: -3
+      character_memories: {}
+      safety: {ok: true}
+
+    afternoon_transition:
+      meters:
+        player:
+          energy: -2
+      character_memories: {}
+      safety: {ok: true}
+
+    evening_transition:
+      meters:
+        player:
+          energy: -3
+      character_memories: {}
+      safety: {ok: true}
+
+steps:
+  # Step 1: Start the game
+  - name: "Start game in downtown plaza"
+    action: start
+    mock_writer_key: intro
+    expect:
+      node: "intro"
+      location: "downtown_plaza"
+      zone: "downtown"
+      present_characters: ["player"]
+      meters:
+        player.energy: 100
+      # Note: flags are not visible, so not validated
+
+  # Step 2: Open the checklist
+  - name: "Open the systems checklist"
+    action: choice
+    choice_id: "open_checklist"
+    mock_writer_key: open_checklist
+    expect:
+      node: "downtown_hub"
+      location: "downtown_plaza"
+      narrative_contains:
+        - "map"
+        - "kiosk"
+
+  # Step 3: Review movement objectives
+  - name: "Review movement briefing"
+    action: choice
+    choice_id: "hub_movement"
+    mock_writer_key: review_movement
+    expect:
+      node: "movement_briefing"
+      location: "downtown_plaza"
+      narrative_contains:
+        - "movement"
+        - "zones"
+
+  # Step 4: Return to hub
+  - name: "Return to hub after briefing"
+    action: choice
+    choice_id: "movement_back"
+    mock_writer_key: back_to_hub
+    expect:
+      node: "downtown_hub"
+      location: "downtown_plaza"
+
+  # Step 5: Navigate to downtown highway ramp (exit point for zone travel)
+  - name: "Navigate to highway ramp to prepare for zone travel"
+    action: move
+    direction: "w"
+    mock_writer_key: walk_to_suburbs
+    expect:
+      location: "downtown_shops"
+      zone: "downtown"
+
+  - name: "Continue to highway ramp"
+    action: move
+    direction: "n"
+    mock_writer_key: walk_to_suburbs
+    expect:
+      location: "downtown_highway_ramp"
+      zone: "downtown"
+
+  # Step 6: Travel to suburbs (walk method - tests zone travel with entry/exit)
+  - name: "Travel to suburbs park entrance by walking"
+    action: travel
+    location: "suburbs_park_entrance"
+    mock_writer_key: walk_to_suburbs
+    mock_checker_key: time_passes_walking
+    expect:
+      location: "suburbs_park_entrance"
+      zone: "suburbs"
+      meters:
+        player.energy:
+          min: 80
+          max: 95
+      narrative_contains:
+        - "walk"
+        - "suburbs"
+
+  # Step 7: Verify time has advanced (walking takes time)
+  - name: "Observe time advancement from walking"
+    action: say
+    action_text: "Check the time on my phone"
+    mock_writer_key: afternoon_scene
+    mock_checker_key: afternoon_transition
+    expect:
+      location: "suburbs_park_entrance"
+      zone: "suburbs"
+      # Time should have advanced from morning toward afternoon
+
+  # Step 8: Navigate within suburbs
+  - name: "Enter the park from entrance"
+    action: move
+    direction: "n"
+    mock_writer_key: arrive_suburbs_park
+    expect:
+      location: "suburbs_park"
+      zone: "suburbs"
+
+  # Step 9: Navigate to suburbs exit for return travel
+  - name: "Navigate back to park entrance"
+    action: move
+    direction: "s"
+    mock_writer_key: walk_downtown
+    expect:
+      location: "suburbs_park_entrance"
+      zone: "suburbs"
+
+  - name: "Navigate to suburbs main street"
+    action: move
+    direction: "e"
+    mock_writer_key: walk_downtown
+    expect:
+      location: "suburbs_main_street"
+      zone: "suburbs"
+
+  - name: "Navigate to highway exit"
+    action: move
+    direction: "s"
+    mock_writer_key: walk_downtown
+    expect:
+      location: "suburbs_highway_exit"
+      zone: "suburbs"
+
+  # Step 10: Travel back to downtown
+  - name: "Travel back to downtown station"
+    action: travel
+    location: "downtown_station"
+    mock_writer_key: walk_downtown
+    mock_checker_key: time_passes_walking
+    expect:
+      location: "downtown_station"
+      zone: "downtown"
+
+  # Step 11: Walk back to plaza
+  - name: "Walk back to plaza"
+    action: move
+    direction: "s"
+    mock_writer_key: walk_downtown
+    expect:
+      location: "downtown_plaza"
+      zone: "downtown"
