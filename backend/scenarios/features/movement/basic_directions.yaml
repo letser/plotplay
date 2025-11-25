@@ -1,0 +1,66 @@
+metadata:
+  name: "Movement - Basic Compass Directions"
+  description: "Test compass direction movement (n/s/e/w) within a single zone"
+  game: "coffeeshop_date"
+  author: "PlotPlay Team"
+  tags: ["feature-movement", "phase-1", "basic"]
+
+mocks:
+  writer:
+    intro: "You step onto the sunlit cafe patio. The aroma of fresh coffee fills the air. You spot Alex at one of the tables."
+    move_north: "You walk through the doorway into the coffee shop. The wooden counter stretches before you, lined with pastries."
+    move_south: "You step back outside onto the patio. The fresh air and sunshine greet you."
+    move_east: "You weave between tables toward the quiet corner. Soft light filters through the window here."
+    move_west: "You return to the main counter area. The hum of coffee grinders fills the space."
+
+  checker:
+    default:
+      meters: {}
+      flags: {}
+      character_memories: {}
+      safety:
+        ok: true
+
+steps:
+  - name: "Start game at cafe patio"
+    action: start
+    mock_writer_key: intro
+    expect:
+      node: "outside_cafe"
+      location: "cafe_patio"
+      zone: "downtown"
+
+  - name: "Move north to cafe counter"
+    action: move
+    direction: "n"
+    expect:
+      location: "cafe_counter"
+      zone: "downtown"
+
+  - name: "Move south back to patio"
+    action: move
+    direction: "s"
+    expect:
+      location: "cafe_patio"
+      zone: "downtown"
+
+  - name: "Move north to counter again"
+    action: move
+    direction: "n"
+    expect:
+      location: "cafe_counter"
+      zone: "downtown"
+
+  - name: "Move east to corner table"
+    action: move
+    direction: "e"
+    expect:
+      location: "cafe_table"
+      zone: "downtown"
+
+  - name: "Move west back to counter"
+    action: move
+    direction: "w"
+    expect:
+      location: "cafe_counter"
+      zone: "downtown"

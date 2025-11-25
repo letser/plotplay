@@ -1,0 +1,83 @@
+metadata:
+  name: "Inventory - Give Item"
+  description: "Test giving items to NPCs and transferring inventory"
+  game: "coffeeshop_date"
+  author: "PlotPlay Team"
+  tags: ["feature-inventory", "phase-1", "transfer"]
+
+mocks:
+  writer:
+    intro: "You step onto the sunlit cafe patio. The aroma of fresh coffee fills the air. You spot Alex at one of the tables."
+    goto_counter: "You make your way to the coffee shop counter. The pastries gleam under the display lights."
+    ai_get_latte: "You pick up a vanilla latte from the counter, its warmth seeping into your hands."
+    give_to_alex: "You slide the vanilla latte across the table to Alex. Her eyes light up. \"For me? You're so sweet!\""
+
+  checker:
+    add_latte:
+      meters: {}
+      flags: {}
+      character_memories: {}
+      inventory:
+        vanilla_latte: 1
+      safety:
+        ok: true
+
+    transfer_latte:
+      meters:
+        alex:
+          comfort: 8
+      flags: {}
+      character_memories:
+        alex: "You gave me a vanilla latte"
+      inventory:
+        vanilla_latte: -1
+      character_inventory:
+        alex:
+          vanilla_latte: 1
+      safety:
+        ok: true
+
+steps:
+  - name: "Start game at cafe patio"
+    action: start
+    mock_writer_key: intro
+    expect:
+      node: "outside_cafe"
+      location: "cafe_patio"
+
+  - name: "Move to cafe counter"
+    action: goto
+    location: "cafe_counter"
+    mock_writer_key: goto_counter
+    expect:
+      location: "cafe_counter"
+
+  - name: "Acquire vanilla latte"
+    action: say
+    text: "I pick up a vanilla latte"
+    mock_writer_key: ai_get_latte
+    mock_checker_key: add_latte
+    expect:
+      inventory_contains:
+        vanilla_latte: 1
+
+  - name: "Return to patio with Alex"
+    action: goto
+    location: "cafe_patio"
+    mock_writer_key: intro
+    expect:
+      location: "cafe_patio"
+      present_characters: ["player", "alex"]
+
+  - name: "Give latte to Alex"
+    action: give
+    item: "vanilla_latte"
+    target: "alex"
+    mock_writer_key: give_to_alex
+    mock_checker_key: transfer_latte
+    expect:
+      inventory_not_contains:
+        vanilla_latte: 1
+      narrative_contains:
+        - "Alex"
+        - "latte"

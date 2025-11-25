@@ -1,0 +1,82 @@
+metadata:
+  name: "Economy - Conditional Purchases"
+  description: "Test choices that require minimum money thresholds (when clauses)"
+  game: "coffeeshop_date"
+  author: "PlotPlay Team"
+  tags: ["feature-economy", "phase-1", "conditionals"]
+
+mocks:
+  writer:
+    intro: "You step onto the sunlit cafe patio. The aroma of fresh coffee fills the air. You spot Alex at one of the tables."
+    greet: "Alex looks up from their phone and smiles warmly. 'Hey! Glad you could make it.'"
+    order_scene: "Inside, the scent of espresso wraps around you. Alex scans the chalkboard menu with a decisive nod."
+    split: "You suggest splitting the cost with a light joke. Alex laughs and agrees."
+
+  checker:
+    default:
+      meters: {}
+      flags: {}
+      character_memories: {}
+      safety:
+        ok: true
+
+    reduce_money:
+      meters:
+        player:
+          money: -44
+      flags: {}
+      character_memories: {}
+      safety:
+        ok: true
+
+steps:
+  - name: "Start game with 50 money"
+    action: start
+    mock_writer_key: intro
+    expect:
+      node: "outside_cafe"
+      meters:
+        player:
+          money: 50
+
+  - name: "Greet Alex"
+    action: choice
+    choice_id: "greet_warmly"
+    mock_writer_key: greet
+    expect:
+      node: "order_drinks"
+
+  - name: "Check that expensive choices are available"
+    expect:
+      available_choices_include:
+        - "matching_lattes"
+        - "let_her_choose"
+        - "split_the_bill"
+
+  - name: "Reduce money to 8 via AI action"
+    action: say
+    text: "I realize I spent most of my money earlier"
+    mock_writer_key: order_scene
+    mock_checker_key: reduce_money
+    expect:
+      meters:
+        player:
+          money: 6
+
+  - name: "Check that expensive choices are now unavailable"
+    expect:
+      available_choices_exclude:
+        - "matching_lattes"
+        - "let_her_choose"
+      available_choices_include:
+        - "split_the_bill"
+
+  - name: "Can still choose split_the_bill option"
+    action: choice
+    choice_id: "split_the_bill"
+    mock_writer_key: split
+    expect:
+      node: "table_convo"
+      meters:
+        player:
+          money: 0

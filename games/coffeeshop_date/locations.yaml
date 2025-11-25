@@ -20,6 +20,8 @@ zones:
         name: "Coffee Shop Counter"
         summary: "A wooden counter lined with pastries, the hum of grinders filling the room."
         privacy: "low"
+        access:
+          discovered: true
         connections:
           - to: "cafe_patio"
             description: "Carry the drinks back outside."
@@ -35,6 +37,8 @@ zones:
         name: "Corner Table"
         summary: "A tucked-away table with soft light and chalk doodles on the brick wall."
         privacy: "medium"
+        access:
+          discovered: true
         connections:
           - to: "cafe_counter"
             description: "Return to the counter."

@@ -1,0 +1,173 @@
+"""
+Tests for inventory validation edge cases:
+- Taking items from locations
+- Clothing/outfit grant_items behavior
+- Clothing ownership auto-grant
+"""
+import pytest
+from app.runtime.types import PlayerAction
+from app.models.effects import (
+    InventoryTakeEffect,
+    ClothingPutOnEffect,
+    OutfitPutOnEffect,
+)
+
+
+@pytest.mark.asyncio
+async def test_take_from_location_validates_item_exists(engine_factory):
+    """
+    Test that taking an item from a location validates the item exists there.
+    """
+    engine = engine_factory("coffeeshop_date")
+    await engine.start()
+
+    # Navigate to cafe counter
+    await engine.process_action(PlayerAction(action_type="goto", location="cafe_counter"))
+
+    # Try to take an item that DOES exist at the location
+    state = engine.runtime.state_manager.state
+    location_state = state.locations.get("cafe_counter")
+
+    # Cafe counter should have vanilla_latte and spiced_matcha
+    assert location_state.inventory.items.get("vanilla_latte", 0) == 2
+
+    # Take effect should succeed
+    trade_service = engine.trade_service
+    effect = InventoryTakeEffect(
+        target="player",
+        item_type="item",
+        item="vanilla_latte",
+        count=1
+    )
+    hooks = trade_service.take_from_location(effect)
+
+    # Should return add effect
+    assert len(hooks) > 0
+    assert location_state.inventory.items.get("vanilla_latte", 0) == 1
+
+
+@pytest.mark.asyncio
+async def test_take_from_location_with_missing_item_fails_silently(engine_factory):
+    """
+    Test that taking an item not at the location returns empty hooks (silent fail).
+    """
+    engine = engine_factory("coffeeshop_date")
+    await engine.start()
+
+    # Navigate to cafe patio (has no items)
+    state = engine.runtime.state_manager.state
+
+    # Try to take an item that doesn't exist
+    trade_service = engine.trade_service
+    effect = InventoryTakeEffect(
+        target="player",
+        item_type="item",
+        item="nonexistent_item",
+        count=1
+    )
+    hooks = trade_service.take_from_location(effect)
+
+    # Should return empty list (silent fail)
+    assert hooks == []
+
+
+@pytest.mark.asyncio
+async def test_outfit_grant_items_true_spawns_clothing(engine_factory):
+    """
+    Test that equipping an outfit with grant_items=true spawns the clothing items.
+    """
+    engine = engine_factory("coffeeshop_date")
+    await engine.start()
+
+    state = engine.runtime.state_manager.state
+    player_state = state.characters.get("player")
+
+    # Player starts with outfit "player_date_casual"
+    assert player_state.clothing.outfit == "player_date_casual"
+
+    # Check that the clothing items were granted
+    assert "player_top_button_up" in player_state.inventory.clothing
+    assert "player_bottom_chinos" in player_state.inventory.clothing
+    assert "player_shoes_leather" in player_state.inventory.clothing
+
+
+@pytest.mark.asyncio
+async def test_clothing_put_on_auto_grants_item(engine_factory):
+    """
+    Test that putting on a clothing item automatically grants it if not owned.
+    This is intentional behavior for clothing (different from regular items).
+    """
+    engine = engine_factory("coffeeshop_date")
+    await engine.start()
+
+    state = engine.runtime.state_manager.state
+    player_state = state.characters.get("player")
+
+    # Remove a clothing item from inventory
+    player_state.inventory.clothing.pop("player_top_button_up", None)
+    assert "player_top_button_up" not in player_state.inventory.clothing
+
+    # Try to put it on (should auto-grant)
+    clothing_service = engine.clothing_service
+    effect = ClothingPutOnEffect(
+        target="player",
+        item="player_top_button_up",
+        condition="intact"
+    )
+    clothing_service.apply_effect(effect)
+
+    # Should now be in inventory (auto-granted)
+    assert player_state.inventory.clothing.get("player_top_button_up", 0) >= 1
+
+    # And should be equipped
+    assert "player_top_button_up" in player_state.clothing.items
+
+
+@pytest.mark.asyncio
+async def test_give_validates_source_has_item(engine_factory):
+    """
+    Test that giving an item validates the source (player) has it.
+    This was fixed in the previous session.
+    """
+    engine = engine_factory("coffeeshop_date")
+    await engine.start()
+
+    # Try to give an item we don't have
+    action = PlayerAction(action_type="give", item_id="vanilla_latte", target="alex")
+
+    with pytest.raises(ValueError, match="Cannot give item 'vanilla_latte': not in inventory"):
+        await engine.process_action(action)
+
+
+@pytest.mark.asyncio
+async def test_take_from_location_insufficient_quantity_fails(engine_factory):
+    """
+    Test that trying to take more items than available fails silently.
+    """
+    engine = engine_factory("coffeeshop_date")
+    await engine.start()
+
+    # Navigate to cafe counter
+    await engine.process_action(PlayerAction(action_type="goto", location="cafe_counter"))
+
+    state = engine.runtime.state_manager.state
+    location_state = state.locations.get("cafe_counter")
+
+    # Cafe counter has 2 vanilla lattes
+    assert location_state.inventory.items.get("vanilla_latte", 0) == 2
+
+    # Try to take 5 (more than available)
+    trade_service = engine.trade_service
+    effect = InventoryTakeEffect(
+        target="player",
+        item_type="item",
+        item="vanilla_latte",
+        count=5
+    )
+    hooks = trade_service.take_from_location(effect)
+
+    # Should fail silently (return empty list)
+    assert hooks == []
+
+    # Location should still have 2
+    assert location_state.inventory.items.get("vanilla_latte", 0) == 2

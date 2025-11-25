@@ -103,10 +103,24 @@ class InventoryService:
             on_get = getattr(item_def, "on_get", None)
             if on_get:
                 triggered.extend(on_get)
+
+            # Handle outfit grant_items on acquisition
+            if effect.item_type == "outfit" and getattr(item_def, "grant_items", False):
+                granted = self._grant_outfit_items(owner_state, effect.item, item_def)
+                if granted:
+                    self.runtime.logger.info(f"Outfit '{effect.item}' granted missing items: {granted}")
+
         elif effect.type == "inventory_remove":
             on_lost = getattr(item_def, "on_lost", None)
             if on_lost:
                 triggered.extend(on_lost)
+
+            # Handle outfit grant_items on loss
+            if effect.item_type == "outfit" and getattr(item_def, "grant_items", False):
+                removed = self._remove_granted_outfit_items(owner_state, effect.item)
+                if removed:
+                    self.runtime.logger.info(f"Outfit '{effect.item}' removed granted items: {removed}")
+
         return triggered
 
     # Legacy helper compatibility
@@ -231,3 +245,50 @@ class InventoryService:
         if item_type == "outfit":
             return inventory.outfits
         return inventory.items
+
+    def _grant_outfit_items(self, owner_state, outfit_id: str, outfit_def) -> list[str]:
+        """
+        Grant missing clothing items when acquiring an outfit with grant_items=true.
+        Only adds items that are not already owned (Option 1).
+        Tracks which items were granted for proper removal later.
+        Returns list of granted item IDs.
+        """
+        granted_items = []
+        outfit_items = getattr(outfit_def, "items", {})
+
+        for clothing_id in outfit_items.keys():
+            # Only grant if not already owned
+            if owner_state.inventory.clothing.get(clothing_id, 0) <= 0:
+                owner_state.inventory.clothing[clothing_id] = 1
+                granted_items.append(clothing_id)
+
+        # Track what was granted for this outfit
+        if granted_items:
+            if outfit_id not in owner_state.outfit_granted_items:
+                owner_state.outfit_granted_items[outfit_id] = set()
+            owner_state.outfit_granted_items[outfit_id].update(granted_items)
+
+        return granted_items
+
+    def _remove_granted_outfit_items(self, owner_state, outfit_id: str) -> list[str]:
+        """
+        Remove clothing items that were granted by this outfit.
+        Only removes items that were originally granted (tracked in outfit_granted_items).
+        Returns list of removed item IDs.
+        """
+        removed_items = []
+        granted = owner_state.outfit_granted_items.get(outfit_id, set())
+
+        for clothing_id in granted:
+            # Only remove if still owned
+            if owner_state.inventory.clothing.get(clothing_id, 0) > 0:
+                owner_state.inventory.clothing[clothing_id] -= 1
+                if owner_state.inventory.clothing[clothing_id] <= 0:
+                    owner_state.inventory.clothing.pop(clothing_id, None)
+                removed_items.append(clothing_id)
+
+        # Clear tracking for this outfit
+        if outfit_id in owner_state.outfit_granted_items:
+            owner_state.outfit_granted_items.pop(outfit_id)
+
+        return removed_items

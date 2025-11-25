@@ -1,0 +1,48 @@
+metadata:
+  name: "Economy - Money Tracking"
+  description: "Test money meter changes through purchases and choices"
+  game: "coffeeshop_date"
+  author: "PlotPlay Team"
+  tags: ["feature-economy", "phase-1", "money"]
+
+mocks:
+  writer:
+    intro: "You step onto the sunlit cafe patio. The aroma of fresh coffee fills the air. You spot Alex at one of the tables."
+    greet: "Alex looks up from their phone and smiles warmly. 'Hey! Glad you could make it.'"
+    order: "Inside, the scent of espresso wraps around you. Alex scans the chalkboard menu with a decisive nod."
+    purchase: "You hand over the cash and the barista gets to work. The familiar hiss of the espresso machine fills the air."
+
+  checker:
+    default:
+      meters: {}
+      flags: {}
+      character_memories: {}
+      safety:
+        ok: true
+
+steps:
+  - name: "Start game with initial money"
+    action: start
+    mock_writer_key: intro
+    expect:
+      node: "outside_cafe"
+      meters:
+        player:
+          money: 50
+
+  - name: "Greet Alex and proceed"
+    action: choice
+    choice_id: "greet_warmly"
+    mock_writer_key: greet
+    expect:
+      node: "order_drinks"
+
+  - name: "Order matching lattes (costs 12)"
+    action: choice
+    choice_id: "matching_lattes"
+    mock_writer_key: purchase
+    expect:
+      node: "table_convo"
+      meters:
+        player:
+          money: 38

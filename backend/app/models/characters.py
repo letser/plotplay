@@ -108,3 +108,7 @@ class CharacterState:
 
     # Memory log (append-only history of significant interactions)
     memory_log: list[str] = field(default_factory=list)
+
+    # Tracks which clothing items were auto-granted by which outfit (outfit_id -> set of clothing_ids)
+    # Used to properly remove granted items when outfit is lost
+    outfit_granted_items: dict[str, set[str]] = field(default_factory=dict)

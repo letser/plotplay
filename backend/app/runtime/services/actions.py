@@ -4,7 +4,8 @@ Action routing for the new runtime engine.
 
 from __future__ import annotations
 
-from app.models.effects import MoveToEffect, MoveEffect
+from app.models.effects import MoveToEffect, MoveEffect, TravelToEffect
+from app.models.locations import LocalDirection
 from app.runtime.session import SessionRuntime
 
 
@@ -102,27 +103,50 @@ class ActionService:
     def _handle_use_item(self, item_id: str) -> None:
         if not self.inventory:
             raise RuntimeError("Inventory service not available")
+
+        # Validate player has the item
+        state = self.runtime.state_manager.state
+        player_state = state.characters.get("player")
+        if not player_state:
+            raise RuntimeError("Player character not found")
+
+        item_count = player_state.inventory.items.get(item_id, 0)
+        if item_count <= 0:
+            raise ValueError(f"Cannot use item '{item_id}': not in inventory")
+
         hooks = self.inventory.use_item("player", item_id)
         if hooks:
             self.effect_resolver.apply_effects(hooks)
 
     def _handle_give_item(self, item_id: str, target: str) -> None:
-        if self.trade and self.inventory:
-            hooks = self.trade.give(
-                type(
-                    "GiveEffectProxy",
-                    (),
-                    {
-                        "source": "player",
-                        "target": target,
-                        "item_type": self.inventory.get_item_type(item_id) or "item",
-                        "item": item_id,
-                        "count": 1,
-                    },
-                )
+        if not self.trade or not self.inventory:
+            raise RuntimeError("Trade or inventory service not available")
+
+        # Validate player has the item
+        state = self.runtime.state_manager.state
+        player_state = state.characters.get("player")
+        if not player_state:
+            raise RuntimeError("Player character not found")
+
+        item_count = player_state.inventory.items.get(item_id, 0)
+        if item_count <= 0:
+            raise ValueError(f"Cannot give item '{item_id}': not in inventory")
+
+        hooks = self.trade.give(
+            type(
+                "GiveEffectProxy",
+                (),
+                {
+                    "source": "player",
+                    "target": target,
+                    "item_type": self.inventory.get_item_type(item_id) or "item",
+                    "item": item_id,
+                    "count": 1,
+                },
             )
-            if hooks:
-                self.effect_resolver.apply_effects(hooks)
+        )
+        if hooks:
+            self.effect_resolver.apply_effects(hooks)
             return
 
         if not self.inventory:
@@ -191,8 +215,14 @@ class ActionService:
         if companions:
             self._validate_companion_willingness(companions, "move")
 
+        # Convert string direction to LocalDirection enum
+        try:
+            normalized_direction = LocalDirection(direction)
+        except (ValueError, KeyError):
+            raise ValueError(f"Invalid direction: '{direction}'")
+
         # Execute movement by direction
-        effect = MoveEffect(direction=direction, with_characters=companions or [])
+        effect = MoveEffect(direction=normalized_direction, with_characters=companions or [])
         result = movement_service.move_relative(effect)
         if not result:
             raise ValueError(f"Cannot move in direction '{direction}' from current location")

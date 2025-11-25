@@ -403,53 +403,60 @@ class TestMovementActionHandlers:
 
     def test_move_direction_success(self, action_service):
         """Test successful move by direction."""
-        action_service.runtime.movement_service.move_by_direction = Mock(
+        action_service.runtime.movement_service.move_relative = Mock(
             return_value={"action_summary": "You move north."}
         )
 
         # Should not raise
         action_service._handle_move_direction("n", None)
 
-        action_service.runtime.movement_service.move_by_direction.assert_called_once_with("n", None)
+        # Check that move_relative was called with a MoveEffect
+        action_service.runtime.movement_service.move_relative.assert_called_once()
+        call_args = action_service.runtime.movement_service.move_relative.call_args[0][0]
+        assert call_args.direction.value == "n"
 
     def test_move_direction_failure(self, action_service):
         """Test failed move (no connection)."""
-        action_service.runtime.movement_service.move_by_direction = Mock(return_value=None)
+        action_service.runtime.movement_service.move_relative = Mock(return_value=None)
 
         with pytest.raises(ValueError, match="Cannot move in direction"):
             action_service._handle_move_direction("n", None)
 
     def test_goto_location_success(self, action_service):
         """Test successful goto location."""
-        action_service.runtime.movement_service.move_local = Mock(return_value=True)
+        action_service.runtime.movement_service.move_to = Mock(return_value=True)
 
         # Should not raise
         action_service._handle_goto_location("park", None)
 
-        action_service.runtime.movement_service.move_local.assert_called_once_with("park", None)
+        # Check that move_to was called with a MoveToEffect
+        action_service.runtime.movement_service.move_to.assert_called_once()
+        call_args = action_service.runtime.movement_service.move_to.call_args[0][0]
+        assert call_args.location == "park"
 
     def test_goto_location_failure(self, action_service):
         """Test failed goto (location not reachable)."""
-        action_service.runtime.movement_service.move_local = Mock(return_value=False)
+        action_service.runtime.movement_service.move_to = Mock(return_value=False)
 
         with pytest.raises(ValueError, match="Cannot move to location"):
             action_service._handle_goto_location("park", None)
 
     def test_travel_success(self, action_service):
         """Test successful travel."""
-        action_service.runtime.movement_service.travel_to_zone = Mock(return_value=True)
+        action_service.runtime.movement_service.travel = Mock(return_value=True)
 
         # Should not raise
         action_service._handle_travel("downtown", None)
 
-        action_service.runtime.movement_service.travel_to_zone.assert_called_once_with(
-            location_id="downtown",
-            with_characters=None
-        )
+        # Check that travel was called with a TravelToEffect
+        action_service.runtime.movement_service.travel.assert_called_once()
+        call_args = action_service.runtime.movement_service.travel.call_args[0][0]
+        assert call_args.location == "downtown"
+        assert call_args.method == "walk"
 
     def test_travel_failure(self, action_service):
         """Test failed travel."""
-        action_service.runtime.movement_service.travel_to_zone = Mock(return_value=False)
+        action_service.runtime.movement_service.travel = Mock(return_value=False)
 
         with pytest.raises(ValueError, match="Cannot travel to location"):
             action_service._handle_travel("downtown", None)
@@ -463,14 +470,17 @@ class TestMovementActionHandlers:
         state.characters = {"alex": alex_state}
         action_service.runtime.state_manager.state = state
 
-        action_service.runtime.movement_service.move_by_direction = Mock(
+        action_service.runtime.movement_service.move_relative = Mock(
             return_value={"action_summary": "moved"}
         )
 
         # Should validate willingness and succeed
         action_service._handle_move_direction("n", ["alex"])
 
-        action_service.runtime.movement_service.move_by_direction.assert_called_once_with("n", ["alex"])
+        # Check that move_relative was called with companions
+        action_service.runtime.movement_service.move_relative.assert_called_once()
+        call_args = action_service.runtime.movement_service.move_relative.call_args[0][0]
+        assert call_args.with_characters == ["alex"]
 
     def test_movement_service_not_available(self, action_service):
         """Test error when movement service not available."""

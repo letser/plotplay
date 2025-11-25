@@ -1,0 +1,51 @@
+metadata:
+  name: "Movement - Direct Location Targeting"
+  description: "Test goto action for direct location targeting within a zone"
+  game: "coffeeshop_date"
+  author: "PlotPlay Team"
+  tags: ["feature-movement", "phase-1", "goto"]
+
+mocks:
+  writer:
+    intro: "You step onto the sunlit cafe patio. The aroma of fresh coffee fills the air. You spot Alex at one of the tables."
+    goto_counter: "You make your way directly to the coffee shop counter. The barista greets you with a nod."
+    goto_table: "You navigate straight to the corner table. It's tucked away, quiet and cozy."
+    goto_patio: "You head back out to the patio. The sunlight feels warm on your face."
+
+  checker:
+    default:
+      meters: {}
+      flags: {}
+      character_memories: {}
+      safety:
+        ok: true
+
+steps:
+  - name: "Start game at cafe patio"
+    action: start
+    mock_writer_key: intro
+    expect:
+      node: "outside_cafe"
+      location: "cafe_patio"
+      zone: "downtown"
+
+  - name: "Goto cafe counter directly"
+    action: goto
+    location: "cafe_counter"
+    expect:
+      location: "cafe_counter"
+      zone: "downtown"
+
+  - name: "Goto corner table directly"
+    action: goto
+    location: "cafe_table"
+    expect:
+      location: "cafe_table"
+      zone: "downtown"
+
+  - name: "Goto patio directly"
+    action: goto
+    location: "cafe_patio"
+    expect:
+      location: "cafe_patio"
+      zone: "downtown"

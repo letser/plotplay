@@ -1,0 +1,62 @@
+metadata:
+  name: "Time - Slot Transitions"
+  description: "Test transitioning between time slots (afternoon to evening)"
+  game: "coffeeshop_date"
+  author: "PlotPlay Team"
+  tags: ["feature-time", "phase-1", "slots"]
+
+mocks:
+  writer:
+    intro: "You step onto the sunlit cafe patio. The aroma of fresh coffee fills the air. You spot Alex at one of the tables."
+    ai_long_wait_1: "Time passes as you wait, watching the afternoon shadows lengthen."
+    ai_long_wait_2: "The light begins to shift, taking on a warmer, golden quality as evening approaches."
+    ai_long_wait_3: "The sun dips lower, and the cafe lights begin to glow against the deepening sky."
+
+  checker:
+    advance_hours:
+      meters: {}
+      flags: {}
+      character_memories: {}
+      time:
+        hours: 2
+      safety:
+        ok: true
+
+steps:
+  - name: "Start game at 13:00 afternoon"
+    action: start
+    mock_writer_key: intro
+    expect:
+      time: "13:00"
+      time_slot: "afternoon"
+      day: 1
+
+  - name: "Advance 2 hours (still afternoon)"
+    action: say
+    text: "Time passes as we talk"
+    mock_writer_key: ai_long_wait_1
+    mock_checker_key: advance_hours
+    expect:
+      time: "15:00"
+      time_slot: "afternoon"
+      day: 1
+
+  - name: "Advance another 2 hours (still afternoon)"
+    action: say
+    text: "We continue chatting"
+    mock_writer_key: ai_long_wait_2
+    mock_checker_key: advance_hours
+    expect:
+      time: "17:00"
+      time_slot: "afternoon"
+      day: 1
+
+  - name: "Advance 2 more hours (now evening)"
+    action: say
+    text: "The conversation deepens"
+    mock_writer_key: ai_long_wait_3
+    mock_checker_key: advance_hours
+    expect:
+      time: "19:00"
+      time_slot: "evening"
+      day: 1

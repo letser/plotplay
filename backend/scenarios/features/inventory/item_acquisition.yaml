@@ -1,0 +1,70 @@
+metadata:
+  name: "Inventory - Item Acquisition"
+  description: "Test acquiring items from location inventory and tracking quantities"
+  game: "coffeeshop_date"
+  author: "PlotPlay Team"
+  tags: ["feature-inventory", "phase-1", "acquisition"]
+
+mocks:
+  writer:
+    intro: "You step onto the sunlit cafe patio. The aroma of fresh coffee fills the air. You spot Alex at one of the tables."
+    goto_counter: "You make your way to the coffee shop counter. The pastries gleam under the display lights."
+    ai_action_1: "You pick up a vanilla latte from the counter, its warmth seeping into your hands."
+    ai_action_2: "You grab a spiced matcha as well. The citrus aroma is inviting."
+
+  checker:
+    add_latte:
+      meters: {}
+      flags: {}
+      character_memories: {}
+      inventory:
+        vanilla_latte: 1
+      safety:
+        ok: true
+
+    add_matcha:
+      meters: {}
+      flags: {}
+      character_memories: {}
+      inventory:
+        spiced_matcha: 1
+      safety:
+        ok: true
+
+steps:
+  - name: "Start game at cafe patio"
+    action: start
+    mock_writer_key: intro
+    expect:
+      node: "outside_cafe"
+      location: "cafe_patio"
+
+  - name: "Move to cafe counter where items are"
+    action: goto
+    location: "cafe_counter"
+    mock_writer_key: goto_counter
+    expect:
+      location: "cafe_counter"
+
+  - name: "Take a vanilla latte from counter"
+    action: say
+    text: "I pick up a vanilla latte"
+    mock_writer_key: ai_action_1
+    mock_checker_key: add_latte
+    expect:
+      inventory_contains:
+        vanilla_latte: 1
+      narrative_contains:
+        - "latte"
+
+  - name: "Take a spiced matcha too"
+    action: say
+    text: "I also take the spiced matcha"
+    mock_writer_key: ai_action_2
+    mock_checker_key: add_matcha
+    expect:
+      inventory_contains:
+        vanilla_latte: 1
+        spiced_matcha: 1
+      narrative_contains:
+        - "matcha"

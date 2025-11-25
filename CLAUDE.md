@@ -159,19 +159,130 @@
 - **Test Plan**: Comprehensive coverage matrix in `backend/scenarios/TEST_PLAN.md`
 - **Directory Structure**: Created feature-organized structure ready for new scenarios
 
-#### Next Steps
-1. **Create Feature-Focused Scenarios**: Use `TEST_PLAN.md` as guide to create focused scenarios for each engine feature
-   - Movement scenarios using `coffeeshop_date` (simple, no entry/exit)
-   - Events/arcs scenarios using `college_romance` (medium complexity)
-   - Advanced feature scenarios using `sandbox` (full engine)
-2. **Refactor Comprehensive Scenarios**: Current 4 comprehensive scenarios need simplification or removal (were written before understanding entry/exit system)
-3. **Error Handling Scenarios**: Create explicit error case scenarios in `scenarios/error/`
-4. **Integration Scenarios**: Create end-to-end playthrough scenarios in `scenarios/integration/`
+#### Phase 1: Core Feature Scenarios (COMPLETE)
 
-#### Files Modified This Session
-- `backend/app/scenarios/validators.py` - Fixed nested structure handling
-- `backend/app/scenarios/runner.py` - Fixed zone extraction from location dict
-- `backend/app/runtime/services/actions.py` - Fixed all movement action handlers
-- `backend/scenarios/comprehensive/01_movement_time_navigation.yaml` - Attempted fixes (needs rework)
-- `backend/test_error_handling.py` - Created error testing script
-- `backend/scenarios/TEST_PLAN.md` - Comprehensive test coverage plan
+**Created 12 Feature-Specific Test Scenarios** in `scenarios/features/`:
+
+1. **Movement** (2 scenarios) - `movement/basic_directions.yaml`, `movement/goto_location.yaml`
+   - Tests compass direction movement (n/s/e/w)
+   - Tests direct location targeting
+   - Status: ✅ Both passing
+
+2. **Inventory** (3 scenarios) - `inventory/item_acquisition.yaml`, `inventory/use_item.yaml`, `inventory/give_item.yaml`
+   - Tests acquiring items, using consumables, giving to NPCs
+   - Status: ⏳ Created, not fully tested
+
+3. **Economy** (2 scenarios) - `economy/money_tracking.yaml`, `economy/conditional_purchases.yaml`
+   - Tests money tracking and conditional choices based on money
+   - Status: ⏳ Created, not fully tested
+
+4. **Time** (2 scenarios) - `time/basic_time_advancement.yaml`, `time/slot_transitions.yaml`
+   - Tests time advancement and slot transitions
+   - Status: ⏳ Created, not fully tested
+
+5. **Effects** (3 scenarios) - `effects/goto_effect.yaml`, `effects/flag_set_effect.yaml`, `effects/meter_change_effect.yaml`
+   - Tests goto transitions, flag setting, meter modifications
+   - Status: ✅ All 3 passing
+
+**Bugs Found and Fixed (This Session)**:
+
+1. **Movement Action Type Conversion** (`app/runtime/services/actions.py:195-199`)
+   - **Issue**: `_handle_move_direction()` was passing string direction to `MoveEffect` which expects `LocalDirection` enum
+   - **Fix**: Added `LocalDirection(direction)` conversion with error handling
+   - **Impact**: Movement actions now work correctly in scenarios
+
+2. **Location Discovery Blocking Movement** (`games/coffeeshop_date/locations.yaml:23-24,40-41`)
+   - **Issue**: `cafe_counter` and `cafe_table` had default `discovered: false`, blocking movement from starting location
+   - **Fix**: Added `access.discovered: true` to both locations
+   - **Impact**: All coffeeshop_date locations now accessible for testing
+
+**Directory Structure Created**:
+```
+scenarios/
+├── features/
+│   ├── movement/     (2 scenarios, passing)
+│   ├── inventory/    (3 scenarios, created)
+│   ├── economy/      (2 scenarios, created)
+│   ├── time/         (2 scenarios, created)
+│   ├── effects/      (3 scenarios, passing)
+│   ├── events/       (empty, for Phase 2)
+│   ├── arcs/         (empty, for Phase 2)
+│   ├── modifiers/    (empty, for Phase 2)
+│   ├── clothing/     (empty, for Phase 3)
+│   └── actions/      (empty, for Phase 2)
+├── integration/      (empty, for Phase 4)
+└── error/            (empty, for Phase 4)
+```
+
+**Testing Notes**:
+- Movement and deterministic actions work without AI narrative (skip narrative validation)
+- Meter expectations use flat format: `player.confidence: 55` not nested dicts
+- Invisible meters (e.g., `interest` with `visible: false`) don't appear in state_summary
+- All scenarios use `coffeeshop_date` game (simple, 1 zone, no entry/exit complexity)
+
+#### Next Steps (Phase 2-4)
+
+**Phase 2: Intermediate Features** (use `college_romance` game)
+- Inter-zone travel scenarios (2-zone travel without entry/exit points)
+- Event triggering (location-based, time-based, conditional)
+- Arc progression and milestone triggers
+- Modifier auto-activation and duration
+- Custom action validation
+
+**Phase 3: Advanced Features** (use `sandbox` game)
+- Entry/exit point system for zone travel
+- Complex movement network navigation
+- Full modifier system (stacking, decay, all types)
+- Clothing system (outfit switching, states)
+- All effect types (random, conditional, complex chains)
+
+**Phase 4: Integration & Error Handling**
+- End-to-end playthrough scenarios in `scenarios/integration/`
+- Error handling scenarios in `scenarios/error/`
+- Refactor or remove old comprehensive scenarios
+
+3. **Inventory Action Validation** (`app/runtime/services/actions.py:103-149`)
+   - **Issue**: `use` and `give` actions didn't validate that player has the item before attempting to use/give it
+   - **Fix**: Added inventory checks in `_handle_use_item()` and `_handle_give_item()` that raise `ValueError` if item not in inventory
+   - **Impact**: Prevents silent failures and negative inventory counts
+   - **Tests**: 5 passing tests in `test_27_inventory_validation.py` (use/give missing items, use consumable, give success)
+
+4. **Clothing/Outfit System Redesign** (Multiple files - MAJOR FIX)
+   - **Issue**: Incorrect implementation of clothing/outfit system - auto-granted items when equipping, grant_items triggered on equip instead of acquisition
+   - **Correct Design** (per user specification):
+     - Clothing items must act as regular items - must be owned before wearing (no auto-grant)
+     - Outfits are items + recipes
+     - `grant_items=true` triggers on ACQUISITION/LOSS, not equipping
+     - Wearing outfit validates all items exist (raises error if incomplete)
+     - Option 1 implementation: only add missing items when granting (no duplicates)
+   - **Fix Implementation**:
+     - Added `outfit_granted_items: dict[str, set[str]]` tracking field to CharacterState (`app/models/characters.py:114`)
+     - Removed auto-grant from `ClothingService._put_on()` line 58, added ownership validation (`app/runtime/services/clothing.py:57-59`)
+     - Removed auto-grant from `ClothingService._put_on_outfit()` lines 124-126, added complete outfit validation (`app/runtime/services/clothing.py:124-134`)
+     - Hooked outfit grant_items logic into `InventoryService.apply_effect()` for acquisition/loss (`app/runtime/services/inventory.py:107-122`)
+     - Added `_grant_outfit_items()` and `_remove_granted_outfit_items()` helper methods (`app/runtime/services/inventory.py:249-294`)
+   - **Impact**:
+     - Clothing items now behave as regular items (must own to wear)
+     - Outfit items auto-granted/removed only on acquisition/loss (not equip)
+     - Only missing items are granted (no duplicates)
+     - Tracks granted items for proper removal
+     - Clear error messages when trying to wear incomplete outfits
+   - **Tests**: 9 passing tests in `test_28_inventory_edge_cases.py` covering all new behavior
+   - **Test Fixes**: Updated 5 existing tests that relied on old auto-grant behavior (`test_17`, `test_19`, `test_21` - added outfit acquisition before equipping)
+   - **Fixture Fix**: Updated `checklist_demo/content/story.yaml` change_outfit choice to acquire outfit before equipping
+
+**Files Modified This Session**:
+- `backend/app/models/characters.py` - Added outfit_granted_items tracking field
+- `backend/app/runtime/services/clothing.py` - Removed auto-grant, added validation
+- `backend/app/runtime/services/inventory.py` - Added grant_items logic on acquisition/loss
+- `backend/app/runtime/services/actions.py` - Fixed movement action type conversion + inventory validation
+- `games/coffeeshop_date/locations.yaml` - Added discovered:true to cafe_counter and cafe_table
+- `backend/tests_v2/test_27_inventory_validation.py` - Added 5 tests for inventory action validation
+- `backend/tests_v2/test_27_inventory_edge_cases.py` - Added 9 comprehensive tests for clothing/outfit system (renamed from test_28)
+- `backend/tests_v2/test_17_effect_types_systematic.py` - Fixed outfit test to acquire before equip
+- `backend/tests_v2/test_19_economy_items_clothing.py` - (Integration test fixed via fixture)
+- `backend/tests_v2/test_21_clothing_and_slots_enforcement.py` - Fixed 2 outfit tests to acquire before equip
+- `backend/tests_v2/test_26_movement_validation.py` - Fixed 7 movement handler tests (updated method names)
+- `backend/tests_v2/fixtures/games/checklist_demo/content/story.yaml` - Fixed change_outfit choice
+- `backend/tests_v2/test_27_inventory_edge_cases.py` / `test_28_regression_and_performance.py` - Swapped numbers so skipped tests are last
+- Created 12 new scenario files in `scenarios/features/`

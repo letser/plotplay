@@ -54,8 +54,9 @@ class ClothingService:
         if not clothing_def:
             return
 
-        # Ensure ownership
-        char_state.inventory.clothing[clothing_id] = max(1, char_state.inventory.clothing.get(clothing_id, 0))
+        # Validate ownership - clothing items must be owned before wearing
+        if char_state.inventory.clothing.get(clothing_id, 0) <= 0:
+            raise ValueError(f"Cannot put on '{clothing_id}': not in inventory")
 
         char_state.clothing.items[clothing_id] = condition or clothing_def.condition
         slot_state = state.clothing_states.setdefault(char_id, {"slot_to_item": {}, "slot_state": {}})
@@ -120,10 +121,17 @@ class ClothingService:
         if not outfit_def:
             return
 
-        # Grant outfit items if configured
-        if getattr(outfit_def, "grant_items", True):
-            for clothing_id in outfit_def.items.keys():
-                char_state.inventory.clothing[clothing_id] = max(1, char_state.inventory.clothing.get(clothing_id, 0))
+        # Validate all outfit items are owned - outfit cannot be worn if incomplete
+        missing_items = []
+        for clothing_id in outfit_def.items.keys():
+            if char_state.inventory.clothing.get(clothing_id, 0) <= 0:
+                missing_items.append(clothing_id)
+
+        if missing_items:
+            raise ValueError(
+                f"Cannot wear outfit '{outfit_id}': missing required clothing items {missing_items}. "
+                f"Outfit is incomplete and cannot be worn until all items are acquired."
+            )
 
         char_state.clothing.outfit = outfit_id
         char_state.clothing.items.update({item_id: state_val for item_id, state_val in outfit_def.items.items()})

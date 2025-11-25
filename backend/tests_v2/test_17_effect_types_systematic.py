@@ -298,6 +298,11 @@ async def test_outfit_take_off_effect(started_fixture_engine):
     """
     engine, _ = started_fixture_engine
     state = engine.runtime.state_manager.state
+
+    # First acquire the outfit (which grants clothing items if grant_items=true)
+    from app.models.effects import InventoryAddEffect
+    engine.runtime.effect_resolver.apply_effects([InventoryAddEffect(target="player", item_type="outfit", item="formal", count=1)])
+    # Then put on the outfit
     effect_put = OutfitPutOnEffect(target="player", item="formal")
     engine.runtime.effect_resolver.apply_effects([effect_put])
     assert state.characters["player"].clothing.outfit == "formal"

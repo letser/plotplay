@@ -146,6 +146,10 @@ async def test_outfit_take_off_effect(started_fixture_engine):
     """
     engine, _ = started_fixture_engine
     state = engine.runtime.state_manager.state
+
+    # First acquire the outfit (which grants clothing items if grant_items=true)
+    engine.runtime.effect_resolver.apply_effects([{"type": "inventory_add", "target": "player", "item_type": "outfit", "item": "formal", "count": 1}])
+    # Then put on the outfit
     engine.runtime.effect_resolver.apply_effects([{"type": "outfit_put_on", "target": "player", "item": "formal"}])
     assert state.characters["player"].clothing.outfit == "formal"
     engine.runtime.effect_resolver.apply_effects([{"type": "outfit_take_off", "target": "player", "item": "formal"}])
@@ -159,13 +163,16 @@ async def test_outfit_grant_items_flag(started_fixture_engine):
     Test outfit grant_items flag behavior.
 
     Should test:
-    - Outfit with grant_items=true adds items to inventory
+    - Outfit with grant_items=true adds items to inventory on ACQUISITION
     - Outfit with grant_items=false requires items already owned
     - Cannot put on outfit without required items
     """
     engine, _ = started_fixture_engine
     state = engine.runtime.state_manager.state
-    engine.runtime.effect_resolver.apply_effects([{"type": "outfit_put_on", "target": "player", "item": "formal"}])
+
+    # Acquire outfit (this triggers grant_items if true)
+    engine.runtime.effect_resolver.apply_effects([{"type": "inventory_add", "target": "player", "item_type": "outfit", "item": "formal", "count": 1}])
+    # Check that clothing items were granted
     assert state.characters["player"].inventory.clothing.get("dress", 0) >= 1
 
 

@@ -1,0 +1,48 @@
+metadata:
+  name: "Time - Basic Advancement"
+  description: "Test that time advances with actions and movement"
+  game: "coffeeshop_date"
+  author: "PlotPlay Team"
+  tags: ["feature-time", "phase-1", "advancement"]
+
+mocks:
+  writer:
+    intro: "You step onto the sunlit cafe patio. The aroma of fresh coffee fills the air. You spot Alex at one of the tables."
+    move_north: "You walk through the doorway into the coffee shop. The afternoon light streams through the windows."
+    ai_action: "You take a moment to browse the menu, considering your options."
+
+  checker:
+    default:
+      meters: {}
+      flags: {}
+      character_memories: {}
+      safety:
+        ok: true
+
+steps:
+  - name: "Start game at 13:00 afternoon"
+    action: start
+    mock_writer_key: intro
+    expect:
+      time: "13:00"
+      time_slot: "afternoon"
+      day: 1
+
+  - name: "Move to counter (standard = 15 min)"
+    action: move
+    direction: "n"
+    mock_writer_key: move_north
+    expect:
+      location: "cafe_counter"
+      time: "13:15"
+      time_slot: "afternoon"
+      day: 1
+
+  - name: "AI action with default trivial category (2 min)"
+    action: say
+    text: "I browse the menu"
+    mock_writer_key: ai_action
+    expect:
+      time: "13:17"
+      time_slot: "afternoon"
+      day: 1

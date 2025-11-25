@@ -62,6 +62,11 @@ nodes:
         prompt: "Change into formal outfit"
         time_category: "quick"
         on_select:
+          - type: "inventory_add"
+            target: "player"
+            item_type: "outfit"
+            item: "formal"
+            count: 1
           - type: "outfit_put_on"
             target: "player"
             item: "formal"
