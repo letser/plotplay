@@ -138,12 +138,12 @@
 
 3. **Full Suite**:
    ```bash
-   python -m pytest tests_v2/test_28_scenario_integration.py -v
+   python -m pytest tests/test_28_scenario_integration.py -v
    ```
 
 4. **Count Passing**:
    ```bash
-   python -m pytest tests_v2/test_28_scenario_integration.py -v --tb=no | grep -E "passed|failed"
+   python -m pytest tests/test_28_scenario_integration.py -v --tb=no | grep -E "passed|failed"
    ```
 
 ## Known Game-Specific Values

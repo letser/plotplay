@@ -65,7 +65,7 @@ async def start_game(request: StartGameRequest) -> GameResponse:
         loader = GameLoader()
         game_def = loader.load_game(request.game_id)
         # IMPORTANT: Use real AIService (OpenRouter) for production
-        # Tests use MockAIService (see tests_v2/conftest.py)
+        # Tests use MockAIService (see tests/conftest.py)
         ai_service = AIService()
         engine = PlotPlayEngine(game_def, session_id, ai_service=ai_service)
 
@@ -103,7 +103,7 @@ async def start_game_stream(request: StartGameRequest):
             game_def = loader.load_game(request.game_id)
             print(f"[START] Game loaded, creating engine...")
             # IMPORTANT: Use real AIService (OpenRouter) for production
-            # Tests use MockAIService (see tests_v2/conftest.py)
+            # Tests use MockAIService (see tests/conftest.py)
             ai_service = AIService()
             engine = PlotPlayEngine(game_def, session_id, ai_service=ai_service)
             print(f"[START] Engine created")
