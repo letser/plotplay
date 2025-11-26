@@ -36,8 +36,7 @@ steps:
     expect:
       node: "outside_cafe"
       meters:
-        player:
-          money: 50
+        player.money: 50
 
   - name: "Greet Alex"
     action: choice
@@ -47,6 +46,8 @@ steps:
       node: "order_drinks"
 
   - name: "Check that expensive choices are available"
+    action: do
+    text: "Check available choices"
     expect:
       available_choices_include:
         - "matching_lattes"
@@ -60,10 +61,11 @@ steps:
     mock_checker_key: reduce_money
     expect:
       meters:
-        player:
-          money: 6
+        player.money: 6
 
   - name: "Check that expensive choices are now unavailable"
+    action: do
+    text: "Check available choices after money reduction"
     expect:
       available_choices_exclude:
         - "matching_lattes"
@@ -78,5 +80,4 @@ steps:
     expect:
       node: "table_convo"
       meters:
-        player:
-          money: 0
+        player.money: 0
