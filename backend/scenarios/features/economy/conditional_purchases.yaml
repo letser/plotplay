@@ -10,6 +10,7 @@ mocks:
     intro: "You step onto the sunlit cafe patio. The aroma of fresh coffee fills the air. You spot Alex at one of the tables."
     greet: "Alex looks up from their phone and smiles warmly. 'Hey! Glad you could make it.'"
     order_scene: "Inside, the scent of espresso wraps around you. Alex scans the chalkboard menu with a decisive nod."
+    reduce_money: "You realize most of your money was spent earlier today."
     split: "You suggest splitting the cost with a light joke. Alex laughs and agrees."
 
   checker:
@@ -23,20 +24,20 @@ mocks:
     reduce_money:
       meters:
         player:
-          money: -44
+          money: -27
       flags: {}
       character_memories: {}
       safety:
         ok: true
 
 steps:
-  - name: "Start game with 50 money"
+  - name: "Start game with 35 money"
     action: start
     mock_writer_key: intro
     expect:
       node: "outside_cafe"
       meters:
-        player.money: 50
+        player.money: 35
 
   - name: "Greet Alex"
     action: choice
@@ -47,30 +48,31 @@ steps:
 
   - name: "Check that expensive choices are available"
     action: do
-    text: "Check available choices"
+    action_text: "Check available choices"
+    mock_writer_key: order_scene
     expect:
-      available_choices_include:
+      choices_available:
         - "matching_lattes"
         - "let_her_choose"
         - "split_the_bill"
 
   - name: "Reduce money to 8 via AI action"
     action: say
-    text: "I realize I spent most of my money earlier"
-    mock_writer_key: order_scene
-    mock_checker_key: reduce_money
+    action_text: "I realize I spent most of my money earlier"
+    mock_writer_key: reduce_money
     expect:
       meters:
-        player.money: 6
+        player.money: 8
 
   - name: "Check that expensive choices are now unavailable"
     action: do
-    text: "Check available choices after money reduction"
+    action_text: "Check available choices after money reduction"
+    mock_writer_key: order_scene
     expect:
-      available_choices_exclude:
+      choices_not_available:
         - "matching_lattes"
         - "let_her_choose"
-      available_choices_include:
+      choices_available:
         - "split_the_bill"
 
   - name: "Can still choose split_the_bill option"
@@ -80,4 +82,4 @@ steps:
     expect:
       node: "table_convo"
       meters:
-        player.money: 0
+        player.money: 2

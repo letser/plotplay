@@ -1,0 +1,86 @@
+metadata:
+  name: "Integration - Multi-Zone Adventure"
+  description: "End-to-end test: navigate zones → trigger events → progress through locations"
+  game: "college_romance"
+  author: "PlotPlay Team"
+  tags: ["phase-4", "integration", "travel", "navigation", "zones"]
+
+mocks:
+  writer:
+    intro: "You wake up in your dorm room, sunlight streaming through the window."
+    downtown: "You arrive in the vibrant downtown district."
+    explore: "You explore the new location, taking in the sights and sounds."
+    return: "You head back to campus, satisfied with your adventure."
+
+  checker:
+    default:
+      meters: {}
+      flags: {}
+      character_memories: {}
+      safety:
+        ok: true
+
+steps:
+  - name: "Start on campus"
+    action: start
+    mock_writer_key: intro
+    expect:
+      zone: "campus"
+      location: "campus_dorm_room"
+      time_slot: "morning"
+
+  - name: "Navigate to campus quad"
+    action: goto
+    location: "campus_quad"
+    mock_writer_key: explore
+    expect:
+      zone: "campus"
+      location: "campus_quad"
+
+  - name: "Navigate to campus cafe"
+    action: goto
+    location: "campus_cafe"
+    mock_writer_key: explore
+    expect:
+      zone: "campus"
+      location: "campus_cafe"
+
+  - name: "Travel to downtown zone"
+    action: travel
+    location: "downtown_music_venue"
+    mock_writer_key: downtown
+    expect:
+      zone: "downtown"
+      location: "downtown_music_venue"
+
+  - name: "Explore downtown rooftop"
+    action: goto
+    location: "downtown_city_rooftop"
+    mock_writer_key: explore
+    expect:
+      zone: "downtown"
+      location: "downtown_city_rooftop"
+
+  - name: "Return to music venue"
+    action: goto
+    location: "downtown_music_venue"
+    mock_writer_key: explore
+    expect:
+      zone: "downtown"
+      location: "downtown_music_venue"
+
+  - name: "Travel back to campus"
+    action: travel
+    location: "campus_dorm_room"
+    mock_writer_key: return
+    expect:
+      zone: "campus"
+      location: "campus_dorm_room"
+
+  - name: "Verify returned safely"
+    action: do
+    action_text: "Relax in dorm"
+    mock_writer_key: intro
+    expect:
+      zone: "campus"
+      location: "campus_dorm_room"

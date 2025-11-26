@@ -1,0 +1,70 @@
+metadata:
+  name: "Integration - Modifier Chain Reactions"
+  description: "End-to-end test: modifiers auto-activate → affect gameplay → expire with effects"
+  game: "sandbox"
+  author: "PlotPlay Team"
+  tags: ["phase-4", "integration", "modifiers", "auto-activation", "effects"]
+
+mocks:
+  writer:
+    intro: "You stand in the bustling Central Plaza."
+    activity: "You go about your activities in the city."
+    rest: "You take a moment to rest and recover."
+
+  checker:
+    default:
+      meters: {}
+      flags: {}
+      character_memories: {}
+      safety:
+        ok: true
+
+steps:
+  - name: "Start with high energy (caffeinated auto-activates)"
+    action: start
+    mock_writer_key: intro
+    expect:
+      location: "downtown_plaza"
+      meters:
+        player.energy: 100
+      modifiers:
+        player:
+          - caffeinated
+
+  - name: "Perform activity while caffeinated"
+    action: do
+    action_text: "Walk around energetically"
+    mock_writer_key: activity
+    expect:
+      location: "downtown_plaza"
+      modifiers:
+        player:
+          - caffeinated
+
+  - name: "Continue activities"
+    action: do
+    action_text: "Explore the plaza"
+    mock_writer_key: activity
+    expect:
+      location: "downtown_plaza"
+
+  - name: "Navigate to another location"
+    action: goto
+    location: "downtown_shops"
+    mock_writer_key: activity
+    expect:
+      location: "downtown_shops"
+
+  - name: "Return to plaza"
+    action: goto
+    location: "downtown_plaza"
+    mock_writer_key: intro
+    expect:
+      location: "downtown_plaza"
+
+  - name: "Verify game state remains consistent"
+    action: do
+    action_text: "Take stock of the situation"
+    mock_writer_key: rest
+    expect:
+      location: "downtown_plaza"

@@ -12,38 +12,33 @@ from app.scenarios.runner import ScenarioRunner
 from app.scenarios.mock_ai import MockAIService
 
 
-# Get scenarios directory
-SCENARIOS_DIR = Path(__file__).parent.parent / "scenarios" / "features"
+# Get scenarios base directory
+SCENARIOS_BASE = Path(__file__).parent.parent / "scenarios"
 
 
 def get_scenario_files():
     """
-    Collect all scenario YAML files from features directory.
+    Collect all scenario YAML files from all scenario directories.
 
-    Note: Some scenarios are excluded pending verification/fixes:
-    - economy/* - need to verify initial money values
-    - inventory/* - need to verify item availability
-    - time/* - need to verify time advancement expectations
+    Phase 1-2: features/ (basic and intermediate features)
+    Phase 3: advanced/ (advanced features with sandbox game)
+    Phase 4: integration/ (end-to-end multi-system tests) and error/ (edge cases)
     """
-    if not SCENARIOS_DIR.exists():
-        return []
+    all_scenarios = []
 
-    all_scenarios = sorted(SCENARIOS_DIR.rglob("*.yaml"))
+    # Scan all scenario directories
+    for subdir in ["features", "advanced", "integration", "error"]:
+        dir_path = SCENARIOS_BASE / subdir
+        if dir_path.exists():
+            all_scenarios.extend(dir_path.rglob("*.yaml"))
 
-    # Filter to only tested/working scenarios for now
-    # TODO: Fix and re-enable economy, inventory, and time scenarios
-    working_scenarios = [
-        s for s in all_scenarios
-        if not any(part in str(s) for part in ['economy', 'inventory', 'time'])
-    ]
-
-    return working_scenarios
+    return sorted(all_scenarios)
 
 
 def scenario_id(path):
     """Generate readable test ID from scenario path."""
-    # e.g., "movement/basic_directions.yaml" -> "movement/basic_directions"
-    relative = path.relative_to(SCENARIOS_DIR)
+    # e.g., "features/movement/basic_directions.yaml" -> "features/movement/basic_directions"
+    relative = path.relative_to(SCENARIOS_BASE)
     return str(relative.with_suffix(""))
 
 
@@ -99,7 +94,7 @@ async def test_scenario_count():
     scenario_files = get_scenario_files()
 
     assert len(scenario_files) > 0, (
-        f"No scenario files found in {SCENARIOS_DIR}. "
+        f"No scenario files found in {SCENARIOS_BASE}. "
         f"Expected at least one .yaml file for integration testing."
     )
 

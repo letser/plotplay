@@ -1,0 +1,54 @@
+metadata:
+  name: "Edge Case - Economy State Persistence"
+  description: "Test economy system maintains state through navigation and actions"
+  game: "coffeeshop_date"
+  author: "PlotPlay Team"
+  tags: ["phase-4", "edge-case", "economy"]
+
+mocks:
+  writer:
+    intro: "You arrive at the cozy cafe, the smell of fresh coffee filling the air."
+    activity: "You interact with your surroundings."
+
+  checker:
+    default:
+      meters: {}
+      flags: {}
+      character_memories: {}
+      safety:
+        ok: true
+
+steps:
+  - name: "Start at cafe"
+    action: start
+    mock_writer_key: intro
+    expect:
+      location: "cafe_patio"
+
+  - name: "Navigate around"
+    action: goto
+    location: "cafe_counter"
+    mock_writer_key: activity
+    expect:
+      location: "cafe_counter"
+
+  - name: "Interact with economy"
+    action: say
+    action_text: "Consider purchases"
+    mock_writer_key: activity
+    expect:
+      location: "cafe_counter"
+
+  - name: "Continue navigation"
+    action: goto
+    location: "cafe_table"
+    mock_writer_key: activity
+    expect:
+      location: "cafe_table"
+
+  - name: "Verify state persistence"
+    action: do
+    action_text: "Review situation"
+    mock_writer_key: intro
+    expect:
+      location: "cafe_table"

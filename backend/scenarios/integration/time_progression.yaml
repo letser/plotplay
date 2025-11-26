@@ -1,0 +1,90 @@
+metadata:
+  name: "Integration - Time-Based Gameplay"
+  description: "End-to-end test: time advancement → slot transitions → multiple activities"
+  game: "coffeeshop_date"
+  author: "PlotPlay Team"
+  tags: ["phase-4", "integration", "time", "slots", "progression"]
+
+mocks:
+  writer:
+    intro: "You arrive at the cozy cafe, the smell of fresh coffee filling the air."
+    activity: "You engage in a pleasant activity, time passing by."
+    transition: "The atmosphere shifts as time moves on."
+
+  checker:
+    default:
+      meters: {}
+      flags: {}
+      character_memories: {}
+      safety:
+        ok: true
+
+    advance_15min:
+      time:
+        advance: 15
+      meters: {}
+      flags: {}
+      character_memories: {}
+      safety:
+        ok: true
+
+    advance_30min:
+      time:
+        advance: 30
+      meters: {}
+      flags: {}
+      character_memories: {}
+      safety:
+        ok: true
+
+    advance_60min:
+      time:
+        advance: 60
+      meters: {}
+      flags: {}
+      character_memories: {}
+      safety:
+        ok: true
+
+steps:
+  - name: "Start in afternoon"
+    action: start
+    mock_writer_key: intro
+    expect:
+      time_slot: "afternoon"
+      location: "cafe_patio"
+
+  - name: "First activity"
+    action: say
+    action_text: "Order and wait for coffee"
+    mock_writer_key: activity
+    expect:
+      location: "cafe_patio"
+
+  - name: "Second activity"
+    action: say
+    action_text: "Have a conversation"
+    mock_writer_key: activity
+    expect:
+      location: "cafe_patio"
+
+  - name: "Third activity"
+    action: say
+    action_text: "Spend quality time together"
+    mock_writer_key: activity
+    expect:
+      location: "cafe_patio"
+
+  - name: "Fourth activity"
+    action: say
+    action_text: "Continue the pleasant time"
+    mock_writer_key: transition
+    expect:
+      location: "cafe_patio"
+
+  - name: "Verify game continues after time progression"
+    action: do
+    action_text: "Check the time"
+    mock_writer_key: intro
+    expect:
+      location: "cafe_patio"

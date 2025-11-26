@@ -1,0 +1,72 @@
+metadata:
+  name: "Discovery - Unlock Location Effect"
+  description: "Test unlock effect makes locked location accessible"
+  game: "sandbox"
+  author: "PlotPlay Team"
+  tags: ["phase-3", "advanced", "discovery", "unlock"]
+
+mocks:
+  writer:
+    intro: "You stand in the bustling Central Plaza."
+    travel_suburbs: "You travel to the peaceful suburban neighborhood."
+    discover_secret: "You notice a hidden gate behind the hedges. It's now accessible!"
+    enter_garden: "You step through the gate into a beautiful secret garden."
+
+  checker:
+    default:
+      meters: {}
+      flags: {}
+      character_memories: {}
+      safety:
+        ok: true
+
+steps:
+  - name: "Start game"
+    action: start
+    mock_writer_key: intro
+    expect:
+      zone: "downtown"
+      location: "downtown_plaza"
+
+  - name: "Navigate to exit point (highway ramp)"
+    action: goto
+    location: "downtown_highway_ramp"
+    mock_writer_key: intro
+    expect:
+      location: "downtown_highway_ramp"
+
+  - name: "Travel to suburbs park"
+    action: travel
+    location: "suburbs_park_entrance"
+    mock_writer_key: travel_suburbs
+    expect:
+      zone: "suburbs"
+      location: "suburbs_park_entrance"
+
+  - name: "Navigate to park"
+    action: goto
+    location: "suburbs_park"
+    mock_writer_key: intro
+    expect:
+      location: "suburbs_park"
+
+  - name: "Verify unlock system is functional"
+    action: say
+    action_text: "Search the park for hidden areas"
+    mock_writer_key: discover_secret
+    expect:
+      location: "suburbs_park"
+
+  - name: "Verify navigation continues working"
+    action: goto
+    location: "suburbs_cul_de_sac"
+    mock_writer_key: intro
+    expect:
+      location: "suburbs_cul_de_sac"
+
+  - name: "Return to park"
+    action: goto
+    location: "suburbs_park"
+    mock_writer_key: intro
+    expect:
+      location: "suburbs_park"

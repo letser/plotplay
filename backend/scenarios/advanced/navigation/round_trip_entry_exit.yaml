@@ -1,0 +1,74 @@
+metadata:
+  name: "Navigation - Round Trip with Entry/Exit Points"
+  description: "Test round-trip zone travel validating both entry and exit points"
+  game: "sandbox"
+  author: "PlotPlay Team"
+  tags: ["phase-3", "advanced", "navigation", "round-trip"]
+
+mocks:
+  writer:
+    intro: "You stand in the bustling Central Plaza. The city hums with activity around you."
+    travel_out: "You travel north to the peaceful suburban neighborhood."
+    travel_back: "You return to the vibrant downtown district."
+
+  checker:
+    default:
+      meters: {}
+      flags: {}
+      character_memories: {}
+      safety:
+        ok: true
+
+steps:
+  - name: "Start at downtown plaza"
+    action: start
+    mock_writer_key: intro
+    expect:
+      zone: "downtown"
+      location: "downtown_plaza"
+
+  - name: "Navigate to exit point via station"
+    action: goto
+    location: "downtown_station"
+    mock_writer_key: intro
+    expect:
+      location: "downtown_station"
+
+  - name: "Move to highway ramp (exit point)"
+    action: goto
+    location: "downtown_highway_ramp"
+    mock_writer_key: intro
+    expect:
+      location: "downtown_highway_ramp"
+
+  - name: "Travel to suburbs park entrance"
+    action: travel
+    location: "suburbs_park_entrance"
+    mock_writer_key: travel_out
+    expect:
+      zone: "suburbs"
+      location: "suburbs_park_entrance"
+
+  - name: "Navigate within suburbs to exit point"
+    action: goto
+    location: "suburbs_highway_exit"
+    mock_writer_key: intro
+    expect:
+      location: "suburbs_highway_exit"
+      zone: "suburbs"
+
+  - name: "Travel back to downtown station entrance"
+    action: travel
+    location: "downtown_station"
+    mock_writer_key: travel_back
+    expect:
+      zone: "downtown"
+      location: "downtown_station"
+
+  - name: "Return to starting plaza"
+    action: goto
+    location: "downtown_plaza"
+    mock_writer_key: intro
+    expect:
+      location: "downtown_plaza"
+      zone: "downtown"

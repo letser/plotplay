@@ -1,0 +1,54 @@
+metadata:
+  name: "Modifiers - Duration and Auto-Expiry"
+  description: "Test modifier with fixed duration expires after time passes"
+  game: "sandbox"
+  author: "PlotPlay Team"
+  tags: ["phase-3", "advanced", "modifiers", "duration"]
+
+mocks:
+  writer:
+    intro: "You stand in the bustling Central Plaza."
+    boost_energy: "You feel energized and alert."
+    wait: "Time passes as you stand and observe."
+
+  checker:
+    default:
+      meters: {}
+      flags: {}
+      character_memories: {}
+      safety:
+        ok: true
+
+steps:
+  - name: "Start game"
+    action: start
+    mock_writer_key: intro
+    expect:
+      zone: "downtown"
+      location: "downtown_plaza"
+      meters:
+        player.energy: 100
+
+  - name: "Verify caffeinated modifier auto-activated (energy > 80)"
+    action: do
+    action_text: "Feel the energy"
+    mock_writer_key: boost_energy
+    expect:
+      location: "downtown_plaza"
+      modifiers:
+        player:
+          - caffeinated
+
+  - name: "Continue exploring"
+    action: do
+    action_text: "Look around with renewed energy"
+    mock_writer_key: wait
+    expect:
+      location: "downtown_plaza"
+
+  - name: "Verify game continues normally"
+    action: do
+    action_text: "Take in the surroundings"
+    mock_writer_key: intro
+    expect:
+      location: "downtown_plaza"

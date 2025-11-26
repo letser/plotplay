@@ -1,0 +1,52 @@
+metadata:
+  name: "Travel - Round Trip Between Zones"
+  description: "Test traveling back and forth between campus and downtown"
+  game: "college_romance"
+  author: "PlotPlay Team"
+  tags: ["feature-travel", "phase-2", "round-trip"]
+
+mocks:
+  writer:
+    intro: "You wake up in your dorm room, sunlight streaming through the window. Classes await."
+    go_downtown: "You head downtown, the city energy pulling you in."
+    go_campus: "You return to campus, the familiar quad welcoming you back."
+
+  checker:
+    default:
+      meters: {}
+      flags: {}
+      character_memories: {}
+      safety:
+        ok: true
+
+steps:
+  - name: "Start at campus"
+    action: start
+    mock_writer_key: intro
+    expect:
+      zone: "campus"
+      location: "campus_dorm_room"
+
+  - name: "Travel to downtown"
+    action: travel
+    location: "downtown_music_venue"
+    mock_writer_key: go_downtown
+    expect:
+      zone: "downtown"
+      location: "downtown_music_venue"
+
+  - name: "Travel back to campus"
+    action: travel
+    location: "campus_quad"
+    mock_writer_key: go_campus
+    expect:
+      zone: "campus"
+      location: "campus_quad"
+
+  - name: "Verify we can act in original zone"
+    action: do
+    action_text: "Look around the quad"
+    mock_writer_key: intro
+    expect:
+      zone: "campus"
+      location: "campus_quad"

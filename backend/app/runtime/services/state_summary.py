@@ -37,11 +37,13 @@ class StateSummaryService:
 
         flags: dict[str, dict] = {}
         for flag_id, flag_def in (game.flags or {}).items():
-            if flag_def.visible or (flag_def.reveal_when and evaluator.evaluate(flag_def.reveal_when)):
-                flags[flag_id] = {
-                    "value": state.flags.get(flag_id, flag_def.default),
-                    "label": flag_def.label or flag_id,
-                }
+            # Include ALL flags with their current or default values
+            # Frontend can filter by visible flag if needed
+            flags[flag_id] = {
+                "value": state.flags.get(flag_id, flag_def.default),
+                "label": flag_def.label or flag_id,
+                "visible": flag_def.visible or (flag_def.reveal_when and evaluator.evaluate(flag_def.reveal_when))
+            }
 
         modifiers: dict[str, list] = {}
         for char_id, active_mods in state.modifiers.items():

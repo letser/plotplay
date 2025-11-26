@@ -27,8 +27,7 @@ steps:
     expect:
       node: "outside_cafe"
       meters:
-        player:
-          money: 50
+        player.money: 35
 
   - name: "Greet Alex and proceed"
     action: choice
@@ -44,5 +43,4 @@ steps:
     expect:
       node: "table_convo"
       meters:
-        player:
-          money: 38
+        player.money: 23

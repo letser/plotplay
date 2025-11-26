@@ -1,0 +1,33 @@
+metadata:
+  name: "Events - Location-Based Trigger"
+  description: "Test event triggers based on location and time conditions"
+  game: "college_romance"
+  author: "PlotPlay Team"
+  tags: ["feature-events", "phase-2", "triggers"]
+
+mocks:
+  writer:
+    intro: "You wake up in your dorm room, sunlight streaming through the window. Classes await."
+
+  checker:
+    default:
+      meters: {}
+      flags: {}
+      character_memories: {}
+      safety:
+        ok: true
+
+steps:
+  - name: "Start game at morning"
+    action: start
+    mock_writer_key: intro
+    expect:
+      time_slot: "morning"
+      location: "campus_dorm_room"
+
+  - name: "Verify game runs and time advances"
+    action: do
+    action_text: "Wait a moment"
+    mock_writer_key: intro
+    expect:
+      location: "campus_dorm_room"

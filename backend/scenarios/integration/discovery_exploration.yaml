@@ -1,0 +1,93 @@
+metadata:
+  name: "Integration - Discovery & Exploration"
+  description: "End-to-end test: discover locations → unlock areas → navigate networks"
+  game: "sandbox"
+  author: "PlotPlay Team"
+  tags: ["phase-4", "integration", "discovery", "exploration", "navigation"]
+
+mocks:
+  writer:
+    intro: "You stand in the bustling Central Plaza."
+    explore: "You explore the area, discovering new places."
+    discover: "A new location becomes known to you."
+    navigate: "You make your way through the city streets."
+
+  checker:
+    default:
+      meters: {}
+      flags: {}
+      character_memories: {}
+      safety:
+        ok: true
+
+steps:
+  - name: "Start at plaza"
+    action: start
+    mock_writer_key: intro
+    expect:
+      zone: "downtown"
+      location: "downtown_plaza"
+
+  - name: "Navigate to station"
+    action: goto
+    location: "downtown_station"
+    mock_writer_key: navigate
+    expect:
+      location: "downtown_station"
+
+  - name: "Navigate to shops"
+    action: goto
+    location: "downtown_shops"
+    mock_writer_key: explore
+    expect:
+      location: "downtown_shops"
+
+  - name: "Discover cafe"
+    action: goto
+    location: "downtown_cafe"
+    mock_writer_key: discover
+    expect:
+      location: "downtown_cafe"
+
+  - name: "Navigate back to plaza"
+    action: goto
+    location: "downtown_plaza"
+    mock_writer_key: navigate
+    expect:
+      location: "downtown_plaza"
+
+  - name: "Navigate to highway ramp (exit)"
+    action: goto
+    location: "downtown_highway_ramp"
+    mock_writer_key: navigate
+    expect:
+      location: "downtown_highway_ramp"
+
+  - name: "Travel to suburbs"
+    action: travel
+    location: "suburbs_park_entrance"
+    mock_writer_key: explore
+    expect:
+      zone: "suburbs"
+      location: "suburbs_park_entrance"
+
+  - name: "Explore suburbs park"
+    action: goto
+    location: "suburbs_park"
+    mock_writer_key: explore
+    expect:
+      location: "suburbs_park"
+
+  - name: "Discover main street"
+    action: goto
+    location: "suburbs_main_street"
+    mock_writer_key: discover
+    expect:
+      location: "suburbs_main_street"
+
+  - name: "Verify discovery state"
+    action: do
+    action_text: "Review discovered locations"
+    mock_writer_key: intro
+    expect:
+      location: "suburbs_main_street"

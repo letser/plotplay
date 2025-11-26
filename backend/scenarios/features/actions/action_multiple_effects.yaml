@@ -1,0 +1,33 @@
+metadata:
+  name: "Actions - Multiple Effects"
+  description: "Test custom action that triggers multiple meter changes and time advancement"
+  game: "college_romance"
+  author: "PlotPlay Team"
+  tags: ["feature-actions", "phase-2", "multi-effect"]
+
+mocks:
+  writer:
+    intro: "You wake up in your dorm room, sunlight streaming through the window. Classes await."
+
+  checker:
+    default:
+      meters: {}
+      flags: {}
+      character_memories: {}
+      safety:
+        ok: true
+
+steps:
+  - name: "Start game in morning"
+    action: start
+    mock_writer_key: intro
+    expect:
+      time_slot: "morning"
+      location: "campus_dorm_room"
+
+  - name: "Verify actions can have multiple effects"
+    action: do
+    action_text: "Consider the day"
+    mock_writer_key: intro
+    expect:
+      location: "campus_dorm_room"

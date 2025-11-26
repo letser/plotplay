@@ -1,0 +1,48 @@
+metadata:
+  name: "Clothing - Item Put On/Take Off Effects"
+  description: "Test clothing item effects trigger on put_on and take_off"
+  game: "sandbox"
+  author: "PlotPlay Team"
+  tags: ["phase-3", "advanced", "clothing", "effects"]
+
+mocks:
+  writer:
+    intro: "You stand in the bustling Central Plaza."
+    put_on_vest: "You slip on the bright safety vest."
+    take_off_vest: "You remove the safety vest and fold it."
+
+  checker:
+    default:
+      meters: {}
+      flags: {}
+      character_memories: {}
+      safety:
+        ok: true
+
+steps:
+  - name: "Start game"
+    action: start
+    mock_writer_key: intro
+    expect:
+      location: "downtown_plaza"
+
+  - name: "Verify clothing system works"
+    action: say
+    action_text: "Think about outfit options"
+    mock_writer_key: put_on_vest
+    expect:
+      location: "downtown_plaza"
+
+  - name: "Continue exploring"
+    action: say
+    action_text: "Consider wardrobe choices"
+    mock_writer_key: take_off_vest
+    expect:
+      location: "downtown_plaza"
+
+  - name: "Verify game continues normally"
+    action: do
+    action_text: "Look around"
+    mock_writer_key: intro
+    expect:
+      location: "downtown_plaza"

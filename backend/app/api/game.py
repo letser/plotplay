@@ -9,7 +9,6 @@ import uuid
 import json
 
 from app.core.loader import GameLoader
-from app.core.game_engine import GameEngine
 from app.runtime.engine import PlotPlayEngine
 from app.runtime.types import PlayerAction
 from app.services.ai_service import AIService
@@ -17,7 +16,7 @@ from app.services.ai_service import AIService
 router = APIRouter()
 
 # In-memory session storage. In a production app, this would be a database or Redis.
-game_sessions: Dict[str, GameEngine] = {}
+game_sessions: Dict[str, PlotPlayEngine] = {}
 
 
 class StartGameRequest(BaseModel):
@@ -44,7 +43,7 @@ class GameResponse(BaseModel):
     action_summary: str | None = None
 
 
-def _get_engine(session_id: str) -> GameEngine:
+def _get_engine(session_id: str) -> PlotPlayEngine:
     engine = game_sessions.get(session_id)
     if not engine:
         raise HTTPException(status_code=404, detail="Session not found")

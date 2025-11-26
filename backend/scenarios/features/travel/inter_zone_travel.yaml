@@ -1,0 +1,50 @@
+metadata:
+  name: "Travel - Inter-Zone Travel"
+  description: "Test traveling between zones (campus to downtown) without entry/exit points"
+  game: "college_romance"
+  author: "PlotPlay Team"
+  tags: ["feature-travel", "phase-2", "zones"]
+
+mocks:
+  writer:
+    intro: "You wake up in your dorm room, sunlight streaming through the window. Classes await."
+    travel_downtown: "You make your way downtown, the campus fading behind you as city buildings loom closer."
+    arrive_downtown: "The downtown streets buzz with activity. You've arrived at the coffee shop district."
+
+  checker:
+    default:
+      meters: {}
+      flags: {}
+      character_memories: {}
+      safety:
+        ok: true
+
+steps:
+  - name: "Start game at campus dorm"
+    action: start
+    mock_writer_key: intro
+    expect:
+      node: "intro_dorm"
+      location: "campus_dorm_room"
+      zone: "campus"
+      time: "08:00"
+      day: 1
+
+  - name: "Travel to downtown zone"
+    action: travel
+    location: "downtown_music_venue"
+    mock_writer_key: travel_downtown
+    expect:
+      zone: "downtown"
+      location: "downtown_music_venue"
+      time: "08:15"
+
+  - name: "Verify we can interact in new zone"
+    action: do
+    action_text: "Look around the venue"
+    mock_writer_key: arrive_downtown
+    expect:
+      zone: "downtown"
+      location: "downtown_music_venue"
+      narrative_contains:
+        - "downtown"

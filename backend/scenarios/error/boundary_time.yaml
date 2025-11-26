@@ -1,0 +1,90 @@
+metadata:
+  name: "Edge Case - Time Boundaries & Midnight"
+  description: "Test time slot transitions and day boundaries work correctly"
+  game: "coffeeshop_date"
+  author: "PlotPlay Team"
+  tags: ["phase-4", "edge-case", "time", "boundaries", "midnight"]
+
+mocks:
+  writer:
+    intro: "You arrive at the cozy cafe, the smell of fresh coffee filling the air."
+    time_passes: "Time passes as you enjoy the moment."
+    late: "The hour grows late."
+
+  checker:
+    default:
+      meters: {}
+      flags: {}
+      character_memories: {}
+      safety:
+        ok: true
+
+    advance_to_afternoon:
+      time:
+        advance: 180  # 3 hours
+      meters: {}
+      flags: {}
+      character_memories: {}
+      safety:
+        ok: true
+
+    advance_to_evening:
+      time:
+        advance: 240  # 4 hours
+      meters: {}
+      flags: {}
+      character_memories: {}
+      safety:
+        ok: true
+
+    advance_to_night:
+      time:
+        advance: 180  # 3 hours
+      meters: {}
+      flags: {}
+      character_memories: {}
+      safety:
+        ok: true
+
+steps:
+  - name: "Start in afternoon"
+    action: start
+    mock_writer_key: intro
+    expect:
+      time_slot: "afternoon"
+      location: "cafe_patio"
+
+  - name: "Spend time together"
+    action: say
+    action_text: "Enjoy the afternoon conversation"
+    mock_writer_key: time_passes
+    expect:
+      location: "cafe_patio"
+
+  - name: "Continue conversation"
+    action: do
+    action_text: "Keep talking"
+    mock_writer_key: time_passes
+    expect:
+      location: "cafe_patio"
+
+  - name: "More time together"
+    action: say
+    action_text: "Share more stories"
+    mock_writer_key: time_passes
+    expect:
+      location: "cafe_patio"
+
+  - name: "Evening arrives"
+    action: do
+    action_text: "Watch the sky darken"
+    mock_writer_key: late
+    expect:
+      location: "cafe_patio"
+
+  - name: "Verify game continues through time changes"
+    action: do
+    action_text: "Reflect on the time together"
+    mock_writer_key: intro
+    expect:
+      location: "cafe_patio"

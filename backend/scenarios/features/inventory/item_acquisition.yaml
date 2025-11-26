@@ -9,16 +9,26 @@ mocks:
   writer:
     intro: "You step onto the sunlit cafe patio. The aroma of fresh coffee fills the air. You spot Alex at one of the tables."
     goto_counter: "You make your way to the coffee shop counter. The pastries gleam under the display lights."
-    ai_action_1: "You pick up a vanilla latte from the counter, its warmth seeping into your hands."
-    ai_action_2: "You grab a spiced matcha as well. The citrus aroma is inviting."
+    add_latte: "You pick up a vanilla latte from the counter, its warmth seeping into your hands."
+    add_matcha: "You grab a spiced matcha as well. The citrus aroma is inviting."
 
   checker:
+    default:
+      meters: {}
+      flags: {}
+      character_memories: {}
+      safety:
+        ok: true
+
     add_latte:
       meters: {}
       flags: {}
       character_memories: {}
       inventory:
-        vanilla_latte: 1
+        - op: "add"
+          item: "vanilla_latte"
+          count: 1
+          owner: "player"
       safety:
         ok: true
 
@@ -27,7 +37,10 @@ mocks:
       flags: {}
       character_memories: {}
       inventory:
-        spiced_matcha: 1
+        - op: "add"
+          item: "spiced_matcha"
+          count: 1
+          owner: "player"
       safety:
         ok: true
 
@@ -48,9 +61,8 @@ steps:
 
   - name: "Take a vanilla latte from counter"
     action: say
-    text: "I pick up a vanilla latte"
-    mock_writer_key: ai_action_1
-    mock_checker_key: add_latte
+    action_text: "I pick up a vanilla latte"
+    mock_writer_key: add_latte
     expect:
       inventory_contains:
         vanilla_latte: 1
@@ -59,9 +71,8 @@ steps:
 
   - name: "Take a spiced matcha too"
     action: say
-    text: "I also take the spiced matcha"
-    mock_writer_key: ai_action_2
-    mock_checker_key: add_matcha
+    action_text: "I also take the spiced matcha"
+    mock_writer_key: add_matcha
     expect:
       inventory_contains:
         vanilla_latte: 1

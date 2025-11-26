@@ -1,0 +1,52 @@
+metadata:
+  name: "Navigation - Entry/Exit Points Basic"
+  description: "Test zone travel with entry/exit point validation (downtown to suburbs)"
+  game: "sandbox"
+  author: "PlotPlay Team"
+  tags: ["phase-3", "advanced", "navigation", "entry-exit"]
+
+mocks:
+  writer:
+    intro: "You stand in the bustling Central Plaza. The city hums with activity around you."
+    at_exit: "You arrive at the highway on-ramp, ready to depart the downtown area."
+    traveled: "You arrive at the peaceful park entrance in the suburbs."
+
+  checker:
+    default:
+      meters: {}
+      flags: {}
+      character_memories: {}
+      safety:
+        ok: true
+
+steps:
+  - name: "Start at downtown plaza"
+    action: start
+    mock_writer_key: intro
+    expect:
+      zone: "downtown"
+      location: "downtown_plaza"
+      time_slot: "morning"
+
+  - name: "Navigate to station (intermediate location)"
+    action: goto
+    location: "downtown_station"
+    mock_writer_key: intro
+    expect:
+      location: "downtown_station"
+
+  - name: "Navigate to highway ramp (exit point)"
+    action: goto
+    location: "downtown_highway_ramp"
+    mock_writer_key: at_exit
+    expect:
+      location: "downtown_highway_ramp"
+      zone: "downtown"
+
+  - name: "Travel to suburbs entrance"
+    action: travel
+    location: "suburbs_park_entrance"
+    mock_writer_key: traveled
+    expect:
+      zone: "suburbs"
+      location: "suburbs_park_entrance"

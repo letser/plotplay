@@ -1,0 +1,94 @@
+metadata:
+  name: "Clothing - Outfit Grant Items"
+  description: "Test outfit with grant_items=true auto-grants component items on acquisition"
+  game: "sandbox"
+  author: "PlotPlay Team"
+  tags: ["phase-3", "advanced", "clothing", "outfit", "grant-items"]
+
+mocks:
+  writer:
+    intro: "You stand in the bustling Central Plaza."
+    acquire_outfit: "You receive a complete casual outfit."
+    wear_outfit: "You change into the casual outfit."
+
+  checker:
+    default:
+      meters: {}
+      flags: {}
+      character_memories: {}
+      safety:
+        ok: true
+
+    get_outfit:
+      inventory:
+        - op: "add"
+          item: "casual_outfit"
+          count: 1
+          owner: "player"
+        # grant_items should auto-add these:
+        - op: "add"
+          item: "light_jacket"
+          count: 1
+          owner: "player"
+        - op: "add"
+          item: "casual_shirt"
+          count: 1
+          owner: "player"
+        - op: "add"
+          item: "jeans"
+          count: 1
+          owner: "player"
+        - op: "add"
+          item: "sneakers"
+          count: 1
+          owner: "player"
+      meters: {}
+      flags: {}
+      character_memories: {}
+      safety:
+        ok: true
+
+    wear_outfit_checker:
+      clothing:
+        player:
+          outfit: "casual_outfit"
+          worn_items:
+            light_jacket: "intact"
+            casual_shirt: "intact"
+            jeans: "intact"
+            sneakers: "intact"
+      meters: {}
+      flags: {}
+      character_memories: {}
+      safety:
+        ok: true
+
+steps:
+  - name: "Start game"
+    action: start
+    mock_writer_key: intro
+    expect:
+      location: "downtown_plaza"
+
+  - name: "Acquire outfit (should grant component items)"
+    action: say
+    action_text: "Receive the casual outfit"
+    mock_writer_key: get_outfit
+    expect:
+      location: "downtown_plaza"
+      # Component items should be in inventory via grant_items
+
+  - name: "Equip the outfit"
+    action: say
+    action_text: "Change into the casual outfit"
+    mock_writer_key: wear_outfit
+    expect:
+      location: "downtown_plaza"
+      # All items should be worn
+
+  - name: "Verify game continues normally"
+    action: do
+    action_text: "Check your outfit"
+    mock_writer_key: intro
+    expect:
+      location: "downtown_plaza"

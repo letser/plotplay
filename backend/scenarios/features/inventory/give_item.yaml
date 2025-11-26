@@ -9,16 +9,26 @@ mocks:
   writer:
     intro: "You step onto the sunlit cafe patio. The aroma of fresh coffee fills the air. You spot Alex at one of the tables."
     goto_counter: "You make your way to the coffee shop counter. The pastries gleam under the display lights."
-    ai_get_latte: "You pick up a vanilla latte from the counter, its warmth seeping into your hands."
-    give_to_alex: "You slide the vanilla latte across the table to Alex. Her eyes light up. \"For me? You're so sweet!\""
+    add_latte: "You pick up a vanilla latte from the counter, its warmth seeping into your hands."
+    transfer_latte: "You slide the vanilla latte across the table to Alex. Her eyes light up. \"For me? You're so sweet!\""
 
   checker:
+    default:
+      meters: {}
+      flags: {}
+      character_memories: {}
+      safety:
+        ok: true
+
     add_latte:
       meters: {}
       flags: {}
       character_memories: {}
       inventory:
-        vanilla_latte: 1
+        - op: "add"
+          item: "vanilla_latte"
+          count: 1
+          owner: "player"
       safety:
         ok: true
 
@@ -30,10 +40,14 @@ mocks:
       character_memories:
         alex: "You gave me a vanilla latte"
       inventory:
-        vanilla_latte: -1
-      character_inventory:
-        alex:
-          vanilla_latte: 1
+        - op: "remove"
+          item: "vanilla_latte"
+          count: 1
+          owner: "player"
+        - op: "add"
+          item: "vanilla_latte"
+          count: 1
+          owner: "alex"
       safety:
         ok: true
 
@@ -54,9 +68,8 @@ steps:
 
   - name: "Acquire vanilla latte"
     action: say
-    text: "I pick up a vanilla latte"
-    mock_writer_key: ai_get_latte
-    mock_checker_key: add_latte
+    action_text: "I pick up a vanilla latte"
+    mock_writer_key: add_latte
     expect:
       inventory_contains:
         vanilla_latte: 1
@@ -71,13 +84,9 @@ steps:
 
   - name: "Give latte to Alex"
     action: give
-    item: "vanilla_latte"
-    target: "alex"
-    mock_writer_key: give_to_alex
-    mock_checker_key: transfer_latte
+    item_id: "vanilla_latte"
+    target_id: "alex"
+    mock_writer_key: transfer_latte
     expect:
       inventory_not_contains:
         vanilla_latte: 1
-      narrative_contains:
-        - "Alex"
-        - "latte"

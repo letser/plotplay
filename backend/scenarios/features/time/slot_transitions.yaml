@@ -8,11 +8,16 @@ metadata:
 mocks:
   writer:
     intro: "You step onto the sunlit cafe patio. The aroma of fresh coffee fills the air. You spot Alex at one of the tables."
-    ai_long_wait_1: "Time passes as you wait, watching the afternoon shadows lengthen."
-    ai_long_wait_2: "The light begins to shift, taking on a warmer, golden quality as evening approaches."
-    ai_long_wait_3: "The sun dips lower, and the cafe lights begin to glow against the deepening sky."
+    advance_hours: "Time passes as you wait, watching the afternoon shadows lengthen."
 
   checker:
+    default:
+      meters: {}
+      flags: {}
+      character_memories: {}
+      safety:
+        ok: true
+
     advance_hours:
       meters: {}
       flags: {}
@@ -33,9 +38,8 @@ steps:
 
   - name: "Advance 2 hours (still afternoon)"
     action: say
-    text: "Time passes as we talk"
-    mock_writer_key: ai_long_wait_1
-    mock_checker_key: advance_hours
+    action_text: "Time passes as we talk"
+    mock_writer_key: advance_hours
     expect:
       time: "15:00"
       time_slot: "afternoon"
@@ -43,9 +47,8 @@ steps:
 
   - name: "Advance another 2 hours (still afternoon)"
     action: say
-    text: "We continue chatting"
-    mock_writer_key: ai_long_wait_2
-    mock_checker_key: advance_hours
+    action_text: "We continue chatting"
+    mock_writer_key: advance_hours
     expect:
       time: "17:00"
       time_slot: "afternoon"
@@ -53,9 +56,8 @@ steps:
 
   - name: "Advance 2 more hours (now evening)"
     action: say
-    text: "The conversation deepens"
-    mock_writer_key: ai_long_wait_3
-    mock_checker_key: advance_hours
+    action_text: "The conversation deepens"
+    mock_writer_key: advance_hours
     expect:
       time: "19:00"
       time_slot: "evening"

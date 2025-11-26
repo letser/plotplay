@@ -9,23 +9,26 @@ mocks:
   writer:
     intro: "You step onto the sunlit cafe patio. The aroma of fresh coffee fills the air. You spot Alex at one of the tables."
     goto_counter: "You make your way to the coffee shop counter. The pastries gleam under the display lights."
-    ai_get_latte: "You pick up a vanilla latte from the counter, its warmth seeping into your hands."
+    add_latte: "You pick up a vanilla latte from the counter, its warmth seeping into your hands."
     use_latte: "You savor the latte, letting the warmth steady your voice. The creamy sweetness soothes your nerves."
 
   checker:
+    default:
+      meters: {}
+      flags: {}
+      character_memories: {}
+      safety:
+        ok: true
+
     add_latte:
       meters: {}
       flags: {}
       character_memories: {}
       inventory:
-        vanilla_latte: 1
-      safety:
-        ok: true
-
-    default:
-      meters: {}
-      flags: {}
-      character_memories: {}
+        - op: "add"
+          item: "vanilla_latte"
+          count: 1
+          owner: "player"
       safety:
         ok: true
 
@@ -37,8 +40,7 @@ steps:
       node: "outside_cafe"
       location: "cafe_patio"
       meters:
-        player:
-          confidence: 50
+        player.confidence: 55
 
   - name: "Move to cafe counter"
     action: goto
@@ -49,23 +51,21 @@ steps:
 
   - name: "Acquire vanilla latte"
     action: say
-    text: "I pick up a vanilla latte"
-    mock_writer_key: ai_get_latte
-    mock_checker_key: add_latte
+    action_text: "I pick up a vanilla latte"
+    mock_writer_key: add_latte
     expect:
       inventory_contains:
         vanilla_latte: 1
 
   - name: "Use the vanilla latte"
     action: use
-    item: "vanilla_latte"
+    item_id: "vanilla_latte"
     mock_writer_key: use_latte
     expect:
       inventory_not_contains:
         vanilla_latte: 1
       meters:
-        player:
-          confidence: 58
+        player.confidence: 58
       narrative_contains:
         - "latte"
         - "steady"

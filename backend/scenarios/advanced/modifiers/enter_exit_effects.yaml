@@ -1,0 +1,83 @@
+metadata:
+  name: "Modifiers - On Enter/Exit Effects"
+  description: "Test modifier on_enter and on_exit effects trigger correctly"
+  game: "sandbox"
+  author: "PlotPlay Team"
+  tags: ["phase-3", "advanced", "modifiers", "effects"]
+
+mocks:
+  writer:
+    intro: "You stand in the bustling Central Plaza."
+    get_injured: "You stumble and hurt your ankle. The pain is sharp but manageable."
+    wait: "You rest and let time heal your injury."
+
+  checker:
+    default:
+      meters: {}
+      flags: {}
+      character_memories: {}
+      safety:
+        ok: true
+
+    apply_injury:
+      modifiers:
+        player:
+          - injured_minor
+      meters:
+        player:
+          energy: -15  # on_enter effect subtracts 15
+      flags:
+        has_injury: true  # on_enter sets this flag
+      character_memories: {}
+      safety:
+        ok: true
+
+    wait_heal:
+      time:
+        advance: 125  # 125 minutes - exceeds 120-minute duration
+      modifiers:
+        player: []  # Injury should be gone
+      flags:
+        injury_healed: true  # on_exit sets this flag
+        has_injury: false     # on_exit clears this flag
+      meters: {}
+      character_memories: {}
+      safety:
+        ok: true
+
+steps:
+  - name: "Start game"
+    action: start
+    mock_writer_key: intro
+    expect:
+      meters:
+        player.energy: 100
+
+  - name: "Apply injured_minor modifier with on_enter effects"
+    action: say
+    action_text: "Trip and hurt yourself"
+    mock_writer_key: apply_injury
+    expect:
+      meters:
+        player.energy: 85  # 100 - 15 from on_enter effect
+      modifiers:
+        player:
+          - injured_minor
+      flags:
+        has_injury: true
+
+  - name: "Wait for injury to heal (125 min > 120 min duration)"
+    action: say
+    action_text: "Rest and recover"
+    mock_writer_key: wait_heal
+    expect:
+      flags:
+        injury_healed: true
+        has_injury: false
+
+  - name: "Verify game continues after modifier expires"
+    action: do
+    action_text: "Test your ankle"
+    mock_writer_key: intro
+    expect:
+      location: "downtown_plaza"

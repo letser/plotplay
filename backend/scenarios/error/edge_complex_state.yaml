@@ -1,0 +1,88 @@
+metadata:
+  name: "Edge Case - Complex State Combinations"
+  description: "Test multiple systems interacting simultaneously (modifiers + time + inventory + location)"
+  game: "sandbox"
+  author: "PlotPlay Team"
+  tags: ["phase-4", "edge-case", "state", "complex"]
+
+mocks:
+  writer:
+    intro: "You stand in the bustling Central Plaza."
+    activity: "You engage in various activities, state changing around you."
+    complex: "Multiple systems update simultaneously."
+
+  checker:
+    default:
+      meters: {}
+      flags: {}
+      character_memories: {}
+      safety:
+        ok: true
+
+    complex_update:
+      time:
+        advance: 30
+      meters:
+        player:
+          energy: -10
+          money: -15
+      inventory:
+        - op: "add"
+          item: "phone"
+          count: 1
+          owner: "player"
+      flags:
+        complex_state_tested: true
+      character_memories: {}
+      safety:
+        ok: true
+
+steps:
+  - name: "Start with baseline state"
+    action: start
+    mock_writer_key: intro
+    expect:
+      zone: "downtown"
+      location: "downtown_plaza"
+      meters:
+        player.energy: 100
+        player.money: 100
+      modifiers:
+        player:
+          - caffeinated
+
+  - name: "Complex state change (time + meters + inventory + flags)"
+    action: say
+    action_text: "Make a phone call while walking around"
+    mock_writer_key: complex_update
+    expect:
+      location: "downtown_plaza"
+
+  - name: "Navigate while state is complex"
+    action: goto
+    location: "downtown_shops"
+    mock_writer_key: activity
+    expect:
+      location: "downtown_shops"
+
+  - name: "Continue with modified state"
+    action: goto
+    location: "downtown_cafe"
+    mock_writer_key: activity
+    expect:
+      location: "downtown_cafe"
+
+  - name: "Return to start location"
+    action: goto
+    location: "downtown_plaza"
+    mock_writer_key: intro
+    expect:
+      location: "downtown_plaza"
+
+  - name: "Verify all state changes persisted correctly"
+    action: do
+    action_text: "Review the situation"
+    mock_writer_key: intro
+    expect:
+      location: "downtown_plaza"
+      zone: "downtown"

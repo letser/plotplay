@@ -40,7 +40,7 @@ steps:
 
   - name: "AI action with default trivial category (2 min)"
     action: say
-    text: "I browse the menu"
+    action_text: "I browse the menu"
     mock_writer_key: ai_action
     expect:
       time: "13:17"

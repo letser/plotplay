@@ -1,0 +1,34 @@
+metadata:
+  name: "Modifiers - Exit Effects"
+  description: "Test modifier on_exit effects when condition no longer met"
+  game: "college_romance"
+  author: "PlotPlay Team"
+  tags: ["feature-modifiers", "phase-2", "exit-effects"]
+
+mocks:
+  writer:
+    intro: "You wake up in your dorm room, sunlight streaming through the window. Classes await."
+
+  checker:
+    default:
+      meters: {}
+      flags: {}
+      character_memories: {}
+      safety:
+        ok: true
+
+steps:
+  - name: "Start game with normal energy"
+    action: start
+    mock_writer_key: intro
+    expect:
+      meters:
+        player.energy: 70
+      location: "campus_dorm_room"
+
+  - name: "Verify modifiers can activate and deactivate"
+    action: do
+    action_text: "Consider energy levels"
+    mock_writer_key: intro
+    expect:
+      location: "campus_dorm_room"

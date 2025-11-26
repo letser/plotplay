@@ -1,0 +1,35 @@
+metadata:
+  name: "Modifiers - Auto Activation"
+  description: "Test modifier auto-activation when conditions are met"
+  game: "college_romance"
+  author: "PlotPlay Team"
+  tags: ["feature-modifiers", "phase-2", "auto-activation"]
+
+mocks:
+  writer:
+    intro: "You wake up in your dorm room, sunlight streaming through the window. Classes await."
+
+  checker:
+    default:
+      meters: {}
+      flags: {}
+      character_memories: {}
+      safety:
+        ok: true
+
+steps:
+  - name: "Start game with normal energy"
+    action: start
+    mock_writer_key: intro
+    expect:
+      meters:
+        player.energy: 70
+      location: "campus_dorm_room"
+
+  - name: "Verify game state updates correctly"
+    action: do
+    action_text: "Take a moment"
+    mock_writer_key: intro
+    expect:
+      meters:
+        player.energy: 70

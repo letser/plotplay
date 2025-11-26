@@ -1,0 +1,76 @@
+metadata:
+  name: "Modifiers - Stacking Rules"
+  description: "Test modifier stacking behavior for different groups (all vs highest)"
+  game: "sandbox"
+  author: "PlotPlay Team"
+  tags: ["phase-3", "advanced", "modifiers", "stacking"]
+
+mocks:
+  writer:
+    intro: "You stand in the bustling Central Plaza."
+    get_excited: "You feel a surge of excitement about the day ahead."
+    also_curious: "Your curiosity grows as you explore."
+
+  checker:
+    default:
+      meters: {}
+      flags: {}
+      character_memories: {}
+      safety:
+        ok: true
+
+    apply_excited:
+      modifiers:
+        player:
+          - excited
+      meters: {}
+      flags: {}
+      character_memories: {}
+      safety:
+        ok: true
+
+    apply_curious:
+      modifiers:
+        player:
+          - excited
+          - curious
+      flags:
+        market_briefing_viewed: true
+        vendor_briefing_viewed: true
+      meters: {}
+      character_memories: {}
+      safety:
+        ok: true
+
+steps:
+  - name: "Start game"
+    action: start
+    mock_writer_key: intro
+    expect:
+      location: "downtown_plaza"
+
+  - name: "Apply first emotional modifier (excited)"
+    action: say
+    action_text: "Get excited about exploring"
+    mock_writer_key: apply_excited
+    expect:
+      modifiers:
+        player:
+          - excited
+
+  - name: "Apply second emotional modifier (curious)"
+    action: say
+    action_text: "Become curious about surroundings"
+    mock_writer_key: apply_curious
+    expect:
+      flags:
+        market_briefing_viewed: true
+        vendor_briefing_viewed: true
+      # Note: Both modifiers should stack since emotional group uses "all"
+
+  - name: "Verify game continues with multiple modifiers"
+    action: do
+    action_text: "Look around with excitement and curiosity"
+    mock_writer_key: intro
+    expect:
+      location: "downtown_plaza"

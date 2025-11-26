@@ -1,0 +1,60 @@
+metadata:
+  name: "Discovery - Discover Location Effect"
+  description: "Test discover effect marks location/zone as discovered"
+  game: "sandbox"
+  author: "PlotPlay Team"
+  tags: ["phase-3", "advanced", "discovery", "discover"]
+
+mocks:
+  writer:
+    intro: "You stand in the bustling Central Plaza."
+    explore: "You explore the downtown area and learn about new places."
+    visit: "You arrive at the cozy cafe."
+
+  checker:
+    default:
+      meters: {}
+      flags: {}
+      character_memories: {}
+      safety:
+        ok: true
+
+    discover_cafe:
+      discovered:
+        locations:
+          - "downtown_cafe"
+      meters: {}
+      flags: {}
+      character_memories: {}
+      safety:
+        ok: true
+
+steps:
+  - name: "Start game"
+    action: start
+    mock_writer_key: intro
+    expect:
+      zone: "downtown"
+      location: "downtown_plaza"
+
+  - name: "Discover cafe via discover effect"
+    action: say
+    action_text: "Ask locals about good cafes"
+    mock_writer_key: discover_cafe
+    expect:
+      location: "downtown_plaza"
+      # downtown_cafe should now be discovered
+
+  - name: "Navigate to discovered cafe"
+    action: goto
+    location: "downtown_cafe"
+    mock_writer_key: visit
+    expect:
+      location: "downtown_cafe"
+
+  - name: "Verify we can navigate normally"
+    action: goto
+    location: "downtown_plaza"
+    mock_writer_key: intro
+    expect:
+      location: "downtown_plaza"

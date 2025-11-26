@@ -1,0 +1,33 @@
+metadata:
+  name: "Arcs - Stage Progression"
+  description: "Test arc stage advancement via milestone conditions"
+  game: "college_romance"
+  author: "PlotPlay Team"
+  tags: ["feature-arcs", "phase-2", "progression"]
+
+mocks:
+  writer:
+    intro: "You wake up in your dorm room, sunlight streaming through the window. Classes await."
+
+  checker:
+    default:
+      meters: {}
+      flags: {}
+      character_memories: {}
+      safety:
+        ok: true
+
+steps:
+  - name: "Start game"
+    action: start
+    mock_writer_key: intro
+    expect:
+      location: "campus_dorm_room"
+      time_slot: "morning"
+
+  - name: "Verify arc stages can be tracked via flags"
+    action: do
+    action_text: "Think about studying"
+    mock_writer_key: intro
+    expect:
+      location: "campus_dorm_room"

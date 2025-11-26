@@ -177,7 +177,7 @@ class ScenarioRunner:
                 action = PlayerAction(
                     action_type="give",
                     item_id=step.item_id,
-                    target_id=step.target_id
+                    target=step.target_id
                 )
                 turn_result = await self.engine.process_action(action)
             elif step.action == "move":

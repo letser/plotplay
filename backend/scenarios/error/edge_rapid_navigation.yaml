@@ -1,0 +1,84 @@
+metadata:
+  name: "Edge Case - Rapid Navigation"
+  description: "Test rapid location changes don't cause state inconsistencies"
+  game: "sandbox"
+  author: "PlotPlay Team"
+  tags: ["phase-4", "edge-case", "navigation", "rapid"]
+
+mocks:
+  writer:
+    intro: "You stand in the bustling Central Plaza."
+    move: "You quickly move to another location."
+
+  checker:
+    default:
+      meters: {}
+      flags: {}
+      character_memories: {}
+      safety:
+        ok: true
+
+steps:
+  - name: "Start at plaza"
+    action: start
+    mock_writer_key: intro
+    expect:
+      zone: "downtown"
+      location: "downtown_plaza"
+
+  - name: "Move 1: plaza → station"
+    action: goto
+    location: "downtown_station"
+    mock_writer_key: move
+    expect:
+      location: "downtown_station"
+
+  - name: "Move 2: station → shops"
+    action: goto
+    location: "downtown_shops"
+    mock_writer_key: move
+    expect:
+      location: "downtown_shops"
+
+  - name: "Move 3: shops → cafe"
+    action: goto
+    location: "downtown_cafe"
+    mock_writer_key: move
+    expect:
+      location: "downtown_cafe"
+
+  - name: "Move 4: cafe → plaza"
+    action: goto
+    location: "downtown_plaza"
+    mock_writer_key: move
+    expect:
+      location: "downtown_plaza"
+
+  - name: "Move 5: plaza → shops"
+    action: goto
+    location: "downtown_shops"
+    mock_writer_key: move
+    expect:
+      location: "downtown_shops"
+
+  - name: "Move 6: shops → station"
+    action: goto
+    location: "downtown_station"
+    mock_writer_key: move
+    expect:
+      location: "downtown_station"
+
+  - name: "Move 7: station → plaza"
+    action: goto
+    location: "downtown_plaza"
+    mock_writer_key: move
+    expect:
+      location: "downtown_plaza"
+
+  - name: "Verify state is consistent"
+    action: do
+    action_text: "Take a breath after all that movement"
+    mock_writer_key: intro
+    expect:
+      location: "downtown_plaza"
+      zone: "downtown"
