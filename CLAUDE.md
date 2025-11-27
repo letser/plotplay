@@ -53,17 +53,36 @@
 **API** (`backend/app/api/game.py`):
 - ✅ Unified endpoints: `/api/game/start`, `/api/game/action`
 - ✅ Streaming support for narrative generation
+- ✅ Helper endpoints: `/session/{id}/characters`, `/session/{id}/character/{char_id}`, `/session/{id}/story-events`
+- ✅ All action types supported: `say`, `do`, `choice`, `use`, `give`, `move`, `goto`, `travel`, `shop_buy`, `shop_sell`, `inventory`, `clothing`
+- ✅ Movement fields: `direction`, `location`, `with_characters`
 - ✅ Legacy deterministic endpoints removed
+
+**Frontend** (`frontend/src/`):
+- ✅ Updated to use unified `/action` endpoint for all deterministic actions
+- ✅ All 10 legacy methods converted (movement, inventory, shopping, clothing)
+- ✅ TypeScript types updated (`GameResponse` replaces `DeterministicActionResponse`)
+- ✅ Character Notebook feature fully wired to new helper endpoints
+- ✅ No compilation errors
 
 **Testing** (`backend/tests_v2/`):
 - ✅ 243 unit tests passing (2 skipped placeholders)
 - ✅ Scenario system with 23+ integration tests
 - ✅ ~100% spec coverage for implemented features
 
-### Known Limitations
+### Status: ✅ READY FOR INTEGRATION TESTING
 
-1. **Frontend** - Still uses old API contract, needs update
-2. **Scenario Coverage** - Phase 2/3 scenarios (advanced features) pending
+**Backend + Frontend are now aligned:**
+- Unified API contract implemented on both sides
+- All deterministic actions route through `/action` endpoint
+- Helper endpoints support Character Notebook UI
+- TypeScript compilation successful
+
+**Next steps:**
+1. Manual integration testing (start game, test all action types)
+2. Fix any issues discovered during testing
+3. Consider removing legacy code (`app/engine/`, `backend/tests/`)
+4. Add more Phase 2/3 scenario coverage for advanced features
 
 ## Development Guidelines
 
@@ -138,3 +157,63 @@ uvicorn app.main:app --reload
 ```bash
 python -m app.core.validator games/<game_id>
 ```
+
+**Start frontend dev:**
+```bash
+cd frontend
+npm run dev
+```
+
+## Recent Changes (Latest Session)
+
+### Frontend-Backend API Integration (2025-01-27)
+
+**Objective:** Wire frontend to the new unified backend API, replacing all legacy deterministic endpoints.
+
+**Changes Made:**
+
+1. **Backend API Updates** (`backend/app/api/game.py`):
+   - Extended `GameAction` Pydantic model with missing action types: `move`, `goto`, `travel`, `shop_buy`, `shop_sell`, `inventory`, `clothing`
+   - Added movement fields: `direction: str | None`, `location: str | None`, `with_characters: list[str] | None`
+   - Updated all action handlers to pass new fields to `PlayerAction`
+   - Added 3 helper endpoints for Character Notebook feature:
+     - `GET /api/game/session/{session_id}/characters` - List all characters with basic info
+     - `GET /api/game/session/{session_id}/character/{character_id}` - Full character profile
+     - `GET /api/game/session/{session_id}/story-events` - Aggregated character memories
+
+2. **Frontend API Client Updates** (`frontend/src/services/gameApi.ts`):
+   - Replaced 10 legacy methods to use unified `/action` endpoint:
+     - Movement: `move()`, zone travel
+     - Shopping: `purchase()`, `sell()`
+     - Inventory: `takeItem()`, `dropItem()`, `giveItem()`
+     - Clothing: `putOnClothing()`, `takeOffClothing()`, `setClothingState()`, `putOnOutfit()`, `takeOffOutfit()`
+   - All deterministic actions now use `action_type` + `skip_ai: true`
+   - Changed return type from `DeterministicActionResponse` to `GameResponse`
+
+3. **Frontend Store Updates** (`frontend/src/stores/gameStore.ts`):
+   - Updated import: `GameResponse` replaces `DeterministicActionResponse`
+   - Updated 7 store methods to handle new response format
+   - Changed from `response.message` to `response.narrative`
+   - Changed from `extractChoicesFromDetails(response.details)` to `response.choices`
+   - Removed unused `extractChoicesFromDetails()` helper
+
+4. **TypeScript Cleanup**:
+   - Fixed all compilation errors
+   - Prefixed unused parameters with `_`
+   - Removed legacy type imports
+
+**Testing Status:**
+- ✅ Backend API compiles without errors
+- ✅ Frontend TypeScript compiles without errors
+- ⏳ Manual integration testing pending
+
+**Key Files Modified:**
+- `backend/app/api/game.py` - API model + 3 new endpoints
+- `frontend/src/services/gameApi.ts` - Unified action methods
+- `frontend/src/stores/gameStore.ts` - Response handling
+- `CLAUDE.md` - This file (updated status)
+
+**Documentation Cleanup:**
+- Deleted 8 temporary implementation notes
+- Condensed `CLAUDE.md` from 740 lines to 140 lines (essential info only)
+- Merged `docs/prompt_structure_overview.md` into `docs/ai_service_configuration.md`

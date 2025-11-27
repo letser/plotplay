@@ -437,103 +437,147 @@ class GameAPI {
         }
     }
 
-    async move(sessionId: string, payload: MovementRequest): Promise<DeterministicActionResponse> {
-        const response = await axios.post(`${API_BASE}/game/move/${sessionId}`, payload);
+    // Movement actions using unified endpoint
+    async move(sessionId: string, payload: MovementRequest): Promise<GameResponse> {
+        let action_type: 'move' | 'goto' | 'travel';
+        let direction: string | undefined;
+        let location: string | undefined;
+
+        if (payload.direction) {
+            action_type = 'move';
+            direction = payload.direction;
+        } else if (payload.zone_id) {
+            action_type = 'travel';
+            location = payload.entry_location_id || payload.zone_id;
+        } else if (payload.destination_id) {
+            action_type = 'goto';
+            location = payload.destination_id;
+        } else {
+            throw new Error('Invalid movement payload');
+        }
+
+        const response = await axios.post(`${API_BASE}/game/action/${sessionId}`, {
+            action_type,
+            direction,
+            location,
+            with_characters: payload.companions,
+            skip_ai: true
+        });
         return response.data;
     }
 
-    async purchase(sessionId: string, itemId: string, count = 1, price?: number, sellerId?: string): Promise<DeterministicActionResponse> {
-        const response = await axios.post(`${API_BASE}/game/shop/${sessionId}/purchase`, {
-            buyer_id: 'player',
-            seller_id: sellerId,
+    // Shopping actions using unified endpoint
+    async purchase(sessionId: string, itemId: string, count = 1, price?: number, sellerId?: string): Promise<GameResponse> {
+        const response = await axios.post(`${API_BASE}/game/action/${sessionId}`, {
+            action_type: 'shop_buy',
             item_id: itemId,
-            count,
-            price,
+            target: sellerId,
+            action_text: `Buy ${count}x ${itemId}${price ? ` for ${price}` : ''}`,
+            skip_ai: true
         });
         return response.data;
     }
 
-    async sell(sessionId: string, itemId: string, count = 1, price?: number, buyerId?: string): Promise<DeterministicActionResponse> {
-        const response = await axios.post(`${API_BASE}/game/shop/${sessionId}/sell`, {
-            seller_id: 'player',
-            buyer_id: buyerId,
+    async sell(sessionId: string, itemId: string, count = 1, price?: number, buyerId?: string): Promise<GameResponse> {
+        const response = await axios.post(`${API_BASE}/game/action/${sessionId}`, {
+            action_type: 'shop_sell',
             item_id: itemId,
-            count,
-            price,
+            target: buyerId,
+            action_text: `Sell ${count}x ${itemId}${price ? ` for ${price}` : ''}`,
+            skip_ai: true
         });
         return response.data;
     }
 
-    async takeItem(sessionId: string, itemId: string, count = 1, ownerId = 'player'): Promise<DeterministicActionResponse> {
-        const response = await axios.post(`${API_BASE}/game/inventory/${sessionId}/take`, {
-            owner_id: ownerId,
+    // Inventory actions using unified endpoint
+    async takeItem(sessionId: string, itemId: string, count = 1, _ownerId = 'player'): Promise<GameResponse> {
+        const response = await axios.post(`${API_BASE}/game/action/${sessionId}`, {
+            action_type: 'inventory',
             item_id: itemId,
-            count,
+            action_text: `Take ${count}x ${itemId}`,
+            skip_ai: true
         });
         return response.data;
     }
 
-    async dropItem(sessionId: string, itemId: string, count = 1, ownerId = 'player'): Promise<DeterministicActionResponse> {
-        const response = await axios.post(`${API_BASE}/game/inventory/${sessionId}/drop`, {
-            owner_id: ownerId,
+    async dropItem(sessionId: string, itemId: string, count = 1, _ownerId = 'player'): Promise<GameResponse> {
+        const response = await axios.post(`${API_BASE}/game/action/${sessionId}`, {
+            action_type: 'inventory',
             item_id: itemId,
-            count,
+            action_text: `Drop ${count}x ${itemId}`,
+            skip_ai: true
         });
         return response.data;
     }
 
-    async giveItem(sessionId: string, itemId: string, targetId: string, count = 1, sourceId = 'player'): Promise<DeterministicActionResponse> {
-        const response = await axios.post(`${API_BASE}/game/inventory/${sessionId}/give`, {
-            source_id: sourceId,
-            target_id: targetId,
+    async giveItem(sessionId: string, itemId: string, targetId: string, count = 1, _sourceId = 'player'): Promise<GameResponse> {
+        const response = await axios.post(`${API_BASE}/game/action/${sessionId}`, {
+            action_type: 'give',
             item_id: itemId,
-            count,
+            target: targetId,
+            action_text: `Give ${count}x ${itemId} to ${targetId}`,
+            skip_ai: true
         });
         return response.data;
     }
 
-    async putOnClothing(sessionId: string, clothingId: string, characterId = 'player', state?: ClothingStateValue): Promise<DeterministicActionResponse> {
-        const response = await axios.post(`${API_BASE}/game/clothing/${sessionId}/put-on`, {
-            character_id: characterId,
-            clothing_id: clothingId,
-            state
+    // Clothing actions using unified endpoint
+    async putOnClothing(sessionId: string, clothingId: string, characterId = 'player', state?: ClothingStateValue): Promise<GameResponse> {
+        const response = await axios.post(`${API_BASE}/game/action/${sessionId}`, {
+            action_type: 'clothing',
+            item_id: clothingId,
+            target: characterId,
+            action_text: `Put on ${clothingId}${state ? ` (${state})` : ''}`,
+            skip_ai: true
         });
         return response.data;
     }
 
-    async takeOffClothing(sessionId: string, clothingId: string, characterId = 'player'): Promise<DeterministicActionResponse> {
-        const response = await axios.post(`${API_BASE}/game/clothing/${sessionId}/take-off`, {
-            character_id: characterId,
-            clothing_id: clothingId
+    async takeOffClothing(sessionId: string, clothingId: string, characterId = 'player'): Promise<GameResponse> {
+        const response = await axios.post(`${API_BASE}/game/action/${sessionId}`, {
+            action_type: 'clothing',
+            item_id: clothingId,
+            target: characterId,
+            action_text: `Take off ${clothingId}`,
+            skip_ai: true
         });
         return response.data;
     }
 
-    async setClothingState(sessionId: string, clothingId: string, state: ClothingStateValue, characterId = 'player'): Promise<DeterministicActionResponse> {
-        const response = await axios.post(`${API_BASE}/game/clothing/${sessionId}/state`, {
-            character_id: characterId,
-            clothing_id: clothingId,
-            state
+    async setClothingState(sessionId: string, clothingId: string, state: ClothingStateValue, characterId = 'player'): Promise<GameResponse> {
+        const response = await axios.post(`${API_BASE}/game/action/${sessionId}`, {
+            action_type: 'clothing',
+            item_id: clothingId,
+            target: characterId,
+            action_text: `Set ${clothingId} to ${state}`,
+            skip_ai: true
         });
         return response.data;
     }
 
-    async putOnOutfit(sessionId: string, outfitId: string, characterId = 'player'): Promise<DeterministicActionResponse> {
-        const response = await axios.post(`${API_BASE}/game/outfits/${sessionId}/put-on`, {
-            character_id: characterId,
-            outfit_id: outfitId
+    async putOnOutfit(sessionId: string, outfitId: string, characterId = 'player'): Promise<GameResponse> {
+        const response = await axios.post(`${API_BASE}/game/action/${sessionId}`, {
+            action_type: 'clothing',
+            item_id: outfitId,
+            target: characterId,
+            action_text: `Put on outfit ${outfitId}`,
+            skip_ai: true
         });
         return response.data;
     }
 
-    async takeOffOutfit(sessionId: string, outfitId: string, characterId = 'player'): Promise<DeterministicActionResponse> {
-        const response = await axios.post(`${API_BASE}/game/outfits/${sessionId}/take-off`, {
-            character_id: characterId,
-            outfit_id: outfitId
+    async takeOffOutfit(sessionId: string, outfitId: string, characterId = 'player'): Promise<GameResponse> {
+        const response = await axios.post(`${API_BASE}/game/action/${sessionId}`, {
+            action_type: 'clothing',
+            item_id: outfitId,
+            target: characterId,
+            action_text: `Take off outfit ${outfitId}`,
+            skip_ai: true
         });
         return response.data;
     }
 
+    // Debug endpoint - keeping for now but may be removed later
     async getState(sessionId: string): Promise<DebugStateResponse> {
         const response = await axios.get(`${API_BASE}/game/session/${sessionId}/state`);
         return response.data;

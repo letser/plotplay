@@ -24,11 +24,15 @@ class StartGameRequest(BaseModel):
 
 
 class GameAction(BaseModel):
-    action_type: Literal["say", "do", "choice", "use", "give"]
+    action_type: Literal["say", "do", "choice", "use", "give", "move", "goto", "travel", "shop_buy", "shop_sell", "inventory", "clothing"]
     action_text: str | None = None
     target: str | None = None
     choice_id: str | None = None
     item_id: str | None = None
+    # Movement fields
+    direction: str | None = None
+    location: str | None = None
+    with_characters: list[str] | None = None
     skip_ai: bool = False
 
 
@@ -184,6 +188,9 @@ async def process_action(session_id: str, action: GameAction) -> GameResponse:
                 choice_id=action.choice_id,
                 item_id=action.item_id,
                 target=action.target,
+                direction=action.direction,
+                location=action.location,
+                with_characters=action.with_characters,
                 skip_ai=action.skip_ai,
             )
             result = await engine.process_action(player_action)
@@ -234,6 +241,9 @@ async def process_action_stream(session_id: str, action: GameAction):
                     choice_id=action.choice_id,
                     item_id=action.item_id,
                     target=action.target,
+                    direction=action.direction,
+                    location=action.location,
+                    with_characters=action.with_characters,
                     skip_ai=action.skip_ai,
                 )
                 async for chunk in engine.process_action_stream(player_action):
@@ -270,3 +280,165 @@ async def process_action_stream(session_id: str, action: GameAction):
             yield f"data: {json.dumps(error_event)}\n\n"
 
     return StreamingResponse(generate(), media_type="text/event-stream")
+
+
+# Helper endpoint response models
+class CharacterListItem(BaseModel):
+    id: str
+    name: str
+    present: bool
+    location: str | None = None
+
+
+class CharactersListResponse(BaseModel):
+    player: dict[str, str]
+    characters: list[CharacterListItem]
+
+
+class CharacterMemory(BaseModel):
+    text: str
+    characters: list[str]
+    day: int
+
+
+class StoryEventsResponse(BaseModel):
+    memories: list[CharacterMemory]
+
+
+@router.get("/session/{session_id}/characters")
+async def get_characters_list(session_id: str) -> CharactersListResponse:
+    """Get list of all characters with basic info for Character Notebook sidebar."""
+    engine = _get_engine(session_id)
+    state = engine.runtime.state_manager.state
+    game = engine.runtime.game
+
+    # Get player info
+    player_def = game.player
+    player_state = state.characters.get("player")
+    player_info = {
+        "id": "player",
+        "name": player_state.name if player_state else (player_def.name if player_def else "Player")
+    }
+
+    # Get all character info
+    characters = []
+    for char_id, char_def in (game.characters or {}).items():
+        char_state = state.characters.get(char_id)
+        characters.append(CharacterListItem(
+            id=char_id,
+            name=char_state.name if char_state else char_def.name,
+            present=char_id in state.present_characters,
+            location=state.current_location if char_id in state.present_characters else None
+        ))
+
+    return CharactersListResponse(player=player_info, characters=characters)
+
+
+@router.get("/session/{session_id}/character/{character_id}")
+async def get_character_details(session_id: str, character_id: str) -> dict[str, Any]:
+    """Get detailed character profile for Character Notebook."""
+    engine = _get_engine(session_id)
+    state = engine.runtime.state_manager.state
+    game = engine.runtime.game
+
+    # Get character definition and state
+    if character_id == "player":
+        char_def = game.player
+        char_state = state.characters.get("player")
+    else:
+        char_def = (game.characters or {}).get(character_id)
+        if not char_def:
+            raise HTTPException(status_code=404, detail=f"Character {character_id} not found")
+        char_state = state.characters.get(character_id)
+
+    if not char_state:
+        raise HTTPException(status_code=404, detail=f"Character state for {character_id} not found")
+
+    # Build character profile
+    profile = {
+        "id": character_id,
+        "name": char_state.name,
+        "age": getattr(char_def, "age", None),
+        "gender": getattr(char_def, "gender", None),
+        "pronouns": getattr(char_def, "pronouns", None),
+        "personality": {
+            "core_traits": getattr(char_def.personality, "core_traits", None) if hasattr(char_def, "personality") and char_def.personality else None,
+            "quirks": getattr(char_def.personality, "quirks", None) if hasattr(char_def, "personality") and char_def.personality else None,
+            "values": getattr(char_def.personality, "values", None) if hasattr(char_def, "personality") and char_def.personality else None,
+            "fears": getattr(char_def.personality, "fears", None) if hasattr(char_def, "personality") and char_def.personality else None,
+        } if hasattr(char_def, "personality") and char_def.personality else None,
+        "appearance": getattr(char_def, "appearance", None),
+        "dialogue_style": getattr(char_def, "dialogue_style", None),
+        "gates": [
+            {
+                "id": gate_id,
+                "allow": gate_value,
+                "condition": None,  # Gates are boolean in runtime
+                "acceptance": None,
+                "refusal": None
+            }
+            for gate_id, gate_value in (char_state.gates or {}).items()
+        ],
+        "memories": [
+            {"text": memory, "characters": [character_id], "day": state.day}
+            for memory in (char_state.memory_log or [])
+        ],
+        "meters": {},
+        "modifiers": [],
+        "attire": char_state.clothing.outfit if char_state.clothing else None,
+        "wardrobe_state": None,  # TODO: Extract from clothing_states if needed
+        "inventory": dict(char_state.inventory.items),
+        "wardrobe": {},  # TODO: Filter clothing items from inventory if needed
+        "outfits": [],  # TODO: Get outfit definitions if needed
+        "item_details": {},  # TODO: Get item definitions from game
+        "present": character_id in state.present_characters,
+        "location": state.current_location if character_id in state.present_characters else None
+    }
+
+    # Add meters (visible only)
+    meter_defs = engine.runtime.index.player_meters if character_id == "player" else engine.runtime.index.template_meters
+    if meter_defs:
+        for meter_id, meter_def in meter_defs.items():
+            if not getattr(meter_def, "visible", True):
+                continue
+            profile["meters"][meter_id] = {
+                "value": char_state.meters.get(meter_id),
+                "min": meter_def.min,
+                "max": meter_def.max,
+                "icon": getattr(meter_def, "icon", None),
+                "visible": True
+            }
+
+    # Add modifiers
+    active_mods = state.modifiers.get(character_id, [])
+    profile["modifiers"] = [
+        {
+            "id": mod.get("id"),
+            "description": None,  # TODO: Get from modifier definition
+            "appearance": None
+        }
+        for mod in active_mods
+    ]
+
+    return profile
+
+
+@router.get("/session/{session_id}/story-events")
+async def get_story_events(session_id: str) -> StoryEventsResponse:
+    """Get aggregated story events (character memories) for Story Events panel."""
+    engine = _get_engine(session_id)
+    state = engine.runtime.state_manager.state
+
+    # Aggregate memories from all characters
+    all_memories = []
+    for char_id, char_state in state.characters.items():
+        if not char_state.memory_log:
+            continue
+        for memory_text in char_state.memory_log:
+            all_memories.append(CharacterMemory(
+                text=memory_text,
+                characters=[char_id],
+                day=state.day  # All memories tagged with current day for now
+            ))
+
+    return StoryEventsResponse(memories=all_memories)

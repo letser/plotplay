@@ -4,7 +4,7 @@ import {
     GameChoice,
     GameInfo,
     GameState,
-    DeterministicActionResponse,
+    GameResponse,
     MovementRequest,
     ClothingStateValue,
 } from '../services/gameApi';
@@ -100,14 +100,6 @@ const buildTurnEntry = (
         origin,
         timestamp: new Date().toISOString(),
     };
-};
-
-const extractChoicesFromDetails = (details?: Record<string, unknown>): GameChoice[] | undefined => {
-    if (!details) return undefined;
-    if (Array.isArray(details.choices)) {
-        return details.choices as GameChoice[];
-    }
-    return undefined;
 };
 
 export const useGameStore = create<GameStore>((set, get) => ({
@@ -423,12 +415,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
             const response = await gameApi.move(sessionId, payload);
 
             set(state => {
-                const turnEntry = buildTurnEntry(nextTurn, 'deterministic', response.action_summary, response.message);
-                const updatedChoices = extractChoicesFromDetails(response.details) ?? state.choices;
+                const turnEntry = buildTurnEntry(nextTurn, 'deterministic', response.action_summary, response.narrative);
 
                 return {
                     turnLog: [...state.turnLog.slice(0, -1), turnEntry], // Replace optimistic entry
-                    choices: updatedChoices,
+                    choices: response.choices,
                     gameState: response.state_summary,
                     loading: false,
                     turnCounter: nextTurn,
@@ -473,12 +464,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
             const response = await gameApi.move(sessionId, payload);
 
             set(state => {
-                const turnEntry = buildTurnEntry(nextTurn, 'deterministic', response.action_summary, response.message);
-                const updatedChoices = extractChoicesFromDetails(response.details) ?? state.choices;
+                const turnEntry = buildTurnEntry(nextTurn, 'deterministic', response.action_summary, response.narrative);
 
                 return {
                     turnLog: [...state.turnLog.slice(0, -1), turnEntry], // Replace optimistic entry
-                    choices: updatedChoices,
+                    choices: response.choices,
                     gameState: response.state_summary,
                     loading: false,
                     turnCounter: nextTurn,
@@ -508,12 +498,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
             const response = await gameApi.purchase(sessionId, itemId, count, price, sellerId);
             set(state => {
                 const nextTurn = state.turnCounter + 1;
-            const turnEntry = buildTurnEntry(nextTurn, 'deterministic', response.action_summary, response.message);
+                const turnEntry = buildTurnEntry(nextTurn, 'deterministic', response.action_summary, response.narrative);
 
                 return {
                     turnLog: [...state.turnLog, turnEntry],
                     gameState: response.state_summary,
-                    choices: extractChoicesFromDetails(response.details) ?? state.choices,
+                    choices: response.choices,
                     loading: false,
                     turnCounter: nextTurn,
                 };
@@ -533,12 +523,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
             const response = await gameApi.sell(sessionId, itemId, count, price, buyerId);
             set(state => {
                 const nextTurn = state.turnCounter + 1;
-            const turnEntry = buildTurnEntry(nextTurn, 'deterministic', response.action_summary, response.message);
+                const turnEntry = buildTurnEntry(nextTurn, 'deterministic', response.action_summary, response.narrative);
 
                 return {
                     turnLog: [...state.turnLog, turnEntry],
                     gameState: response.state_summary,
-                    choices: extractChoicesFromDetails(response.details) ?? state.choices,
+                    choices: response.choices,
                     loading: false,
                     turnCounter: nextTurn,
                 };
@@ -811,14 +801,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
     },
 }));
 
-const createDeterministicUpdate = (state: GameStore, response: DeterministicActionResponse) => {
+const createDeterministicUpdate = (state: GameStore, response: GameResponse) => {
     const nextTurn = state.turnCounter + 1;
-    const turnEntry = buildTurnEntry(nextTurn, 'deterministic', response.action_summary, response.message);
+    const turnEntry = buildTurnEntry(nextTurn, 'deterministic', response.action_summary, response.narrative);
 
     return {
         turnLog: [...state.turnLog, turnEntry],
         gameState: response.state_summary,
-        choices: extractChoicesFromDetails(response.details) ?? state.choices,
+        choices: response.choices,
         loading: false,
         turnCounter: nextTurn,
     };
